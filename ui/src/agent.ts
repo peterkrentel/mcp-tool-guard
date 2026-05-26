@@ -44,7 +44,7 @@ export class FlightAgent {
   constructor(private options: AgentOptions) {
     this.jwt = options.jwt;
     this.guard = new ToolGuard({ config: GUARD_CONFIG, publicKey: options.publicKeyPem });
-    this.mcp = new McpHttpClient({ url: options.mcpUrl });
+    this.mcp = new McpHttpClient({ url: options.mcpUrl, bearerToken: options.jwt });
     this.onLog = options.onLog;
     this.onStatus = options.onStatus;
     this.onMessage = options.onMessage;
@@ -53,6 +53,7 @@ export class FlightAgent {
 
   setToken(jwt: string): void {
     this.jwt = jwt;
+    this.mcp.setBearerToken(jwt);
   }
 
   async init(): Promise<void> {
@@ -128,7 +129,11 @@ If required information is missing, respond with plain text asking the user (do 
     try {
       toolResult = await this.mcp.callTool(tool, args);
     } catch (err) {
-      toolResult = `Tool error: ${err instanceof Error ? err.message : String(err)}`;
+      const message = err instanceof Error ? err.message : String(err);
+      if (/403|access denied|jwt|missing authorization/i.test(message)) {
+        return this.replyAssistant(`Access denied (server): ${message}`);
+      }
+      toolResult = `Tool error: ${message}`;
     }
 
     if (tool === "create_booking_tool") {

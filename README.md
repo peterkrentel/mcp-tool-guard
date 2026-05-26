@@ -130,7 +130,22 @@ npm run build -w ui     # output in ui/dist/
 npm run preview -w ui   # local preview of production build
 ```
 
-Deploy `ui/dist/` to Vercel, Netlify, or any static host. Point `mcpUrl` in the agent at your deployed flight server URL.
+Deploy `ui/dist/` to Vercel, Netlify, or any static host.
+
+**Environment (UI project):**
+
+| Variable | Example | Purpose |
+|----------|---------|---------|
+| `VITE_MCP_URL` | `https://your-flight.vercel.app/mcp` | Remote flight MCP (omit for local `/mcp` proxy) |
+
+**Environment (flight MCP project):**
+
+| Variable | Purpose |
+|----------|---------|
+| `MCP_GUARD_PUBLIC_KEY_PEM` | RS256 public key (Vercel: paste PEM contents) |
+| `MCP_GUARD_ENABLED` | Set `false` to disable server guard (dev only) |
+
+Server guard reads `ui/public/demo-public.pem` locally when env is unset. Disable guard only for debugging — production should keep it enabled.
 
 ## Deploy Flight MCP to Vercel
 
@@ -145,7 +160,9 @@ Regenerate `requirements.txt` after changing `pyproject.toml`:
 uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt
 ```
 
-MCP endpoint: `https://<project>.vercel.app/api`
+MCP endpoint: `https://<project>.vercel.app/mcp`  
+Health: `https://<project>.vercel.app/health`  
+Audit (server-side log): `https://<project>.vercel.app/audit`
 
 ## Tool scope config
 

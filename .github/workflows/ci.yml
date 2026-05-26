@@ -42,4 +42,4 @@ jobs:
         run: uv sync
 
       - name: Verify server imports
-        run: uv run python -c "from server import app, create_app; assert app is not None"
+        run: uv run python -c "from server import app, create_app, get_guard; from guard import FlightToolGuard; assert get_guard().enabled"
