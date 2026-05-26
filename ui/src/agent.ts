@@ -6,9 +6,12 @@ import { GUARD_CONFIG, TOOL_DESCRIPTIONS } from "./guard-config.js";
 import { McpHttpClient } from "./mcp-client.js";
 import {
   DEMO_DATES_HINT,
+  extractBookingIdFromToolResult,
+  formatCancelToolResult,
   prepareToolCall,
   tryHeuristicIntent,
   type PendingToolCall,
+  type SessionContext,
   type ToolCallIntent,
 } from "./tool-args.js";
 
@@ -32,6 +35,7 @@ export class FlightAgent {
   private jwt: string;
   private messages: Array<{ role: string; content: string }> = [];
   private pending: PendingToolCall | null = null;
+  private session: SessionContext = { lastBookingId: null, lastFlightId: null };
   private onLog?: (entry: AuditLogEntry) => void;
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
@@ -75,7 +79,9 @@ Rules:
 - Use 3-letter IATA airport codes (SFO, JFK) only if the user said them.
 - NEVER invent departure_date. Omit it unless the user wrote a YYYY-MM-DD date.
 - Demo available dates: ${DEMO_DATES_HINT}.
-- Use flight IDs like FL101, booking IDs like BK-XXXXXXXX.
+- Use flight IDs like FL101 for search/details only.
+- For cancel/get/check-in use booking IDs like BK-XXXXXXXX only — never use FL... as booking_id.
+- NEVER invent booking IDs or success messages. If info is missing, ask in plain text.
 
 Available tools:
 ${tools}
@@ -124,7 +130,16 @@ If required information is missing, respond with plain text asking the user (do 
       toolResult = `Tool error: ${err instanceof Error ? err.message : String(err)}`;
     }
 
-    return this.replyAssistant(`Tool \`${tool}\` result:\n${toolResult}`);
+    if (tool === "create_booking_tool") {
+      const ids = extractBookingIdFromToolResult(tool, toolResult);
+      if (ids.bookingId) this.session.lastBookingId = ids.bookingId;
+      if (ids.flightId) this.session.lastFlightId = ids.flightId;
+    }
+
+    const display =
+      tool === "cancel_booking_tool" ? formatCancelToolResult(toolResult) : toolResult;
+
+    return this.replyAssistant(`Tool \`${tool}\` result:\n${display}`);
   }
 
   private async resolveIntent(
@@ -136,6 +151,7 @@ If required information is missing, respond with plain text asking the user (do 
       userMessage,
       intent.arguments,
       this.pending?.tool === intent.tool ? this.pending.partial : undefined,
+      this.session,
     );
 
     if (!prepared.ok) {
@@ -160,6 +176,7 @@ If required information is missing, respond with plain text asking the user (do 
         userMessage,
         {},
         this.pending.partial,
+        this.session,
       );
       if (!prepared.ok) {
         this.pending = prepared.pending;
@@ -170,7 +187,7 @@ If required information is missing, respond with plain text asking the user (do 
     }
 
     // Heuristic routing — explicit args from the user message, no LLM.
-    const heuristic = tryHeuristicIntent(userMessage);
+    const heuristic = tryHeuristicIntent(userMessage, this.session);
     if (heuristic) {
       const result = await this.resolveIntent(userMessage, heuristic);
       if (result) return result;
