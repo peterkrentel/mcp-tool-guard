@@ -51,6 +51,90 @@ export function extractUserDate(message: string): string | undefined {
   return message.match(ISO_DATE)?.[1];
 }
 
+/** Name after "for …" or "Book FL505 Jane Doe, email@…". */
+export function extractPassengerName(message: string): string | undefined {
+  const forMatch = message.match(/\bfor\s+([^,]+?)(?:,|\s+\S+@)/i);
+  if (forMatch) return forMatch[1].trim();
+  const bookMatch = message.match(/\bbook\b\s+FL\d+\s+(.+?),\s*[\w.+-]+@/i);
+  if (bookMatch) return bookMatch[1].trim();
+  return undefined;
+}
+
+export function isHelpQuestion(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  return (
+    /^(how (do i|to|can i)|what (do i|should i)|help\b)/.test(lower) ||
+    /\bhow (do i|to|can i) book\b/.test(lower) ||
+    /\bhow does booking work\b/.test(lower)
+  );
+}
+
+export function formatHelpText(): string {
+  return (
+    "How to book in this demo:\n\n" +
+    "1. Search a route — e.g. \"Search flights from JFK to MIA\"\n" +
+    "2. Note the flight_id in the results (e.g. FL505)\n" +
+    "3. Book — e.g. \"Book FL505 for Peter Bird, p@p.com\"\n\n" +
+    "Use the Booking or Admin JWT scope (flights:write). Read-only cannot book."
+  );
+}
+
+/** New user message starts a different action — drop stale pending slot-filling. */
+export function shouldSupersedePending(
+  pending: PendingToolCall,
+  userMessage: string,
+  heuristic: ToolCallIntent | null,
+): boolean {
+  if (isHelpQuestion(userMessage)) return true;
+  if (heuristic && heuristic.tool !== pending.tool) return true;
+
+  const lower = userMessage.toLowerCase();
+
+  if (pending.missing.some((m) => m.includes("booking_id"))) {
+    if (extractBookingIdFromUser(userMessage)) return false;
+    if (/\bbook\b/.test(lower) && FLIGHT_ID.test(userMessage)) return true;
+    if (/\b(search|find|list|show)\b/.test(lower)) return true;
+    if (/\bflight\b/.test(lower) && extractIataCodes(userMessage).length >= 2) return true;
+  }
+
+  if (heuristic && heuristic.tool === pending.tool) {
+    if (pending.tool === "search_flights_tool") {
+      const codes = extractIataCodes(userMessage);
+      if (codes.length >= 2) return true;
+    }
+    if (pending.tool === "create_booking_tool" && FLIGHT_ID.test(userMessage)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/** True when the message plausibly supplies missing pending fields. */
+export function canContinuePending(
+  pending: PendingToolCall,
+  userMessage: string,
+  session: SessionContext,
+): boolean {
+  for (const field of pending.missing) {
+    if (field.includes("booking_id")) {
+      if (extractBookingIdFromUser(userMessage)) return true;
+      if (wantsCancelLastBooking(userMessage) && session.lastBookingId) return true;
+      return false;
+    }
+    if (field.includes("origin") || field.includes("destination")) {
+      return extractIataCodes(userMessage).length > 0;
+    }
+    if (field.includes("flight_id")) {
+      return FLIGHT_ID.test(userMessage);
+    }
+    if (field.includes("passenger_name") || field.includes("passenger_email")) {
+      return EMAIL.test(userMessage) || extractPassengerName(userMessage) !== undefined;
+    }
+  }
+  return false;
+}
+
 export function extractBookingIdFromUser(message: string): string | undefined {
   return message.match(BOOKING_ID)?.[1];
 }
@@ -299,13 +383,23 @@ export function tryHeuristicIntent(
     }
   }
 
+  if (/\bbook\b/.test(lower)) {
+    const codes = extractIataCodes(userMessage);
+    if (codes.length >= 2 && !FLIGHT_ID.test(userMessage)) {
+      return {
+        tool: "search_flights_tool",
+        arguments: { origin: codes[0], destination: codes[1] },
+      };
+    }
+  }
+
   if (/\bbook\b/.test(lower) && FLIGHT_ID.test(userMessage)) {
     const flightId = userMessage.match(FLIGHT_ID)?.[1]?.toUpperCase();
     const email = userMessage.match(EMAIL)?.[1];
-    const nameMatch = userMessage.match(/\bfor\s+([^,]+?)(?:,|\s+\S+@)/i);
+    const name = extractPassengerName(userMessage);
     const args: Record<string, unknown> = {};
     if (flightId) args.flight_id = flightId;
-    if (nameMatch) args.passenger_name = nameMatch[1].trim();
+    if (name) args.passenger_name = name;
     if (email) args.passenger_email = email;
     if (flightId) {
       return { tool: "create_booking_tool", arguments: args };
@@ -346,8 +440,8 @@ function mergePending(
   const email = userMessage.match(EMAIL)?.[1];
   if (!merged.passenger_email && email) merged.passenger_email = email;
   if (!merged.passenger_name) {
-    const nameMatch = userMessage.match(/\bfor\s+([^,]+?)(?:,|\s+\S+@)/i);
-    if (nameMatch) merged.passenger_name = nameMatch[1].trim();
+    const name = extractPassengerName(userMessage);
+    if (name) merged.passenger_name = name;
   }
   return merged;
 }

@@ -168,9 +168,10 @@ async def health_check(_request: Request) -> JSONResponse:
 
 
 @mcp.custom_route("/audit", methods=["GET"])
-async def audit_log(_request: Request) -> JSONResponse:
+async def audit_log(request: Request) -> JSONResponse:
     """Recent server-side allow/deny entries (in-memory; resets on cold start)."""
-    return JSONResponse({"entries": get_guard().recent_audit()})
+    session_id = request.query_params.get("session_id")
+    return JSONResponse({"entries": get_guard().recent_audit(session_id=session_id)})
 
 
 # ASGI app for Vercel / uvicorn (stateless for serverless)
@@ -179,7 +180,7 @@ CORS = Middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Mcp-Session-Id"],
+    expose_headers=["Mcp-Session-Id", "X-Trace-Id", "X-Session-Id"],
 )
 
 

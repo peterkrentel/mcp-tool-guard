@@ -45,6 +45,8 @@ class AuditEntry:
     reason: str | None = None
     alert: bool = False
     duration_ms: int | None = None
+    session_id: str | None = None
+    trace_id: str | None = None
 
 
 class FlightToolGuard:
@@ -96,13 +98,21 @@ class FlightToolGuard:
             "token_scopes": entry.token_scopes,
             "reason": entry.reason,
             "duration_ms": entry.duration_ms,
+            "session_id": entry.session_id,
+            "trace_id": entry.trace_id,
         }
         if tool_cfg and tool_cfg.alert:
             logger.warning("[MCPToolGuard ALERT] %s", json.dumps(payload))
         else:
             logger.info("[MCPToolGuard] %s", json.dumps(payload))
 
-    def authorize(self, tool: str, bearer_token: str | None) -> GuardResult:
+    def authorize(
+        self,
+        tool: str,
+        bearer_token: str | None,
+        session_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> GuardResult:
         start = time.perf_counter()
         tool_cfg = self.tools.get(tool)
         required = tool_cfg.required_scope if tool_cfg else "(unknown)"
@@ -118,6 +128,8 @@ class FlightToolGuard:
                     token_scopes=[],
                     reason="Missing Authorization: Bearer token",
                     duration_ms=_ms(start),
+                    session_id=session_id,
+                    trace_id=trace_id,
                 ),
                 tool_cfg,
             )
@@ -145,6 +157,8 @@ class FlightToolGuard:
                     token_scopes=[],
                     reason=f"JWT validation failed: {exc}",
                     duration_ms=_ms(start),
+                    session_id=session_id,
+                    trace_id=trace_id,
                 ),
                 tool_cfg,
             )
@@ -166,6 +180,8 @@ class FlightToolGuard:
                     token_scopes=scopes,
                     reason=reason,
                     duration_ms=_ms(start),
+                    session_id=session_id,
+                    trace_id=trace_id,
                 ),
                 None,
             )
@@ -184,6 +200,8 @@ class FlightToolGuard:
                 reason=reason,
                 alert=tool_cfg.alert,
                 duration_ms=_ms(start),
+                session_id=session_id,
+                trace_id=trace_id,
             ),
             tool_cfg,
         )
@@ -194,7 +212,10 @@ class FlightToolGuard:
             token_scopes=scopes,
         )
 
-    def recent_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+    def recent_audit(self, limit: int = 100, session_id: str | None = None) -> list[dict[str, Any]]:
+        entries = self._audit
+        if session_id:
+            entries = [e for e in entries if e.session_id == session_id]
         return [
             {
                 "timestamp": e.timestamp,
@@ -204,8 +225,11 @@ class FlightToolGuard:
                 "required_scope": e.required_scope,
                 "token_scopes": e.token_scopes,
                 "reason": e.reason,
+                "duration_ms": e.duration_ms,
+                "session_id": e.session_id,
+                "trace_id": e.trace_id,
             }
-            for e in self._audit[-limit:]
+            for e in entries[-limit:]
         ]
 
 

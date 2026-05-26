@@ -165,8 +165,14 @@ button:disabled {
 }
 
 .log-panel h2 {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.95rem;
+}
+
+.log-panel-sub {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .audit-log {
@@ -174,15 +180,121 @@ button:disabled {
   overflow-y: auto;
   font-size: 0.75rem;
   font-family: ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audit-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.audit-section-server {
+  border-color: #3b82f688;
+}
+
+.audit-section-client {
+  opacity: 0.92;
+}
+
+.audit-section-header {
+  padding: 0.5rem 0.65rem;
+  background: #121a24;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-section-server .audit-section-header {
+  background: #152030;
+}
+
+.audit-section-header h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.audit-section-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-family: inherit;
+}
+
+.audit-section-body {
+  max-height: 28vh;
+  overflow-y: auto;
+}
+
+.audit-section-client .audit-section-body {
+  max-height: 18vh;
+}
+
+.audit-empty {
+  margin: 0;
+  padding: 0.65rem;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.7rem;
 }
 
 .log-entry {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  gap: 0.5rem;
+  grid-template-columns: auto auto auto auto 1fr auto;
+  gap: 0.35rem 0.5rem;
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
   align-items: center;
+}
+
+.log-entry.log-blocked {
+  opacity: 0.85;
+}
+
+.audit-session-id {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: inherit;
+}
+
+.audit-session-id code {
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+}
+
+.log-trace {
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+
+.log-entry.log-mismatch {
+  background: #f59e0b14;
+  border-left: 2px solid var(--warn);
+}
+
+.log-source {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.log-source-server {
+  color: var(--accent);
+  background: #3b82f622;
+  border: 1px solid #3b82f655;
+}
+
+.log-source-client {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
 }
 
 .log-allow .log-decision {
@@ -197,6 +309,15 @@ button:disabled {
   grid-column: 1 / -1;
   color: var(--muted);
   font-size: 0.7rem;
+}
+
+.log-mismatch-note {
+  color: var(--warn);
+}
+
+.log-blocked-note {
+  color: var(--muted);
+  font-style: italic;
 }
 
 @media (max-width: 900px) {
