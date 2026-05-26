@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build workspaces
+        run: npm run build
+
+  flight-server:
+    name: Flight MCP (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: servers/flight
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Verify server imports
+        run: uv run python -c "from server import app, create_app; assert app is not None"
