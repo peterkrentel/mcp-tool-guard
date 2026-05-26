@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
 - Documentation: [ROADMAP.md](docs/ROADMAP.md), [RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md)
 - PR template and CI check requiring CHANGELOG updates on pull requests to `main`
 - Cursor rule for branch + PR + changelog workflow

@@ -44,7 +44,7 @@ make ui             # terminal 2 — smoke test UI + MCP
 Enable on the default branch:
 
 - Require pull request before merging
-- Require status checks: **changelog**
+- Require status checks: **changelog**, **ci / build**, **ci / Flight MCP (Python)**
 - Optional: require linear history, disallow force-push
 
 Branch protection cannot be committed from the repo; configure in **Settings → Branches**.
