@@ -31,7 +31,7 @@ export const TOOL_DESCRIPTIONS: Record<string, string> = {
   create_booking_tool:
     "Book — required: flight_id, passenger_name, passenger_email",
   get_booking_tool: "Get booking — required: booking_id",
-  cancel_booking_tool: "Cancel — required: booking_id",
+      cancel_booking_tool: "Cancel/delete booking — required: booking_id (BK-...); cannot delete flights from schedule",
   modify_booking_tool: "Modify — required: booking_id; optional: passenger_name, passenger_email",
   check_in_tool: "Check in — required: booking_id",
   select_seats_tool: "Select seat — required: booking_id, seat",

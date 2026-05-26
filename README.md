@@ -60,15 +60,11 @@ npm run dev -w ui                                     # terminal 2
 
 ### Demo JWT tokens
 
-`make setup` writes `ui/public/demo-public.pem` and `ui/public/demo-tokens.json`. Regenerate anytime with `make keys`.
+`make setup` generates demo keys and tokens. Pick a profile in the UI (**JWT scope** dropdown), then **Initialize**.
 
-| Profile   | Scopes                          | Search | Book | Cancel |
-|-----------|----------------------------------|--------|------|--------|
-| Read only | `flights:read`                   | Yes    | No   | No     |
-| Booking   | `flights:read`, `flights:write`  | Yes    | Yes  | No     |
-| Admin     | all flight scopes                | Yes    | Yes  | Yes    |
+Full details — file paths, claims, enforcement flow, production notes — are in **[docs/CONCEPT.md → JWT & demo tokens](docs/CONCEPT.md#jwt--demo-tokens)**.
 
-Try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-..."* to see denial.
+Quick try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-…"* with the same token to see a scope denial in the audit log.
 
 ## Architecture
 
