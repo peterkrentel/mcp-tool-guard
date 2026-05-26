@@ -1,0 +1,100 @@
+export interface McpTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface McpClientOptions {
+  url: string;
+  headers?: Record<string, string>;
+}
+
+interface JsonRpcResponse {
+  jsonrpc: string;
+  id: number;
+  result?: unknown;
+  error?: { code: number; message: string; data?: unknown };
+}
+
+let nextId = 1;
+
+export class McpHttpClient {
+  private url: string;
+  private headers: Record<string, string>;
+  private initialized = false;
+
+  constructor(options: McpClientOptions) {
+    this.url = options.url;
+    this.headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      ...options.headers,
+    };
+  }
+
+  private unwrapJsonRpc(data: JsonRpcResponse): unknown {
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+    return data.result;
+  }
+
+  private async parseResponse(response: Response): Promise<unknown> {
+    const contentType = response.headers.get("content-type") ?? "";
+
+    if (contentType.includes("text/event-stream")) {
+      const text = await response.text();
+      const dataLine = text.split("\n").find((line) => line.startsWith("data: "));
+      if (!dataLine) throw new Error("No SSE data in MCP response");
+      return this.unwrapJsonRpc(JSON.parse(dataLine.slice(6)) as JsonRpcResponse);
+    }
+
+    return this.unwrapJsonRpc((await response.json()) as JsonRpcResponse);
+  }
+
+  private async request(method: string, params?: unknown): Promise<unknown> {
+    const body = {
+      jsonrpc: "2.0",
+      id: nextId++,
+      method,
+      params,
+    };
+
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`MCP HTTP ${response.status}: ${await response.text()}`);
+    }
+
+    return this.parseResponse(response);
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    await this.request("initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "mcp-tool-guard-ui", version: "0.1.0" },
+    });
+    this.initialized = true;
+  }
+
+  async listTools(): Promise<McpTool[]> {
+    await this.initialize();
+    const result = (await this.request("tools/list", {})) as { tools: McpTool[] };
+    return result.tools ?? [];
+  }
+
+  async callTool(name: string, args: Record<string, unknown>): Promise<string> {
+    await this.initialize();
+    const result = (await this.request("tools/call", { name, arguments: args })) as {
+      content?: Array<{ type: string; text?: string }>;
+    };
+    const text = result.content?.find((c) => c.type === "text")?.text;
+    return text ?? JSON.stringify(result);
+  }
+}

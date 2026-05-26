@@ -1,0 +1,170 @@
+"""Flight MCP server — mock airline booking tools for MCPToolGuard demos."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from mock_data import (
+    add_baggage,
+    cancel_booking,
+    check_in,
+    create_booking,
+    find_flight,
+    get_booking,
+    modify_booking,
+    search_flights,
+    select_seats,
+    track_flight,
+)
+
+mcp = FastMCP(
+    "Flight MCP",
+    instructions=(
+        "Mock airline booking server for MCPToolGuard demos. "
+        "Search flights, manage bookings, check in, and track flights."
+    ),
+)
+
+
+def _json(data: Any) -> str:
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def search_flights_tool(
+    origin: str | None = None,
+    destination: str | None = None,
+    departure_date: str | None = None,
+) -> str:
+    """Search available flights by origin, destination, and optional departure date (YYYY-MM-DD)."""
+    results = search_flights(origin=origin, destination=destination, departure_date=departure_date)
+    return _json({"count": len(results), "flights": results})
+
+
+@mcp.tool()
+def get_flight_details(flight_id: str) -> str:
+    """Get detailed information for a specific flight by its ID (e.g. FL101)."""
+    flight = find_flight(flight_id)
+    if not flight:
+        return _json({"error": f"Flight {flight_id} not found"})
+    return _json(flight)
+
+
+@mcp.tool()
+def create_booking_tool(
+    flight_id: str,
+    passenger_name: str,
+    passenger_email: str,
+) -> str:
+    """Create a new flight booking for a passenger on the specified flight."""
+    try:
+        booking = create_booking(flight_id, passenger_name, passenger_email)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def get_booking_tool(booking_id: str) -> str:
+    """Retrieve booking details by booking ID (e.g. BK-A1B2C3D4)."""
+    booking = get_booking(booking_id)
+    if not booking:
+        return _json({"error": f"Booking {booking_id} not found"})
+    return _json(booking)
+
+
+@mcp.tool()
+def cancel_booking_tool(booking_id: str) -> str:
+    """Cancel an existing booking. Requires elevated delete scope in MCPToolGuard."""
+    try:
+        booking = cancel_booking(booking_id)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def modify_booking_tool(
+    booking_id: str,
+    passenger_name: str | None = None,
+    passenger_email: str | None = None,
+) -> str:
+    """Modify passenger details on an existing booking."""
+    try:
+        booking = modify_booking(booking_id, passenger_name, passenger_email)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def check_in_tool(booking_id: str) -> str:
+    """Check in a passenger for their flight and assign a seat if none selected."""
+    try:
+        booking = check_in(booking_id)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def select_seats_tool(booking_id: str, seat: str) -> str:
+    """Select or change the seat for a booking (e.g. 12A)."""
+    try:
+        booking = select_seats(booking_id, seat)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def add_baggage_tool(booking_id: str, baggage_kg: int) -> str:
+    """Add checked baggage weight (kg) to a booking."""
+    try:
+        booking = add_baggage(booking_id, baggage_kg)
+        return _json({"success": True, "booking": booking})
+    except ValueError as exc:
+        return _json({"success": False, "error": str(exc)})
+
+
+@mcp.tool()
+def track_flight_tool(flight_id: str) -> str:
+    """Track real-time status and phase of a flight."""
+    try:
+        status = track_flight(flight_id)
+        return _json(status)
+    except ValueError as exc:
+        return _json({"error": str(exc)})
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request: Request) -> JSONResponse:
+    return JSONResponse({"status": "healthy", "service": "flight-mcp"})
+
+
+# ASGI app for Vercel / uvicorn (stateless for serverless)
+CORS = Middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Mcp-Session-Id"],
+)
+
+
+def create_app(mcp_path: str = "/mcp"):
+    return mcp.http_app(path=mcp_path, stateless_http=True, middleware=[CORS])
+
+
+app = create_app("/mcp")
+
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)

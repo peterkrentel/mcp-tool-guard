@@ -1,0 +1,15 @@
+{
+  "name": "mcp-tool-guard",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["gateway", "ui"],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:ui": "npm run dev -w ui",
+    "generate-keys": "node scripts/generate-keys.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "jose": "^6.0.11"
+  }
+}

@@ -1,0 +1,12 @@
+[project]
+name = "flight-mcp"
+version = "0.1.0"
+description = "Mock Flight MCP server for MCPToolGuard demos"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "uvicorn>=0.30.0",
+]
+
+[tool.uv]
+package = false

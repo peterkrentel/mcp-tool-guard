@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MCPToolGuard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>MCPToolGuard</h1>
+      <p class="tagline">Browser-native firewall for AI agent tool calls</p>
+    </header>
+
+    <main>
+      <section class="panel chat-panel">
+        <div class="controls">
+          <label>
+            JWT scope
+            <select id="token">
+              <option value="read_only">Read only (flights:read)</option>
+              <option value="booking">Booking (read + write)</option>
+              <option value="admin">Admin (read + write + delete)</option>
+            </select>
+          </label>
+          <button id="init" type="button">Initialize</button>
+          <span id="status" class="status">Not initialized</span>
+        </div>
+
+        <div id="chat" class="chat"></div>
+
+        <div class="input-row">
+          <input id="message" type="text" placeholder="Ask about flights..." />
+          <button id="send" type="button" disabled>Send</button>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <h2>Audit log</h2>
+        <div id="audit-log" class="audit-log"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

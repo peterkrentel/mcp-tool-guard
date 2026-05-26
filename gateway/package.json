@@ -1,0 +1,25 @@
+{
+  "name": "@mcp-tool-guard/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.0.11",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
