@@ -6,7 +6,7 @@ Thanks for helping improve MCPToolGuard. We use a **branch → PR → main** wor
 
 1. **Do not commit directly to `main`.** Use a branch and open a pull request.
 2. **Branch names:** `feature/<name>`, `fix/<name>`, `docs/<name>`, or `release/<version>`
-3. **Update [CHANGELOG.md](CHANGELOG.md)** under `[Unreleased]` for every PR (Added / Changed / Fixed / Removed). CI enforces this.
+3. **Update [CHANGELOG.md](CHANGELOG.md)** under `[Unreleased]` for every PR (Added / Changed / Fixed / Removed). CI enforces this (Dependabot PRs are exempt; add a `Changed` deps note when merging if needed).
 4. **Roadmap work:** If the PR implements [docs/ROADMAP.md](docs/ROADMAP.md), mention the task number in the PR description and check the box when done.
 5. **Releases:** Follow [docs/RELEASE.md](docs/RELEASE.md) — version bump, tag, GitHub Release.
 
