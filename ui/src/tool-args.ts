@@ -114,13 +114,54 @@ export function formatCancelToolResult(raw: string): string {
   return `⚠ Unparseable MCP response:\n${raw}`;
 }
 
+function isCancelDeleteIntent(message: string): boolean {
+  const lower = message.toLowerCase();
+  return /\b(cancel|void|delete|remove)\b/.test(lower);
+}
+
+/** Replace raw LLM JSON that was not a real MCP tool call. */
+export function interceptNonToolReply(userMessage: string, assistantText: string): string | null {
+  const trimmed = assistantText.trim();
+  if (!trimmed || /"tool"\s*:/.test(trimmed)) return null;
+
+  const lower = userMessage.toLowerCase();
+  const looksLikeSearchJson =
+    /\b"count"\s*:/.test(trimmed) ||
+    /\b"flights"\s*:/.test(trimmed) ||
+    /^\s*\{\s*"count"/.test(trimmed);
+
+  if (looksLikeSearchJson || (/\bdelete\b/.test(lower) && /\bflight\b/.test(lower))) {
+    const bookFirst = !lower.includes("bk-")
+      ? "\n\nThere is no booking to cancel in this session until you book one.\n1. Book FL101 for Jane Doe, jane@example.com\n2. Cancel booking BK-XXXXXXXX (use the ID from step 1)"
+      : "";
+    return (
+      "That response was not from the MCP server — the model invented JSON.\n\n" +
+      "You cannot delete flights from the schedule. To cancel a passenger booking, use a booking ID (BK-...), not a flight ID (FL101)." +
+      bookFirst
+    );
+  }
+
+  if (isCancelDeleteIntent(userMessage)) {
+    return (
+      "To cancel a booking I need a booking ID (BK-...) in your message.\n\n" +
+      "Example: Cancel booking BK-34881B53\n\n" +
+      "If you have not booked yet in this session, book first, then cancel with the BK- id from the booking result."
+    );
+  }
+
+  return null;
+}
+
 function wantsCancelLastBooking(userMessage: string): boolean {
   const lower = userMessage.toLowerCase();
   return (
-    /\b(cancel|void)\b/.test(lower) &&
+    isCancelDeleteIntent(userMessage) &&
     (/\b(my|the|that|this)\s+booking\b/.test(lower) ||
-      /\bcancel\s+(it|that)\b/.test(lower) ||
-      (/\bcancel\b/.test(lower) && !extractBookingIdFromUser(userMessage) && !FLIGHT_ID.test(userMessage)))
+      /\b(cancel|delete)\s+(it|that|the\s+booking)\b/.test(lower) ||
+      (/\b(cancel|delete)\b/.test(lower) &&
+        !extractBookingIdFromUser(userMessage) &&
+        !FLIGHT_ID.test(userMessage) &&
+        /\bbooking\b/.test(lower)))
   );
 }
 
@@ -132,6 +173,28 @@ function sanitizeCancelBookingArgs(
   const fromUser = extractBookingIdFromUser(userMessage);
   if (fromUser) {
     return { ok: true, booking_id: fromUser };
+  }
+
+  const lower = userMessage.toLowerCase();
+  if (/\bdelete\b/.test(lower) && /\bflight\b/.test(lower) && !extractBookingIdFromUser(userMessage)) {
+    const bookFirst = !session.lastBookingId
+      ? "\n\nThere is no booking in this session yet. Book first, then cancel with the BK- id from that result."
+      : `\n\nYour last booking: ${session.lastBookingId}\nExample: "Cancel booking ${session.lastBookingId}"`;
+    return {
+      ok: false,
+      message:
+        `You cannot delete flights from the schedule — flights are not removable. To cancel a passenger booking, use a booking ID (BK-...).${bookFirst}`,
+    };
+  }
+
+  if (wantsCancelLastBooking(userMessage) && !session.lastBookingId) {
+    return {
+      ok: false,
+      message:
+        "There is no booking to cancel in this session.\n\n" +
+        'Book first: "Book FL101 for Jane Doe, jane@example.com"\n' +
+        'Then cancel: "Cancel booking BK-XXXXXXXX" (use the booking_id from the book result)',
+    };
   }
 
   const llmRaw =
@@ -166,8 +229,7 @@ function sanitizeCancelBookingArgs(
     };
   }
 
-  const lower = userMessage.toLowerCase();
-  if (/\b(cancel|void)\b/.test(lower)) {
+  if (/\b(cancel|void|delete|remove)\b/.test(lower)) {
     const hint = session.lastBookingId
       ? `\n\nYour last booking: ${session.lastBookingId}\nExample: "Cancel booking ${session.lastBookingId}"`
       : '\n\nExample: "Cancel booking BK-XXXXXXXX" (from your booking confirmation)';
@@ -219,7 +281,7 @@ export function tryHeuristicIntent(
 ): ToolCallIntent | null {
   const lower = userMessage.toLowerCase();
 
-  if (/\b(cancel|void)\b/.test(lower)) {
+  if (isCancelDeleteIntent(userMessage)) {
     const bk = extractBookingIdFromUser(userMessage);
     return { tool: "cancel_booking_tool", arguments: bk ? { booking_id: bk } : {} };
   }

@@ -8,6 +8,7 @@ import {
   DEMO_DATES_HINT,
   extractBookingIdFromToolResult,
   formatCancelToolResult,
+  interceptNonToolReply,
   prepareToolCall,
   tryHeuristicIntent,
   type PendingToolCall,
@@ -210,11 +211,15 @@ If required information is missing, respond with plain text asking the user (do 
     const intent = this.parseToolIntent(assistantText);
 
     if (!intent) {
-      return this.replyAssistant(assistantText);
+      const intercepted = interceptNonToolReply(userMessage, assistantText);
+      return this.replyAssistant(intercepted ?? assistantText);
     }
 
     const result = await this.resolveIntent(userMessage, intent);
-    return result ?? this.replyAssistant(assistantText);
+    if (result) return result;
+
+    const intercepted = interceptNonToolReply(userMessage, assistantText);
+    return this.replyAssistant(intercepted ?? assistantText);
   }
 
   getAuditLog(): readonly AuditLogEntry[] {
