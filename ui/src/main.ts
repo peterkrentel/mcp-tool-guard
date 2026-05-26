@@ -1,5 +1,3 @@
-import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
-
 import { fetchServerAudit, renderAuditPanel } from "./audit-view.js";
 import { FlightAgent } from "./agent.js";
 import { resolveAuditUrl, resolveMcpUrl } from "./config.js";
@@ -20,7 +18,6 @@ interface DemoTokens {
 
 let agent: FlightAgent | null = null;
 let tokens: DemoTokens | null = null;
-let publicKey = "";
 
 function appendMessage(role: string, content: string): void {
   const msg = document.createElement("div");
@@ -39,14 +36,12 @@ function escapeHtml(text: string): string {
 
 async function refreshAuditPanel(): Promise<void> {
   const sessionId = agent?.getSessionId() ?? "";
-  const client: readonly AuditLogEntry[] = agent?.getAuditLog() ?? [];
   const auditUrl = resolveAuditUrl(resolveMcpUrl());
   const server = await fetchServerAudit(auditUrl, sessionId || undefined);
-  renderAuditPanel(logEl, server, client, sessionId);
+  renderAuditPanel(logEl, server, sessionId);
 }
 
 async function loadDemoAssets(): Promise<void> {
-  publicKey = await fetch("/demo-public.pem").then((r) => r.text());
   tokens = await fetch("/demo-tokens.json").then((r) => r.json());
 }
 
@@ -59,11 +54,10 @@ function buildAgent(): FlightAgent {
   return new FlightAgent({
     mcpUrl: resolveMcpUrl(),
     jwt: currentToken(),
-    publicKeyPem: publicKey,
     onStatus: (s) => {
       statusEl.textContent = s;
     },
-    onLog: () => {
+    onAfterToolCall: () => {
       void refreshAuditPanel();
     },
     onMessage: (role, content) => appendMessage(role, content),

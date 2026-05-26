@@ -22,15 +22,16 @@ Setup and stack: [README](../README.md). Planned work: [ROADMAP.md](ROADMAP.md).
 Browser tab (Vite + WebLLM)
 ├── WebLLM              ← local LLM (not the MCP caller)
 ├── Agent loop          ← ui/src/agent.ts
-├── MCPToolGuard        ← gateway/guard.ts
-└── MCP HTTP client     ← ui/src/mcp-client.ts
+└── MCP HTTP client     ← ui/src/mcp-client.ts (+ Bearer JWT, trace headers)
          │
          │  HTTP (HTTPS in prod)
          ▼
-Flight MCP server       ← servers/flight/ (separate process / deploy)
+Flight MCP server       ← servers/flight/ — scope guard + audit on tools/call
 ```
 
-The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM only proposes tool JSON; the agent executes guarded MCP calls.
+The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM only proposes tool JSON; the agent sends `tools/call` to the server, which **allows or denies** and logs the decision.
+
+`gateway/ToolGuard` is a reusable library (see `gateway/`); it is **not** invoked by the demo UI for enforcement.
 
 ## Demo vs production
 
@@ -47,13 +48,13 @@ This repository is a **high-level reference demo**, not a hosted security produc
 
 | Limitation | Detail |
 |------------|--------|
-| Guard location | **Client + server** on flight — server is authoritative for `tools/call`; client guard remains for fast UX |
+| Guard location | **Server only** in the demo UI — `gateway/ToolGuard` for library/tests, not browser enforcement |
 | Server audit | In-memory on flight (`GET /audit`); resets on cold start (Vercel) |
 | MCP clients | Must send `Authorization: Bearer` on `tools/call`; `initialize` / `tools/list` open |
 | UI servers | `guard-config.ts` wires **flight** only; yaml lists slack/github stubs for future servers |
 | MCP features | No prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
-| Audit UI | Teaching aid only; correlate client/server via `trace_id` — not the long-term ops surface |
+| Audit UI | Server log from `GET /audit` — teaching aid; production → Grafana/Loki (Tier 2) |
 
 ## Remote deployment
 
@@ -61,7 +62,7 @@ Production shape:
 
 - **UI** and **flight MCP** on separate HTTPS origins (e.g. two Vercel projects).
 - Browser sends `Authorization: Bearer <access_token>` on every MCP request.
-- **Server** (or API gateway) must enforce the same scopes as `ToolGuard` — client-only checks are not sufficient when MCP is public.
+- **Server** must enforce scopes on `tools/call` when MCP is reachable from the browser or other clients.
 - **HTTPS + JWT scopes** for browser → MCP; **mTLS** is optional and mainly for service-to-service hops, not typical browser clients.
 
 See [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth).
@@ -100,15 +101,17 @@ Regenerate: `make keys` or `npm run generate-keys` (`make setup` runs this on fi
 | `booking` | `flights:read`, `flights:write` | Yes | Yes | No |
 | `admin` | + `flights:delete` | Yes | Yes | Yes |
 
-UI: **JWT scope** dropdown → **Initialize** → loads PEM + tokens; `ToolGuard.authorize("flight", tool, jwt)` on each call.
+UI: **JWT scope** dropdown → **Initialize** → loads demo tokens; each `tools/call` sends `Authorization: Bearer` + trace headers. The **flight server** enforces scopes and logs allow/deny (`GET /audit`).
 
-### Enforcement today
+### Enforcement today (demo UI)
 
 ```
-ToolGuard.authorize → jwtVerify → checkScope vs config.yaml → allow/deny → mcp.callTool
+mcp.callTool → flight server middleware → jwt.decode → checkScope vs guard_config.yaml → allow/deny (+ audit row)
 ```
 
-Config: `gateway/config.yaml` (mirrored in `ui/src/guard-config.ts`). Wildcards: `flights:*` or `*`.
+Config on server: `servers/flight/guard_config.yaml`. Tool descriptions in UI: `ui/src/guard-config.ts` (not enforcement). Wildcards: `flights:*` or `*`.
+
+`gateway/ToolGuard` implements the same scope logic for unit tests and future Node MCP clients.
 
 ### Production
 
