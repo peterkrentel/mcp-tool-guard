@@ -23,6 +23,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - ASGI middleware SSE fix: forward `receive()` after body replay (fixes Initialize failures)
 - Agent pending-state loop when LLM picked wrong tool; help text and book-by-route heuristics
+
+### Changed
+
+- Document demo vs production shape in ROADMAP and CONCEPT (simple audit UI; Grafana/Loki for prod)
 - CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
 - Changelog workflow: exempt Dependabot PRs from required `CHANGELOG.md` diff
 - Documentation: [ROADMAP.md](docs/ROADMAP.md), [RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md)

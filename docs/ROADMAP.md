@@ -6,6 +6,14 @@ Planned work for MCPToolGuard. Track progress here and in [CHANGELOG.md](../CHAN
 
 **Next release:** [0.2.0 — Remote & server auth](RELEASE.md#020-remote--server-auth) (in planning).
 
+## Product shape
+
+**0.x = reference demo.** The repo shows *enforce + audit* at the MCP `tools/call` boundary: JWT scopes, allow/deny, structured log lines with `session_id` / `trace_id`. The browser chat and audit panel exist to **tell that story in a meeting or PR** — not to replace your ops stack.
+
+**Keep the in-app audit UI simple.** Server section = authoritative; client section = optional pre-check. Enough to see what happened; no goal to rebuild Grafana in React.
+
+**Production audit (Tier 2+).** Ship the same guard decision JSON to your observability stack (stdout → Loki, OpenTelemetry, Datadog, etc.) and dashboard in **Grafana** or equivalent. The guard stays at the MCP server; only the sink and dashboards change.
+
 ---
 
 ## Release 0.2.0 — Remote & server auth
@@ -35,7 +43,8 @@ Goal: Deploy like production — external MCP URL, HTTPS, scopes enforced on the
 | IdP integration | Replace `demo-tokens.json` with OAuth/OIDC (Keycloak, Entra, Auth0, etc.) |
 | JWKS verification | `ToolGuard` / server loads issuer JWKS instead of demo PEM |
 | Multi-server UI | Wire `gateway/config.yaml` slack/github stubs; agent picks `server` + URL |
-| Audit export | Persist or download audit log |
+| Audit export | Persist or download audit log from the demo UI |
+| Observability sink | Document/export guard audit JSON (stdout, file, OTel); wire to Grafana/Loki/Datadog |
 | Second mock MCP | Prove multi-server policy (optional small `servers/notes/`) |
 
 ---

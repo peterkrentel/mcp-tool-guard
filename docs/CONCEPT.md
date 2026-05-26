@@ -32,6 +32,17 @@ Flight MCP server       ← servers/flight/ (separate process / deploy)
 
 The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM only proposes tool JSON; the agent executes guarded MCP calls.
 
+## Demo vs production
+
+This repository is a **high-level reference demo**, not a hosted security product. It proves the pattern; Tier 2 in [ROADMAP.md](ROADMAP.md) covers making it operable (IdP, durable audit, observability sinks).
+
+| Concern | Demo (now) | Production (later) |
+|---------|------------|---------------------|
+| Enforcement | Server guard on flight MCP | Same pattern on every MCP / gateway hop |
+| Audit storage | In-memory + small UI panel | Log shipper → Loki/Datadog/etc. |
+| Dashboards | In-browser audit sections | Grafana (or your SIEM) |
+| Identity | `demo-tokens.json` + PEM | IdP, JWKS, token refresh |
+
 ## Current limitations (demo)
 
 | Limitation | Detail |
@@ -42,6 +53,7 @@ The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM o
 | UI servers | `guard-config.ts` wires **flight** only; yaml lists slack/github stubs for future servers |
 | MCP features | No prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
+| Audit UI | Teaching aid only; correlate client/server via `trace_id` — not the long-term ops surface |
 
 ## Remote deployment
 
