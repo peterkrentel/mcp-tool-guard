@@ -7,6 +7,7 @@ export interface McpTool {
 export interface McpClientOptions {
   url: string;
   headers?: Record<string, string>;
+  bearerToken?: string;
 }
 
 interface JsonRpcResponse {
@@ -30,6 +31,13 @@ export class McpHttpClient {
       Accept: "application/json, text/event-stream",
       ...options.headers,
     };
+    if (options.bearerToken) {
+      this.setBearerToken(options.bearerToken);
+    }
+  }
+
+  setBearerToken(token: string): void {
+    this.headers.Authorization = `Bearer ${token}`;
   }
 
   private unwrapJsonRpc(data: JsonRpcResponse): unknown {

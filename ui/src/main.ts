@@ -1,6 +1,7 @@
 import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
 import { FlightAgent } from "./agent.js";
+import { resolveMcpUrl } from "./config.js";
 
 const chatEl = document.getElementById("chat")!;
 const inputEl = document.getElementById("message") as HTMLInputElement;
@@ -64,7 +65,7 @@ function currentToken(): string {
 
 function buildAgent(): FlightAgent {
   return new FlightAgent({
-    mcpUrl: "/mcp",
+    mcpUrl: resolveMcpUrl(),
     jwt: currentToken(),
     publicKeyPem: publicKey,
     onStatus: (s) => {

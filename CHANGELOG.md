@@ -12,6 +12,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Server-side JWT scope enforcement on flight MCP (`guard.py`, `guard_middleware.py`, `guard_config.yaml`)
+- `Authorization: Bearer` on MCP HTTP client; `VITE_MCP_URL` for remote flight deploy
+- Flight `GET /audit` for recent server-side allow/deny entries (in-memory)
 - CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
 - Changelog workflow: exempt Dependabot PRs from required `CHANGELOG.md` diff
 - Documentation: [ROADMAP.md](docs/ROADMAP.md), [RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -22,10 +25,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Planned (target: [0.2.0](docs/RELEASE.md#020-remote--server-auth))
 
 - Deploy flight MCP and UI to Vercel (or equivalent hosting)
-- Remote `mcpUrl` from browser; HTTPS end-to-end
-- `Authorization: Bearer` on MCP HTTP client
-- Server-side JWT scope enforcement on flight MCP (or guard proxy)
-- CORS allowlist for UI origin(s)
+- Tighten CORS to UI origin(s)
+- Central audit persistence (DB / log sink); UI poll server `/audit` when remote
 
 ---
 

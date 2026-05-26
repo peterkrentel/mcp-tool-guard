@@ -15,11 +15,11 @@ Goal: Deploy like production — external MCP URL, HTTPS, scopes enforced on the
 | # | Task | Status |
 |---|------|--------|
 | 1 | Deploy flight MCP to Vercel; document URL (`/mcp`) | Not started |
-| 2 | Deploy UI static build to Vercel; set `mcpUrl` to remote flight URL | Not started |
-| 3 | Send `Authorization: Bearer` from `mcp-client.ts` on every MCP request | Not started |
-| 4 | Enforce JWT + per-tool scopes on flight server (or thin guard proxy) | Not started |
+| 2 | Deploy UI static build to Vercel; set `VITE_MCP_URL` to remote flight URL | Not started |
+| 3 | Send `Authorization: Bearer` from `mcp-client.ts` on every MCP request | Done |
+| 4 | Enforce JWT + per-tool scopes on flight server | Done |
 | 5 | Tighten CORS to UI origin(s) | Not started |
-| 6 | README: remote quick start + link to [CONCEPT.md](CONCEPT.md) limitations | Not started |
+| 6 | README: remote quick start + env vars | In progress |
 | 7 | Move completed items from CHANGELOG `[Unreleased]` → `0.2.0` on release | Not started |
 
 **Out of scope for 0.2.0:** IdP login, multi-server agent routing, LangChain, MCP elicitation, real airline APIs.

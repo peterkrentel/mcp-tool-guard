@@ -23,6 +23,17 @@ from mock_data import (
     select_seats,
     track_flight,
 )
+from guard import FlightToolGuard
+from guard_middleware import JwtToolGuardMiddleware
+
+_guard: FlightToolGuard | None = None
+
+
+def get_guard() -> FlightToolGuard:
+    global _guard
+    if _guard is None:
+        _guard = FlightToolGuard.load()
+    return _guard
 
 mcp = FastMCP(
     "Flight MCP",
@@ -146,7 +157,20 @@ def track_flight_tool(flight_id: str) -> str:
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(_request: Request) -> JSONResponse:
-    return JSONResponse({"status": "healthy", "service": "flight-mcp"})
+    guard = get_guard()
+    return JSONResponse(
+        {
+            "status": "healthy",
+            "service": "flight-mcp",
+            "guard_enabled": guard.enabled,
+        }
+    )
+
+
+@mcp.custom_route("/audit", methods=["GET"])
+async def audit_log(_request: Request) -> JSONResponse:
+    """Recent server-side allow/deny entries (in-memory; resets on cold start)."""
+    return JSONResponse({"entries": get_guard().recent_audit()})
 
 
 # ASGI app for Vercel / uvicorn (stateless for serverless)
@@ -160,11 +184,14 @@ CORS = Middleware(
 
 
 def create_app(mcp_path: str = "/mcp"):
-    return mcp.http_app(path=mcp_path, stateless_http=True, middleware=[CORS])
+    base = mcp.http_app(path=mcp_path, stateless_http=True, middleware=[CORS])
+    return JwtToolGuardMiddleware(base, get_guard())
 
 
 app = create_app("/mcp")
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    import uvicorn
+
+    uvicorn.run(create_app("/mcp"), host="0.0.0.0", port=8000)

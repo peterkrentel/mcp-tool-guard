@@ -36,10 +36,10 @@ The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM o
 
 | Limitation | Detail |
 |------------|--------|
-| Guard location | Enforced in the **browser** only; flight server does not validate JWT |
-| MCP clients | CLI/Cursor can call flight directly and bypass the guard |
-| Agent loop | Single tool call per user message (no multi-step ReAct) |
-| UI servers | `guard-config.ts` wires **flight** only; yaml lists slack/github stubs unused |
+| Guard location | **Client + server** on flight — server is authoritative for `tools/call`; client guard remains for fast UX |
+| Server audit | In-memory on flight (`GET /audit`); resets on cold start (Vercel) |
+| MCP clients | Must send `Authorization: Bearer` on `tools/call`; `initialize` / `tools/list` open |
+| UI servers | `guard-config.ts` wires **flight** only; yaml lists slack/github stubs for future servers |
 | MCP features | No prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
 
