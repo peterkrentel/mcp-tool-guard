@@ -1,0 +1,13 @@
+---
+description: Branch, PR, CHANGELOG, and release workflow for MCPToolGuard
+alwaysApply: true
+---
+
+# Release and PR workflow
+
+- Never commit directly to `main`. Use `feature/`, `fix/`, `docs/`, or `release/` branches and open a PR.
+- Every PR must update `CHANGELOG.md` under `[Unreleased]` (CI enforces this).
+- Planned work belongs in `docs/ROADMAP.md`; release steps in `docs/RELEASE.md`.
+- When implementing roadmap items, reference ROADMAP task numbers in the PR and check boxes when done.
+- Before suggesting a release tag, ensure the current milestone in ROADMAP is complete, version bumped in `package.json`, and CHANGELOG section dated.
+- Do not push to remote or create PRs unless the user explicitly asks.
