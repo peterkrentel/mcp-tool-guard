@@ -45,6 +45,40 @@ Correlate with `trace_id` when both exist. **No server row after a client deny i
 
 For compliance and production dashboards, use **server** guard JSON (Tier 2 → Grafana/Loki), not the browser log.
 
+## Observability scope
+
+Agent observability often spans **metrics** (latency, tokens, error rates), **traces** (step-by-step model and tool calls), and **logs/events** (discrete decisions and failures). MCPToolGuard focuses on the **tool boundary** — not a full “glass box” for the LLM.
+
+**What we answer**
+
+| Question | Signal type | How |
+|----------|-------------|-----|
+| Which tool did the agent try? | Logs / events | Client agent-attempt audit |
+| Did it reach MCP? Allow or deny? | Logs / events | Server guard audit (`GET /audit`) |
+| Same attempt on client and server? | Trace (lightweight) | `trace_id`, `session_id` headers |
+| Was the JWT valid? Which scopes? | Logs / events | Server audit fields (`token_scopes`, `required_scope`) |
+
+**Pitch:** MCPToolGuard observability answers *which tools were attempted, with what token, allow or deny, and did the server agree?* For model latency, token usage, and reasoning chains, use your existing APM or LLM platform; ship **server** guard JSON into that stack (Tier 2).
+
+**In scope (this repo)**
+
+- Structured allow/deny per `tools/call`
+- Correlation IDs across client SDK → MCP → server
+- Dual audit planes in the demo UI (teaching aid)
+
+**Out of scope (0.x demo)**
+
+- WebLLM / chat “thought” tracing
+- Token or latency metrics in the browser
+- Full OpenTelemetry span trees for every model hop
+- Replacing Grafana/Datadog with a custom React dashboard
+
+**Production path ([ROADMAP](ROADMAP.md) Tier 2)**
+
+- Emit server guard decisions to stdout, a file, or OpenTelemetry
+- Dashboard in Grafana/Loki/Datadog (or your SIEM)
+- Optional later: counters (e.g. `tool_guard_denies_total`), log fields mapped to OTel attributes
+
 ## Policy configuration
 
 Keep these aligned (same tool names and `required_scope` values):
@@ -146,3 +180,4 @@ Production: use IdP-issued tokens and JWKS; do not ship private keys or long-liv
 - Not a SaaS IdP — consumes tokens; demo keys only for local use
 - Not a substitute for server enforcement on a public MCP endpoint
 - Not cloud-dependent for the LLM — WebLLM runs in the browser
+- Not full agent observability — security-relevant **tool gate** events only (see [Observability scope](#observability-scope))

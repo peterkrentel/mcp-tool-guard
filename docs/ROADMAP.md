@@ -43,7 +43,7 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 | IdP integration | Replace `demo-tokens.json` with OAuth/OIDC |
 | JWKS verification | Server / SDK load issuer JWKS |
 | Multi-server UI | Wire slack/github stubs in `gateway/config.yaml` |
-| Audit export / observability sink | OTel, Loki, Datadog; document server guard JSON |
+| Audit export / observability sink | OTel, Loki, Datadog; server guard JSON ([CONCEPT → Observability scope](CONCEPT.md#observability-scope)) |
 | Second mock MCP | Optional `servers/notes/` for multi-server policy |
 
 ---
