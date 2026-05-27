@@ -24,8 +24,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Build workspaces
-        run: npm run build
+      - name: Build UI
+        run: npm run build -w @mcp-tool-guard/ui
 
   flight-server:
     name: Flight MCP (Python)

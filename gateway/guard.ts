@@ -3,6 +3,7 @@ import { parse as parseYaml } from "yaml";
 
 import { AuditLogger } from "./logger.js";
 import type {
+  AuditContext,
   AuditLogEntry,
   GuardConfig,
   GuardResult,
@@ -91,6 +92,7 @@ export class ToolGuard {
     server: string,
     tool: string,
     tokenScopes: string[],
+    audit?: AuditContext,
   ): GuardResult {
     const toolConfig = this.getToolConfig(server, tool);
     const timestamp = new Date().toISOString();
@@ -104,6 +106,7 @@ export class ToolGuard {
         required_scope: "(unknown)",
         token_scopes: tokenScopes,
         reason: `Tool '${tool}' not configured for server '${server}'`,
+        ...audit,
       };
       this.logger.log(entry);
       return { allowed: false, reason: entry.reason, required_scope: "(unknown)", entry };
@@ -124,6 +127,7 @@ export class ToolGuard {
       reason: allowed
         ? undefined
         : `Missing required scope '${required}'`,
+      ...audit,
     };
 
     this.logger.log(entry);
@@ -139,11 +143,12 @@ export class ToolGuard {
     server: string,
     tool: string,
     token: string,
+    audit?: AuditContext,
   ): Promise<GuardResult> {
     const start = performance.now();
     try {
       const { scopes } = await this.validateToken(token);
-      const result = this.checkScope(server, tool, scopes);
+      const result = this.checkScope(server, tool, scopes, audit);
       result.entry.duration_ms = Math.round(performance.now() - start);
       return result;
     } catch (err) {
@@ -157,6 +162,7 @@ export class ToolGuard {
         token_scopes: [],
         reason: `JWT validation failed: ${message}`,
         duration_ms: Math.round(performance.now() - start),
+        ...audit,
       };
       this.logger.log(entry);
       return {

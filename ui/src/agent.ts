@@ -4,12 +4,17 @@ import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
 import { GUARD_CONFIG, TOOL_DESCRIPTIONS } from "./guard-config.js";
 import { McpHttpClient } from "./mcp-client.js";
+import { newSessionId, newTraceId } from "./trace.js";
 import {
   DEMO_DATES_HINT,
+  canContinuePending,
   extractBookingIdFromToolResult,
   formatCancelToolResult,
+  formatHelpText,
   interceptNonToolReply,
+  isHelpQuestion,
   prepareToolCall,
+  shouldSupersedePending,
   tryHeuristicIntent,
   type PendingToolCall,
   type SessionContext,
@@ -37,6 +42,7 @@ export class FlightAgent {
   private messages: Array<{ role: string; content: string }> = [];
   private pending: PendingToolCall | null = null;
   private session: SessionContext = { lastBookingId: null, lastFlightId: null };
+  private sessionId = "";
   private onLog?: (entry: AuditLogEntry) => void;
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
@@ -48,7 +54,7 @@ export class FlightAgent {
     this.onLog = options.onLog;
     this.onStatus = options.onStatus;
     this.onMessage = options.onMessage;
-    this.guard.logger.addSink((entry) => this.onLog?.(entry));
+    this.guard.logger.addSink((entry: AuditLogEntry) => this.onLog?.(entry));
   }
 
   setToken(jwt: string): void {
@@ -57,6 +63,8 @@ export class FlightAgent {
   }
 
   async init(): Promise<void> {
+    this.sessionId = newSessionId();
+    this.guard.logger.clear();
     this.onStatus?.("Loading WebLLM model (this may take a minute)...");
     await this.guard.init();
     this.engine = await CreateMLCEngine(MODEL_ID, {
@@ -113,21 +121,34 @@ If required information is missing, respond with plain text asking the user (do 
     return text;
   }
 
+  getSessionId(): string {
+    return this.sessionId;
+  }
+
   private async executeTool(
     tool: string,
     args: Record<string, unknown>,
     summary: string,
   ): Promise<string> {
     this.onStatus?.(`Calling ${summary}`);
-    const auth = await this.guard.authorize("flight", tool, this.jwt);
+    const traceId = newTraceId();
+    const audit = {
+      session_id: this.sessionId,
+      trace_id: traceId,
+    };
+    const auth = await this.guard.authorize("flight", tool, this.jwt, audit);
 
     if (!auth.allowed) {
-      return this.replyAssistant(`Access denied: ${auth.reason}`);
+      auth.entry.reached_server = false;
+      return this.replyAssistant(`Blocked before MCP: ${auth.reason}`);
     }
 
     let toolResult: string;
     try {
-      toolResult = await this.mcp.callTool(tool, args);
+      toolResult = await this.mcp.callTool(tool, args, {
+        session_id: this.sessionId,
+        trace_id: traceId,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/403|access denied|jwt|missing authorization/i.test(message)) {
@@ -175,28 +196,39 @@ If required information is missing, respond with plain text asking the user (do 
     this.onMessage?.("user", userMessage);
     this.messages.push({ role: "user", content: userMessage });
 
-    // Complete a pending slot-filling turn (user answered a clarifying question).
-    if (this.pending) {
-      const prepared = prepareToolCall(
-        this.pending.tool,
-        userMessage,
-        {},
-        this.pending.partial,
-        this.session,
-      );
-      if (!prepared.ok) {
-        this.pending = prepared.pending;
-        return this.replyAssistant(prepared.message);
-      }
+    if (isHelpQuestion(userMessage)) {
       this.pending = null;
-      return this.executeTool(prepared.tool, prepared.arguments, prepared.summary);
+      return this.replyAssistant(formatHelpText());
     }
 
-    // Heuristic routing — explicit args from the user message, no LLM.
     const heuristic = tryHeuristicIntent(userMessage, this.session);
+
+    if (this.pending && shouldSupersedePending(this.pending, userMessage, heuristic)) {
+      this.pending = null;
+    }
+
     if (heuristic) {
       const result = await this.resolveIntent(userMessage, heuristic);
       if (result) return result;
+    }
+
+    if (this.pending) {
+      if (canContinuePending(this.pending, userMessage, this.session)) {
+        const prepared = prepareToolCall(
+          this.pending.tool,
+          userMessage,
+          {},
+          this.pending.partial,
+          this.session,
+        );
+        if (!prepared.ok) {
+          this.pending = prepared.pending;
+          return this.replyAssistant(prepared.message);
+        }
+        this.pending = null;
+        return this.executeTool(prepared.tool, prepared.arguments, prepared.summary);
+      }
+      this.pending = null;
     }
 
     const response = await this.engine.chat.completions.create({

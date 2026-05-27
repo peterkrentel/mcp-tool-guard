@@ -28,6 +28,18 @@ export interface AuditLogEntry {
   alert?: boolean;
   log_level?: LogLevel;
   duration_ms?: number;
+  /** Demo session — groups activity since Initialize. */
+  session_id?: string;
+  /** One tool invocation attempt; links client pre-check and server enforcement. */
+  trace_id?: string;
+  /** Client guard only: false when blocked before HTTP tools/call. */
+  reached_server?: boolean;
+}
+
+export interface AuditContext {
+  session_id?: string;
+  trace_id?: string;
+  reached_server?: boolean;
 }
 
 export interface JwtPayload {

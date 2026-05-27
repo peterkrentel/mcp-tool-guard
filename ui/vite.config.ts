@@ -16,6 +16,10 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
+      "/audit": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
   build: {

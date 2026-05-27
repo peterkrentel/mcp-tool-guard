@@ -30,18 +30,41 @@ Browser tab (Vite + WebLLM)
 Flight MCP server       ← servers/flight/ (separate process / deploy)
 ```
 
-The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM only proposes tool JSON; the agent executes guarded MCP calls.
+The **MCP caller** is the browser client (`mcp-client.ts`), not WebLLM. WebLLM only proposes tool JSON; the agent runs `ToolGuard` (client SDK) then sends `tools/call` when allowed.
+
+### Two audit planes (demo UI)
+
+| Plane | Question it answers | Trust |
+|-------|---------------------|-------|
+| **Agent attempts** (client `ToolGuard` log) | What did the agent try? Blocked before network? | Observability / debugging only |
+| **Server enforcement** (`GET /audit`) | What reached MCP? JWT valid? Allow/deny? | Authoritative security record |
+
+Correlate with `trace_id` when both exist. **No server row after a client deny is expected** — the attempt still appears under Agent attempts.
+
+Policy must stay aligned: `servers/flight/guard_config.yaml` (server) and `ui/src/guard-config.ts` (client SDK) should match.
+
+## Demo vs production
+
+This repository is a **high-level reference demo**, not a hosted security product. It proves the pattern; Tier 2 in [ROADMAP.md](ROADMAP.md) covers making it operable (IdP, durable audit, observability sinks).
+
+| Concern | Demo (now) | Production (later) |
+|---------|------------|---------------------|
+| Enforcement | Server guard on flight MCP | Same pattern on every MCP / gateway hop |
+| Audit storage | In-memory + small UI panel | Log shipper → Loki/Datadog/etc. |
+| Dashboards | In-browser audit sections | Grafana (or your SIEM) |
+| Identity | `demo-tokens.json` + PEM | IdP, JWKS, token refresh |
 
 ## Current limitations (demo)
 
 | Limitation | Detail |
 |------------|--------|
-| Guard location | **Client + server** on flight — server is authoritative for `tools/call`; client guard remains for fast UX |
+| Guard location | **Server** enforces every `tools/call`; **client** `ToolGuard` pre-checks for UX and agent-intent audit (not sufficient alone when MCP is public) |
 | Server audit | In-memory on flight (`GET /audit`); resets on cold start (Vercel) |
 | MCP clients | Must send `Authorization: Bearer` on `tools/call`; `initialize` / `tools/list` open |
 | UI servers | `guard-config.ts` wires **flight** only; yaml lists slack/github stubs for future servers |
 | MCP features | No prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
+| Audit UI | Two sections (server primary, agent attempts secondary); production → Grafana/Loki on **server** guard JSON |
 
 ## Remote deployment
 

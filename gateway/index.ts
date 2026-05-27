@@ -1,6 +1,7 @@
 export { ToolGuard, type ToolGuardOptions } from "./guard.js";
 export { AuditLogger } from "./logger.js";
 export type {
+  AuditContext,
   AuditLogEntry,
   GuardConfig,
   GuardDecision,

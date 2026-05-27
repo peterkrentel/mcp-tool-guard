@@ -1,7 +1,8 @@
 import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
+import { fetchServerAudit, renderAuditPanel } from "./audit-view.js";
 import { FlightAgent } from "./agent.js";
-import { resolveMcpUrl } from "./config.js";
+import { resolveAuditUrl, resolveMcpUrl } from "./config.js";
 
 const chatEl = document.getElementById("chat")!;
 const inputEl = document.getElementById("message") as HTMLInputElement;
@@ -36,21 +37,12 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function renderAuditLog(entries: readonly AuditLogEntry[]): void {
-  logEl.innerHTML = entries
-    .slice()
-    .reverse()
-    .map(
-      (e) =>
-        `<div class="log-entry log-${e.decision}">
-        <span class="log-time">${e.timestamp.slice(11, 19)}</span>
-        <span class="log-decision">${e.decision.toUpperCase()}</span>
-        <span class="log-tool">${e.tool}</span>
-        <span class="log-scope">${e.required_scope}</span>
-        ${e.reason ? `<span class="log-reason">${escapeHtml(e.reason)}</span>` : ""}
-      </div>`,
-    )
-    .join("");
+async function refreshAuditPanel(): Promise<void> {
+  const sessionId = agent?.getSessionId() ?? "";
+  const client: readonly AuditLogEntry[] = agent?.getAuditLog() ?? [];
+  const auditUrl = resolveAuditUrl(resolveMcpUrl());
+  const server = await fetchServerAudit(auditUrl, sessionId || undefined);
+  renderAuditPanel(logEl, server, client, sessionId);
 }
 
 async function loadDemoAssets(): Promise<void> {
@@ -72,7 +64,7 @@ function buildAgent(): FlightAgent {
       statusEl.textContent = s;
     },
     onLog: () => {
-      if (agent) renderAuditLog(agent.getAuditLog());
+      void refreshAuditPanel();
     },
     onMessage: (role, content) => appendMessage(role, content),
   });
@@ -88,6 +80,7 @@ async function initAgent(): Promise<void> {
     agent = buildAgent();
     await agent.init();
     sendBtn.disabled = false;
+    await refreshAuditPanel();
     appendMessage("system", "Agent initialized. Try: 'Search flights from SFO to JFK'");
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
@@ -110,7 +103,7 @@ async function sendMessage(): Promise<void> {
   try {
     agent.setToken(currentToken());
     await agent.chat(text);
-    renderAuditLog(agent.getAuditLog());
+    await refreshAuditPanel();
   } catch (err) {
     appendMessage("system", `Error: ${err instanceof Error ? err.message : String(err)}`);
   } finally {

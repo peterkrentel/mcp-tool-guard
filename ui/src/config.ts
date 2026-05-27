@@ -7,15 +7,15 @@ export function resolveMcpUrl(): string {
   return "/mcp";
 }
 
-/** Optional server audit log URL (flight /audit when MCP is remote). */
-export function resolveAuditUrl(mcpUrl: string): string | null {
+/** Server audit log URL — Vite proxy /audit locally, or flight origin when remote. */
+export function resolveAuditUrl(mcpUrl: string): string {
   if (mcpUrl.startsWith("/")) {
-    return null;
+    return mcpUrl.replace(/\/?mcp\/?$/, "") + "/audit";
   }
   try {
     const base = new URL(mcpUrl);
     return `${base.origin}/audit`;
   } catch {
-    return null;
+    return "/audit";
   }
 }

@@ -4,6 +4,11 @@ export interface McpTool {
   inputSchema?: Record<string, unknown>;
 }
 
+export interface TraceHeaders {
+  session_id?: string;
+  trace_id?: string;
+}
+
 export interface McpClientOptions {
   url: string;
   headers?: Record<string, string>;
@@ -60,7 +65,11 @@ export class McpHttpClient {
     return this.unwrapJsonRpc((await response.json()) as JsonRpcResponse);
   }
 
-  private async request(method: string, params?: unknown): Promise<unknown> {
+  private async request(
+    method: string,
+    params?: unknown,
+    trace?: TraceHeaders,
+  ): Promise<unknown> {
     const body = {
       jsonrpc: "2.0",
       id: nextId++,
@@ -68,9 +77,13 @@ export class McpHttpClient {
       params,
     };
 
+    const headers = { ...this.headers };
+    if (trace?.trace_id) headers["X-Trace-Id"] = trace.trace_id;
+    if (trace?.session_id) headers["X-Session-Id"] = trace.session_id;
+
     const response = await fetch(this.url, {
       method: "POST",
-      headers: this.headers,
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -97,9 +110,13 @@ export class McpHttpClient {
     return result.tools ?? [];
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<string> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+    trace?: TraceHeaders,
+  ): Promise<string> {
     await this.initialize();
-    const result = (await this.request("tools/call", { name, arguments: args })) as {
+    const result = (await this.request("tools/call", { name, arguments: args }, trace)) as {
       content?: Array<{ type: string; text?: string }>;
     };
     const text = result.content?.find((c) => c.type === "text")?.text;

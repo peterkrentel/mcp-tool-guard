@@ -72,15 +72,11 @@ Quick try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel book
 Browser (Vite + WebLLM):
 ├── WebLLM              ← local LLM, no API key required
 ├── Agent loop          ← reasoning happens client side
-├── MCPToolGuard layer  ← JWT validation + scope enforcement (gateway/)
-│    ├── validate JWT signature
-│    ├── check token expiry
-│    ├── read scopes from token
-│    ├── match against tool config
-│    ├── allow or deny
-│    └── log every decision
-└── MCP client          ← calls flight server via Vite proxy
+├── ToolGuard (gateway/) ← SDK pre-check + agent-attempt audit (before network)
+└── MCP client           ← tools/call with Bearer JWT → flight server enforces + server audit
 ```
+
+**Audit:** Agent attempts (browser) show what the agent tried; server enforcement (`GET /audit`) is the authoritative record. See [docs/CONCEPT.md](docs/CONCEPT.md#two-audit-planes-demo-ui).
 
 ## Documentation
 

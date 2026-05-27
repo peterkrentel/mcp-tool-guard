@@ -4,5 +4,6 @@ node_modules/
 dist/
 .env
 *.pem
+!ui/public/demo-public.pem
 __pycache__/
 *.pyc
