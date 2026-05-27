@@ -54,7 +54,7 @@ export class FlightAgent {
     this.onLog = options.onLog;
     this.onStatus = options.onStatus;
     this.onMessage = options.onMessage;
-    this.guard.logger.addSink((entry) => this.onLog?.(entry));
+    this.guard.logger.addSink((entry: AuditLogEntry) => this.onLog?.(entry));
   }
 
   setToken(jwt: string): void {
