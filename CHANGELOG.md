@@ -15,8 +15,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Server-side JWT scope enforcement on flight MCP (`guard.py`, `guard_middleware.py`, `guard_config.yaml`)
 - `Authorization: Bearer` on MCP HTTP client; `VITE_MCP_URL` for remote flight deploy
 - Flight `GET /audit` for recent server-side allow/deny entries (in-memory)
-- Audit UI: server (authoritative) + client (pre-check) sections; `/audit` Vite proxy for local dev
-- `session_id` and `trace_id` on audit entries — correlate client pre-check with server enforcement
+- Audit UI: **Server enforcement** (authoritative) + **Agent attempts** (SDK observability); `/audit` Vite proxy for local dev
+- `session_id` and `trace_id` on audit entries — correlate agent attempts with server enforcement
 - `make stop` to gracefully stop the flight server on port 8000
 
 ### Fixed
@@ -26,7 +26,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Document demo vs production shape in ROADMAP and CONCEPT (simple audit UI; Grafana/Loki for prod)
+- Document demo vs production shape in ROADMAP and CONCEPT (dual audit UI; Grafana/Loki for prod server logs)
+- Dual audit framing in UI/docs: server = security decisions, agent attempts = intent (not compliance evidence)
 - CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
 - Changelog workflow: exempt Dependabot PRs from required `CHANGELOG.md` diff
 - Documentation: [ROADMAP.md](docs/ROADMAP.md), [RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md)

@@ -140,7 +140,7 @@ If required information is missing, respond with plain text asking the user (do 
 
     if (!auth.allowed) {
       auth.entry.reached_server = false;
-      return this.replyAssistant(`Access denied: ${auth.reason}`);
+      return this.replyAssistant(`Blocked before MCP: ${auth.reason}`);
     }
 
     let toolResult: string;

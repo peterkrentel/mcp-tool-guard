@@ -143,20 +143,20 @@ export function renderAuditPanel(
     sessionLabel +
     renderSection(
       "Server enforcement",
-      "Authoritative — logged at the MCP server on every tools/call",
+      "Authoritative security record — JWT verified and scopes enforced on every MCP tools/call",
       serverFiltered,
       "server",
       mismatches,
       serverFiltered,
-      "No server entries this session. Tool calls appear here after MCP enforcement.",
+      "No server entries this session. Rows appear after MCP receives tools/call. If the agent was blocked in the browser first, check Agent attempts — no server row is expected.",
     ) +
     renderSection(
-      "Browser pre-check",
-      "Optional client guard before the HTTP request is sent",
+      "Agent attempts",
+      "Agent behavior observability — SDK pre-check before the network; not proof of enforcement",
       clientFiltered,
       "client",
       mismatches,
       serverFiltered,
-      "No client pre-checks this session.",
+      "No agent attempts this session. Tool proposals blocked or allowed by the client guard appear here (including denies with no MCP request).",
     );
 }
