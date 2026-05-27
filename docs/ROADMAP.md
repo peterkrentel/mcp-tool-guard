@@ -10,7 +10,7 @@ Planned work for MCPToolGuard. Track progress here and in [CHANGELOG.md](../CHAN
 
 **0.x = reference demo.** The repo shows *enforce + audit* at the MCP `tools/call` boundary: JWT scopes, allow/deny, structured log lines with `session_id` / `trace_id`. The browser chat and audit panel exist to **tell that story in a meeting or PR** — not to replace your ops stack.
 
-**Keep the in-app audit UI simple.** One server log panel — allow/deny per `tools/call` with `trace_id`. No browser pre-check section.
+**Keep the in-app audit UI simple.** Server section = authoritative; client section = optional pre-check. Enough to see what happened; no goal to rebuild Grafana in React.
 
 **Production audit (Tier 2+).** Ship the same guard decision JSON to your observability stack (stdout → Loki, OpenTelemetry, Datadog, etc.) and dashboard in **Grafana** or equivalent. The guard stays at the MCP server; only the sink and dashboards change.
 

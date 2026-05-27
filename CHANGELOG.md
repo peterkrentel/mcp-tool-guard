@@ -27,7 +27,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Document demo vs production shape in ROADMAP and CONCEPT (simple audit UI; Grafana/Loki for prod)
-- **Demo UI: server-only enforcement** — removed browser `ToolGuard` pre-check; audit panel shows server log only; denials come from MCP 403
 - CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
 - Changelog workflow: exempt Dependabot PRs from required `CHANGELOG.md` diff
 - Documentation: [ROADMAP.md](docs/ROADMAP.md), [RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md)

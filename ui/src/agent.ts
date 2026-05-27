@@ -1,6 +1,8 @@
 import { CreateMLCEngine, type MLCEngineInterface } from "@mlc-ai/web-llm";
+import { ToolGuard } from "@mcp-tool-guard/gateway";
+import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
-import { TOOL_DESCRIPTIONS } from "./guard-config.js";
+import { GUARD_CONFIG, TOOL_DESCRIPTIONS } from "./guard-config.js";
 import { McpHttpClient } from "./mcp-client.js";
 import { newSessionId, newTraceId } from "./trace.js";
 import {
@@ -24,32 +26,35 @@ export type { ToolCallIntent } from "./tool-args.js";
 export interface AgentOptions {
   mcpUrl: string;
   jwt: string;
+  publicKeyPem: string;
+  onLog?: (entry: AuditLogEntry) => void;
   onStatus?: (status: string) => void;
   onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
-  /** Called after a tool attempt so the UI can refresh server audit. */
-  onAfterToolCall?: () => void;
 }
 
 const MODEL_ID = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 
 export class FlightAgent {
   private engine: MLCEngineInterface | null = null;
+  private guard: ToolGuard;
   private mcp: McpHttpClient;
   private jwt: string;
   private messages: Array<{ role: string; content: string }> = [];
   private pending: PendingToolCall | null = null;
   private session: SessionContext = { lastBookingId: null, lastFlightId: null };
   private sessionId = "";
+  private onLog?: (entry: AuditLogEntry) => void;
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
-  private onAfterToolCall?: () => void;
 
-  constructor(options: AgentOptions) {
+  constructor(private options: AgentOptions) {
     this.jwt = options.jwt;
+    this.guard = new ToolGuard({ config: GUARD_CONFIG, publicKey: options.publicKeyPem });
     this.mcp = new McpHttpClient({ url: options.mcpUrl, bearerToken: options.jwt });
+    this.onLog = options.onLog;
     this.onStatus = options.onStatus;
     this.onMessage = options.onMessage;
-    this.onAfterToolCall = options.onAfterToolCall;
+    this.guard.logger.addSink((entry) => this.onLog?.(entry));
   }
 
   setToken(jwt: string): void {
@@ -59,7 +64,9 @@ export class FlightAgent {
 
   async init(): Promise<void> {
     this.sessionId = newSessionId();
+    this.guard.logger.clear();
     this.onStatus?.("Loading WebLLM model (this may take a minute)...");
+    await this.guard.init();
     this.engine = await CreateMLCEngine(MODEL_ID, {
       initProgressCallback: (report) => {
         this.onStatus?.(`Loading model: ${Math.round(report.progress * 100)}%`);
@@ -125,6 +132,16 @@ If required information is missing, respond with plain text asking the user (do 
   ): Promise<string> {
     this.onStatus?.(`Calling ${summary}`);
     const traceId = newTraceId();
+    const audit = {
+      session_id: this.sessionId,
+      trace_id: traceId,
+    };
+    const auth = await this.guard.authorize("flight", tool, this.jwt, audit);
+
+    if (!auth.allowed) {
+      auth.entry.reached_server = false;
+      return this.replyAssistant(`Access denied: ${auth.reason}`);
+    }
 
     let toolResult: string;
     try {
@@ -134,14 +151,11 @@ If required information is missing, respond with plain text asking the user (do 
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.onAfterToolCall?.();
-      if (/403|access denied|missing authorization|jwt/i.test(message)) {
+      if (/403|access denied|jwt|missing authorization/i.test(message)) {
         return this.replyAssistant(`Access denied (server): ${message}`);
       }
-      return this.replyAssistant(`Tool error: ${message}`);
+      toolResult = `Tool error: ${message}`;
     }
-
-    this.onAfterToolCall?.();
 
     if (tool === "create_booking_tool") {
       const ids = extractBookingIdFromToolResult(tool, toolResult);
@@ -243,5 +257,9 @@ If required information is missing, respond with plain text asking the user (do 
 
     const intercepted = interceptNonToolReply(userMessage, assistantText);
     return this.replyAssistant(intercepted ?? assistantText);
+  }
+
+  getAuditLog(): readonly AuditLogEntry[] {
+    return this.guard.logger.getEntries();
   }
 }

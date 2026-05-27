@@ -1,7 +1,8 @@
 # MCPToolGuard
 
-> Demo: JWT scope enforcement and audit on MCP `tools/call`.
-> Browser chat + WebLLM; **enforcement and audit live on the flight MCP server**.
+> A browser-native firewall for AI agent tool calls.
+> JWT scope enforcement, audit logging, and telemetry —
+> no cloud required, no data leaves your perimeter.
 
 ## Stack
 
@@ -63,23 +64,23 @@ npm run dev -w ui                                     # terminal 2
 
 Full details — file paths, claims, enforcement flow, production notes — are in **[docs/CONCEPT.md → JWT & demo tokens](docs/CONCEPT.md#jwt--demo-tokens)**.
 
-Quick try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-…"* or *"Book FL101 for Jane Doe, jane@example.com"* with the same token — server returns 403 and the audit log shows **DENY**.
+Quick try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-…"* with the same token to see a scope denial in the audit log.
 
 ## Architecture
 
 ```
 Browser (Vite + WebLLM):
 ├── WebLLM              ← local LLM, no API key required
-├── Agent loop          ← proposes tool calls; chat is the UX trace
-└── MCP HTTP client     ← Bearer JWT + trace headers → flight server
-
-Flight MCP server (servers/flight/):
-├── JwtToolGuardMiddleware  ← enforces scopes on tools/call
-├── GET /audit              ← allow/deny log (session_id filter)
-└── mock tools              ← search, book, cancel, …
+├── Agent loop          ← reasoning happens client side
+├── MCPToolGuard layer  ← JWT validation + scope enforcement (gateway/)
+│    ├── validate JWT signature
+│    ├── check token expiry
+│    ├── read scopes from token
+│    ├── match against tool config
+│    ├── allow or deny
+│    └── log every decision
+└── MCP client          ← calls flight server via Vite proxy
 ```
-
-`gateway/ToolGuard` remains a TypeScript library for tests and future Node agents; the **demo UI does not pre-check** scopes in the browser.
 
 ## Documentation
 

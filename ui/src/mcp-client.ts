@@ -88,18 +88,7 @@ export class McpHttpClient {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      try {
-        const parsed = JSON.parse(text) as { error?: { message?: string } };
-        if (parsed.error?.message) {
-          throw new Error(parsed.error.message);
-        }
-      } catch (parseErr) {
-        if (parseErr instanceof Error && parseErr.message !== text && !parseErr.message.startsWith("MCP HTTP")) {
-          throw parseErr;
-        }
-      }
-      throw new Error(`MCP HTTP ${response.status}: ${text}`);
+      throw new Error(`MCP HTTP ${response.status}: ${await response.text()}`);
     }
 
     return this.parseResponse(response);
