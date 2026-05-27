@@ -34,7 +34,7 @@ make ui             # terminal 2 — smoke test UI + MCP
 | Doc | Purpose |
 |-----|---------|
 | [README.md](README.md) | Quick start, deploy commands |
-| [docs/CONCEPT.md](docs/CONCEPT.md) | Architecture, JWT, limitations |
+| [docs/CONCEPT.md](docs/CONCEPT.md) | Design — architecture, JWT, audit model, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned releases and tiers |
 | [docs/RELEASE.md](docs/RELEASE.md) | How to cut a release |
 | [CHANGELOG.md](CHANGELOG.md) | History and unreleased work |

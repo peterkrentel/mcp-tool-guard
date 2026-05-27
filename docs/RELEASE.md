@@ -51,7 +51,7 @@ Example: ship **0.2.0** after [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--se
 
 ## 0.1.0 {#010}
 
-Initial demo: FastMCP flight server, browser UI (WebLLM), client-side `ToolGuard`, demo JWTs, audit dashboard.
+Initial demo: FastMCP flight server, browser UI (WebLLM), `ToolGuard` SDK, server + client audit panels, demo JWTs.
 
 ---
 

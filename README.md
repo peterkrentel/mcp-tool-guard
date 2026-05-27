@@ -4,22 +4,15 @@
 > JWT scope enforcement, audit logging, and telemetry —
 > no cloud required, no data leaves your perimeter.
 
-## Stack
+## Documentation map
 
-Two separate concerns, two separate terminals:
-
-```
-Python (uv + venv)          Node (npm + Vite)
-└── servers/flight/         └── ui/ + gateway/
-    Flight MCP server           WebLLM, agent loop, dashboard
-    No npm needed               TypeScript gateway layer
-```
-
-| Layer | Tooling | Location |
-|-------|---------|----------|
-| Flight MCP server | uv, venv, FastMCP | `servers/flight/` |
-| JWT gateway | TypeScript | `gateway/` |
-| Browser UI | Vite, WebLLM | `ui/` |
+| Doc | Read this for |
+|-----|----------------|
+| **README** (here) | Quick start, commands, deploy env vars |
+| [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, JWT, demo vs prod, limitations |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — release 0.2.0 tasks and future tiers |
+| [CHANGELOG.md](CHANGELOG.md) | What shipped and what is in progress |
+| [docs/RELEASE.md](docs/RELEASE.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Releases and PR workflow |
 
 ## Quick start
 
@@ -29,161 +22,78 @@ Python (uv + venv)          Node (npm + Vite)
 make setup
 ```
 
-Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys.
+Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys (private key stays in `keys/`, gitignored).
 
-**Every time after that — two terminals:**
+**Every time — two terminals:**
 
 ```bash
 make flight    # Terminal 1 → http://localhost:8000/mcp
 make ui        # Terminal 2 → http://localhost:5173
 ```
 
-No `cd`, no `source .venv/bin/activate` — `uv run` handles the venv automatically.
-
-Open `http://localhost:5173`, click **Initialize**, then chat with the agent. Vite proxies `/mcp` to the flight server.
+Open `http://localhost:5173`, pick a **JWT scope**, click **Initialize**, then chat. Vite proxies `/mcp` to the flight server locally.
 
 <details>
-<summary>Manual commands (if you prefer)</summary>
+<summary>Manual commands</summary>
 
 ```bash
-# First time
-uv sync --directory servers/flight
-npm install
-npm run generate-keys
-
-# Every time
+uv sync --directory servers/flight && npm install && npm run generate-keys
 uv run --directory servers/flight python server.py   # terminal 1
 npm run dev -w ui                                     # terminal 2
 ```
 
 </details>
 
-### Demo JWT tokens
+**Try it:** *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-…"* with the same token — scope denial shows in the audit panel. Token details: [CONCEPT → JWT](docs/CONCEPT.md#jwt--demo-tokens).
 
-`make setup` generates demo keys and tokens. Pick a profile in the UI (**JWT scope** dropdown), then **Initialize**.
+## Stack
 
-Full details — file paths, claims, enforcement flow, production notes — are in **[docs/CONCEPT.md → JWT & demo tokens](docs/CONCEPT.md#jwt--demo-tokens)**.
+| Layer | Location |
+|-------|----------|
+| Flight MCP server (Python, FastMCP) | `servers/flight/` |
+| `ToolGuard` SDK (TypeScript) | `gateway/` |
+| Demo UI (Vite, WebLLM) | `ui/` |
 
-Quick try: *"Search flights from SFO to JFK"* with read-only, then *"Cancel booking BK-…"* with the same token to see a scope denial in the audit log.
-
-## Architecture
-
-```
-Browser (Vite + WebLLM):
-├── WebLLM              ← local LLM, no API key required
-├── Agent loop          ← reasoning happens client side
-├── ToolGuard (gateway/) ← SDK pre-check + agent-attempt audit (before network)
-└── MCP client           ← tools/call with Bearer JWT → flight server enforces + server audit
-```
-
-**Audit:** Agent attempts (browser) show what the agent tried; server enforcement (`GET /audit`) is the authoritative record. See [docs/CONCEPT.md](docs/CONCEPT.md#two-audit-planes-demo-ui).
-
-## Documentation
-
-| Doc | Purpose |
-|-----|---------|
-| [docs/CONCEPT.md](docs/CONCEPT.md) | Architecture, JWT, current limitations |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **Next release 0.2.0** and future tiers |
-| [docs/RELEASE.md](docs/RELEASE.md) | Branch, PR, tagging, cutting a release |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Required workflow (branch + PR + CHANGELOG) |
-| [CHANGELOG.md](CHANGELOG.md) | Unreleased work and version history |
+Architecture and audit model: **[docs/CONCEPT.md](docs/CONCEPT.md)**.
 
 ## Repo structure
 
 ```
 mcp-tool-guard/
-├── Makefile              ← setup, flight, ui shortcuts
-├── gateway/              ← JWT enforcement (TypeScript, consumed by ui/)
-│   ├── guard.ts
-│   ├── logger.ts
-│   └── config.yaml
-├── ui/                   ← Vite app (WebLLM + dashboard)
-│   ├── index.html
-│   ├── vite.config.ts
-│   ├── public/           ← demo-public.pem, demo-tokens.json
-│   └── src/
-├── servers/
-│   └── flight/           ← FastMCP server (Python + uv)
-│       ├── server.py
-│       ├── mock_data.py
-│       ├── pyproject.toml
-│       ├── api/index.py  ← Vercel entrypoint
-│       └── vercel.json
-├── docs/
-│   ├── CONCEPT.md
-│   ├── ROADMAP.md
-│   └── RELEASE.md
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-└── scripts/
-    └── generate-keys.mjs   ← demo RSA key pair + JWTs
+├── Makefile
+├── gateway/          ← ToolGuard SDK (JWT + scopes + audit logger)
+├── ui/               ← WebLLM agent + audit panel
+├── servers/flight/   ← MCP server + server-side guard
+├── docs/             ← CONCEPT, ROADMAP, RELEASE
+└── scripts/generate-keys.mjs
 ```
 
-## Production build (UI)
+## Deploy
 
-```bash
-npm run build -w ui     # output in ui/dist/
-npm run preview -w ui   # local preview of production build
-```
-
-Deploy `ui/dist/` to Vercel, Netlify, or any static host.
-
-**Environment (UI project):**
-
-| Variable | Example | Purpose |
-|----------|---------|---------|
-| `VITE_MCP_URL` | `https://your-flight.vercel.app/mcp` | Remote flight MCP (omit for local `/mcp` proxy) |
-
-**Environment (flight MCP project):**
+**UI** — `npm run build -w ui`, deploy `ui/dist/`.
 
 | Variable | Purpose |
 |----------|---------|
-| `MCP_GUARD_PUBLIC_KEY_PEM` | RS256 public key (Vercel: paste PEM contents) |
-| `MCP_GUARD_ENABLED` | Set `false` to disable server guard (dev only) |
+| `VITE_MCP_URL` | Remote flight MCP URL (omit for local `/mcp` proxy) |
 
-Server guard reads `ui/public/demo-public.pem` locally when env is unset. Disable guard only for debugging — production should keep it enabled.
+**Flight MCP** — deploy `servers/flight/` (e.g. Vercel). See [CONCEPT → Remote deployment](docs/CONCEPT.md#remote-deployment).
 
-## Deploy Flight MCP to Vercel
+| Variable | Purpose |
+|----------|---------|
+| `MCP_GUARD_PUBLIC_KEY_PEM` | RS256 public key (or use committed `ui/public/demo-public.pem` locally) |
+| `MCP_GUARD_ENABLED` | Set `false` to disable server guard (debug only) |
 
-```bash
-cd servers/flight
-vercel
-```
+Endpoints: `/mcp`, `/health`, `/audit` (server enforcement log).
 
-Regenerate `requirements.txt` after changing `pyproject.toml`:
+Regenerate Python deps after `pyproject.toml` changes:
 
 ```bash
 uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt
 ```
 
-MCP endpoint: `https://<project>.vercel.app/mcp`  
-Health: `https://<project>.vercel.app/health`  
-Audit (server-side log): `https://<project>.vercel.app/audit`
-
-## Tool scope config
-
-Per-tool scopes live in `gateway/config.yaml` (mirrored in `ui/src/guard-config.ts` for the browser):
-
-```yaml
-servers:
-  flight:
-    url: http://localhost:8000/mcp
-    tools:
-      search_flights_tool:
-        required_scope: flights:read
-      cancel_booking_tool:
-        required_scope: flights:delete
-        alert: true
-        log_level: verbose
-```
-
-## Core principle
-
-No cloud dependency for the LLM. MCP calls go only to servers you configure. See [docs/CONCEPT.md](docs/CONCEPT.md) for demo limitations and [docs/ROADMAP.md](docs/ROADMAP.md) for the path to remote deploy and server-side auth.
-
 ## Contributing
 
-Use a feature branch and pull request; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Feature branch + PR; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
