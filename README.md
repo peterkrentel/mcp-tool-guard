@@ -9,7 +9,7 @@
 | Doc | Read this for |
 |-----|----------------|
 | **README** (here) | Quick start, commands, deploy env vars |
-| [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, JWT, demo vs prod, limitations |
+| [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, observability scope, JWT, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — release 0.2.0 tasks and future tiers |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped and what is in progress |
 | [docs/RELEASE.md](docs/RELEASE.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Releases and PR workflow |
