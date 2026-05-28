@@ -57,7 +57,7 @@ Initial demo: FastMCP flight server, browser UI (WebLLM), `ToolGuard` SDK, serve
 
 ## 0.2.0 — Remote & server auth {#020-remote--server-auth}
 
-Planned scope (see [ROADMAP.md](ROADMAP.md#release-020--remote--server-auth)):
+Planned scope (see [ROADMAP.md](ROADMAP.md#release-020--remote--server-auth), deploy guide [vercel-deploy.md](vercel-deploy.md)):
 
 - Flight MCP + UI on Vercel (or equivalent)
 - Remote `mcpUrl`, HTTPS

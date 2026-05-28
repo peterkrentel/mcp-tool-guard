@@ -8,7 +8,8 @@
 
 | Doc | Read this for |
 |-----|----------------|
-| **README** (here) | Quick start, commands, deploy env vars |
+| **README** (here) | Quick start, commands |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight MCP + UI), env vars, smoke tests |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, observability scope, JWT, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — release 0.2.0 tasks and future tiers |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped and what is in progress |
@@ -64,32 +65,20 @@ mcp-tool-guard/
 ├── gateway/          ← ToolGuard SDK (JWT + scopes + audit logger)
 ├── ui/               ← WebLLM agent + audit panel
 ├── servers/flight/   ← MCP server + server-side guard
-├── docs/             ← CONCEPT, ROADMAP, RELEASE
+├── docs/             ← CONCEPT, ROADMAP, vercel-deploy, RELEASE
 └── scripts/generate-keys.mjs
 ```
 
 ## Deploy
 
-**UI** — `npm run build -w ui`, deploy `ui/dist/`.
+**Full walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md) (two Vercel projects: `servers/flight` + UI from repo root).
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_MCP_URL` | Remote flight MCP URL (omit for local `/mcp` proxy) |
+| Project | Key env vars |
+|---------|----------------|
+| Flight MCP | `MCP_GUARD_PUBLIC_KEY_PEM` (required on Vercel), `MCP_GUARD_ENABLED` |
+| Demo UI | `VITE_MCP_URL` → `https://<flight-host>/mcp` (set at **build** time) |
 
-**Flight MCP** — deploy `servers/flight/` (e.g. Vercel). See [CONCEPT → Remote deployment](docs/CONCEPT.md#remote-deployment).
-
-| Variable | Purpose |
-|----------|---------|
-| `MCP_GUARD_PUBLIC_KEY_PEM` | RS256 public key (or use committed `ui/public/demo-public.pem` locally) |
-| `MCP_GUARD_ENABLED` | Set `false` to disable server guard (debug only) |
-
-Endpoints: `/mcp`, `/health`, `/audit` (server enforcement log).
-
-Regenerate Python deps after `pyproject.toml` changes:
-
-```bash
-uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt
-```
+Endpoints on flight: `/mcp`, `/health`, `/audit`. Remote deployment shape: [CONCEPT → Remote deployment](docs/CONCEPT.md#remote-deployment).
 
 ## Contributing
 

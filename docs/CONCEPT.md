@@ -1,6 +1,6 @@
 # MCPToolGuard — Concept
 
-**Navigation:** [Quick start](../README.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Vercel deploy](vercel-deploy.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
 
 Design reference for the repo. Task checklists and release status live in [ROADMAP.md](ROADMAP.md) only.
 
@@ -130,7 +130,7 @@ Reference demo, not a hosted security product. [ROADMAP](ROADMAP.md) tracks IdP,
 - **Server** must enforce scopes — client-only checks are not sufficient.
 - **HTTPS + JWT scopes** for browser → MCP; mTLS optional for service-to-service.
 
-Deploy tasks: [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth). Env vars: [README](../README.md#deploy).
+Deploy walkthrough: [vercel-deploy.md](vercel-deploy.md). Tasks: [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth).
 
 ## JWT & demo tokens
 

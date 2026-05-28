@@ -1,6 +1,6 @@
 # Roadmap
 
-**Navigation:** [Quick start](../README.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Vercel deploy](vercel-deploy.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
 
 Planned work and release tasks. Shipped changes are listed in [CHANGELOG.md](../CHANGELOG.md). Architecture and audit model: [CONCEPT.md](CONCEPT.md) only — not duplicated here.
 
@@ -22,17 +22,17 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Deploy flight MCP to Vercel; document URL (`/mcp`) | Not started |
-| 2 | Deploy UI static build; set `VITE_MCP_URL` to remote flight | Not started |
+| 1 | Deploy flight MCP to Vercel; document URL (`/mcp`) | [vercel-deploy.md](vercel-deploy.md#part-1--flight-mcp-python) |
+| 2 | Deploy UI static build; set `VITE_MCP_URL` to remote flight | [vercel-deploy.md](vercel-deploy.md#part-2--demo-ui-vite--webllm) |
 | 3 | `Authorization: Bearer` on every MCP request | Done |
 | 4 | JWT + per-tool scopes on flight server | Done |
 | 5 | Tighten CORS to UI origin(s) | Not started |
-| 6 | README deploy section complete | In progress |
+| 6 | Deploy docs ([vercel-deploy.md](vercel-deploy.md), README links) | Done |
 | 7 | On release: move CHANGELOG `[Unreleased]` → `0.2.0` | Not started |
 
 **Out of scope for 0.2.0:** IdP login, multi-server routing, LangChain, MCP elicitation, real airline APIs.
 
-**Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
+**Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [vercel-deploy.md](vercel-deploy.md) and [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
 
 ---
 

@@ -33,7 +33,8 @@ make ui             # terminal 2 — smoke test UI + MCP
 
 | Doc | Purpose |
 |-----|---------|
-| [README.md](README.md) | Quick start, deploy commands |
+| [README.md](README.md) | Quick start |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy (flight + UI) |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | Design — architecture, JWT, audit model, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned releases and tiers |
 | [docs/RELEASE.md](docs/RELEASE.md) | How to cut a release |
