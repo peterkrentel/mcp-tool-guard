@@ -57,12 +57,12 @@ Initial demo: FastMCP flight server, browser UI (WebLLM), `ToolGuard` SDK, serve
 
 ## 0.2.0 — Remote & server auth {#020-remote--server-auth}
 
-Planned scope (see [ROADMAP.md](ROADMAP.md#release-020--remote--server-auth)):
+Planned scope (see [ROADMAP.md](ROADMAP.md#release-020--remote--server-auth), [vercel-deploy.md](vercel-deploy.md)):
 
-- Flight MCP + UI on Vercel (or equivalent)
+- Flight MCP + UI on Vercel — **live:** [UI](https://mcp-tool-guard-ui.vercel.app/), [health](https://mcp-tool-guard-flight-server.vercel.app/health)
 - Remote `mcpUrl`, HTTPS
 - Bearer token on MCP requests
-- Server-side (or gateway) JWT scope enforcement
-- CORS restricted to UI origin
+- Server-side JWT scope enforcement
+- CORS restricted to UI origin (optional; `*` for demo)
 
 Track implementation in CHANGELOG `[Unreleased]` until release day.

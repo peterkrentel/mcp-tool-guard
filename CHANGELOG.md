@@ -6,14 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Changed
-
-- CONCEPT: observability scope (metrics/traces/logs framing vs tool-gate focus; in/out of scope for 0.x)
-- Docs: README = quick start/deploy; CONCEPT = design canon; ROADMAP = tasks only (deduped, doc map)
-- Bump `typescript` from 5.9.x to 6.0.3 in `ui` and `gateway` (with Vite 8 on `ui`)
-
 ### Added
 
+- [docs/vercel-deploy.md](docs/vercel-deploy.md) — Vercel deploy guide (verified settings, troubleshooting, live demo URLs)
+- Live demo: [UI](https://mcp-tool-guard-ui.vercel.app/), [flight health](https://mcp-tool-guard-flight-server.vercel.app/health)
 - Server-side JWT scope enforcement on flight MCP (`guard.py`, `guard_middleware.py`, `guard_config.yaml`)
 - `Authorization: Bearer` on MCP HTTP client; `VITE_MCP_URL` for remote flight deploy
 - Flight `GET /audit` for recent server-side allow/deny entries (in-memory)
@@ -21,15 +17,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `session_id` and `trace_id` on audit entries — correlate agent attempts with server enforcement
 - `make stop` to gracefully stop the flight server on port 8000
 
-### Fixed
-
-- Flight `vercel.json`: remove `functions` block (caused instant “unmatched function pattern” before Python build)
-- CI flight job: commit `ui/public/demo-public.pem` (was ignored by `*.pem`; required for server import)
-- ASGI middleware SSE fix: forward `receive()` after body replay (fixes Initialize failures)
-- Agent pending-state loop when LLM picked wrong tool; help text and book-by-route heuristics
-
 ### Changed
 
+- CONCEPT: observability scope (metrics/traces/logs framing vs tool-gate focus; in/out of scope for 0.x)
+- Docs: README live demo + [vercel-deploy.md](docs/vercel-deploy.md); ROADMAP 0.2.0 tasks 1–2 and 6 done
+- Bump `typescript` from 5.9.x to 6.0.3 in `ui` and `gateway` (with Vite 8 on `ui`)
 - Document demo vs production shape in ROADMAP and CONCEPT (dual audit UI; Grafana/Loki for prod server logs)
 - Dual audit framing in UI/docs: server = security decisions, agent attempts = intent (not compliance evidence)
 - CI workflow (`ci.yml`): typecheck, npm build, and flight server import check on PRs to `main`
@@ -39,10 +31,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Cursor rule for branch + PR + changelog workflow
 - Condensed [CONCEPT.md](docs/CONCEPT.md) with current limitations and remote deployment notes
 
+### Fixed
+
+- Flight `vercel.json`: remove `functions` block (caused instant “unmatched function pattern” before Python build)
+- CI typecheck: build `gateway` before `ui` typecheck (`dist/` is gitignored; types live in `gateway/dist`)
+- CI flight job: commit `ui/public/demo-public.pem` (was ignored by `*.pem`; required for server import)
+- ASGI middleware SSE fix: forward `receive()` after body replay (fixes Initialize failures)
+- Agent pending-state loop when LLM picked wrong tool; help text and book-by-route heuristics
+
 ### Planned (target: [0.2.0](docs/RELEASE.md#020-remote--server-auth))
 
-- Deploy flight MCP and UI to Vercel (or equivalent hosting)
 - Tighten CORS to UI origin(s)
+- Tag `0.2.0` release (CHANGELOG + version bump)
 - Central audit persistence (DB / log sink)
 
 ---

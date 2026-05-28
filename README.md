@@ -4,11 +4,21 @@
 > JWT scope enforcement, audit logging, and telemetry —
 > no cloud required, no data leaves your perimeter.
 
+## Live demo
+
+| | Link |
+|---|------|
+| **Try the UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
+| **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
+
+Pick a JWT scope → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
+
 ## Documentation map
 
 | Doc | Read this for |
 |-----|----------------|
-| **README** (here) | Quick start, commands, deploy env vars |
+| **README** (here) | Quick start, live demo links |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, observability scope, JWT, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — release 0.2.0 tasks and future tiers |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped and what is in progress |
@@ -64,26 +74,20 @@ mcp-tool-guard/
 ├── gateway/          ← ToolGuard SDK (JWT + scopes + audit logger)
 ├── ui/               ← WebLLM agent + audit panel
 ├── servers/flight/   ← MCP server + server-side guard
-├── docs/             ← CONCEPT, ROADMAP, RELEASE
+├── docs/             ← CONCEPT, ROADMAP, vercel-deploy, RELEASE
 └── scripts/generate-keys.mjs
 ```
 
 ## Deploy
 
-**UI** — `npm run build -w ui`, deploy `ui/dist/`.
+**Full walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_MCP_URL` | Remote flight MCP URL (omit for local `/mcp` proxy) |
+| Project | Key settings |
+|---------|----------------|
+| **Flight** (`servers/flight`) | Root `servers/flight`; empty install/build; `MCP_GUARD_PUBLIC_KEY_PEM` |
+| **UI** (repo root) | `npm ci` + build gateway + ui; output `ui/dist`; `VITE_MCP_URL` → flight `/mcp` |
 
-**Flight MCP** — deploy `servers/flight/` (e.g. Vercel). See [CONCEPT → Remote deployment](docs/CONCEPT.md#remote-deployment).
-
-| Variable | Purpose |
-|----------|---------|
-| `MCP_GUARD_PUBLIC_KEY_PEM` | RS256 public key (or use committed `ui/public/demo-public.pem` locally) |
-| `MCP_GUARD_ENABLED` | Set `false` to disable server guard (debug only) |
-
-Endpoints: `/mcp`, `/health`, `/audit` (server enforcement log).
+Demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars on the UI project.
 
 Regenerate Python deps after `pyproject.toml` changes:
 
