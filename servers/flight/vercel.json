@@ -4,10 +4,5 @@
     { "source": "/mcp", "destination": "/api" },
     { "source": "/health", "destination": "/api" },
     { "source": "/audit", "destination": "/api" }
-  ],
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

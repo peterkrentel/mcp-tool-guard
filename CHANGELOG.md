@@ -23,7 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- CI typecheck: build `gateway` before `ui` typecheck (`dist/` is gitignored; types live in `gateway/dist`)
+- Flight `vercel.json`: remove `functions` block (caused instant “unmatched function pattern” before Python build)
 - CI flight job: commit `ui/public/demo-public.pem` (was ignored by `*.pem`; required for server import)
 - ASGI middleware SSE fix: forward `receive()` after body replay (fixes Initialize failures)
 - Agent pending-state loop when LLM picked wrong tool; help text and book-by-route heuristics
