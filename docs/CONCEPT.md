@@ -111,7 +111,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | Enforcement | Server on flight MCP + client SDK pre-check | Same pattern on every MCP hop |
 | Audit storage | In-memory + UI panel | Log shipper → Loki/Datadog/etc. |
 | Dashboards | In-browser sections | Grafana / SIEM |
-| Identity | `demo-tokens.json` + public PEM | IdP, JWKS, short-lived tokens |
+| Identity | `demo-tokens.json` + public PEM (static demo JWTs; no 0.3 rotation) | IdP, JWKS, short-lived tokens |
 
 ## Current limitations (demo)
 
@@ -124,6 +124,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
 | Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
+| Demo tokens | Static 365-day JWTs in `ui/public/demo-tokens.json` — demo only; **Tier 2 IdP** replaces (no 0.3 rotation) |
 
 ## Remote deployment
 
@@ -144,7 +145,7 @@ Walkthrough: [vercel-deploy.md](vercel-deploy.md). After deploy: [NEXT-STEPS.md]
 | `ui/public/demo-public.pem` | Verify in browser + server (local/CI) | Yes (public key only) |
 | `ui/public/demo-tokens.json` | `read_only`, `booking`, `admin` JWTs | Yes (demo credentials) |
 
-Regenerate: `make keys` or `npm run generate-keys`.
+Regenerate: `make keys` or `npm run generate-keys`. Demo JWTs are static (365-day `exp`) until **Tier 2 IdP** — no 0.3 token-rotation work; see [NEXT-STEPS → Demo tokens](NEXT-STEPS.md#demo-tokens--no-03-work).
 
 ### Token format
 

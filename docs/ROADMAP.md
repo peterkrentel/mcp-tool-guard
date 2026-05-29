@@ -28,29 +28,31 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 | 4 | JWT + per-tool scopes on flight server | Done |
 | 5 | Tighten CORS to UI origin(s) | Done — defaults + `MCP_CORS_ORIGINS` override |
 | 6 | Deploy docs ([vercel-deploy.md](vercel-deploy.md), README live links) | Done |
-| 7 | CHANGELOG `0.2.0` + version bump + tag `v0.2.0` | Done in release PR — tag after merge to `main` |
+| 7 | CHANGELOG `0.2.0` + version bump + tag `v0.2.0` | Done — tag `v0.2.0` on `main` |
 
 **Out of scope for 0.2.0:** IdP login, multi-server routing, LangChain, MCP elicitation, real airline APIs.
 
 **Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [vercel-deploy.md](vercel-deploy.md) and [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
 
-**After merge:** redeploy flight on Vercel so CORS changes apply; then `git tag -a v0.2.0` per [RELEASE.md](RELEASE.md).
-
 ---
 
 ## Release 0.3.0 — Hardening & multi-server {#release-030--hardening--multi-server}
 
-Post–peer-review hardening for the demo deploy plus client-side multi-server scoping. Enforcement core stays as-is; surrounding ops and UX improve.
+Post–peer-review hardening for the demo deploy plus client-side multi-server scoping. **Enforcement core stays as-is** — scope middleware, RS256, `trace_id`; harden around it only.
+
+**Ship first (public Vercel):** **#1 + #2 + #3 in one PR**, then **#4** (KV). See [NEXT-STEPS → Phase A–B](NEXT-STEPS.md#phase-a--public-deploy-hygiene-pr-1).
+
+**Out of scope for 0.3:** Shorter demo token expiry or token rotation — static `demo-tokens.json` stays until **Tier 2 IdP** replaces it.
 
 ### High — demo deploy & security hygiene
 
-| # | Task | Notes |
-|---|------|--------|
-| 1 | Authenticate `GET /audit` or disable on public deploy | Today unauthenticated; exposes scopes, session/trace IDs |
-| 2 | `MCP_GUARD_ENABLED=false` fail-closed or loud startup warning | Silent kill switch is a prod misconfig risk |
-| 3 | UI: show when server audit fetch fails | `fetchServerAudit` returns `[]` on any error today |
-| 4 | Durable server audit (Vercel KV / Redis) | Fixes serverless instance split; see [vercel-deploy troubleshooting](vercel-deploy.md#troubleshooting) |
-| 5 | JWT `iss` / `aud` validation (env-configured) | Required before multi-purpose or IdP keys |
+| # | Task | Notes | Priority |
+|---|------|--------|----------|
+| 1 | Authenticate `GET /audit` or disable on public deploy | Unauthenticated today; exposes scopes, session/trace IDs | **First** |
+| 2 | `MCP_GUARD_ENABLED=false` fail-closed or loud startup warning | Silent kill switch is a prod misconfig risk | **First** (with #1) |
+| 3 | UI: show when server audit fetch fails | `fetchServerAudit` returns `[]` on any error today | **First** (with #1) |
+| 4 | Durable server audit (Vercel KV / Redis) | Fixes serverless instance split | After #1–#3 |
+| 5 | JWT `iss` / `aud` validation (env-configured) | Required **before** IdP / multi-purpose keys | Phase C |
 
 ### Medium — correctness & ops
 
@@ -78,7 +80,7 @@ Details and priority order: [NEXT-STEPS.md](NEXT-STEPS.md).
 
 | Item | Notes |
 |------|--------|
-| IdP integration | Replace `demo-tokens.json` with OAuth/OIDC; short-lived tokens |
+| IdP integration | Replace `demo-tokens.json` with OAuth/OIDC; short-lived issuer-minted tokens (no 0.3 token-rotation work) |
 | JWKS verification | Server / SDK load issuer JWKS (`iss` / `aud` aligned) |
 | Audit export / observability sink | OTel, Loki, Datadog; server guard JSON ([CONCEPT → Observability scope](CONCEPT.md#observability-scope)) |
 | Python audit `LogSink` | Parity with TypeScript `AuditLogger` sinks |
