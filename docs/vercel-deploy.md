@@ -112,14 +112,16 @@ Do **not** use `npm install --prefix=..` (that was for a misconfigured Python pr
 
 Set **before** build — Vite bakes it in. Redeploy UI if the flight URL changes.
 
-### JWT tokens (no UI env vars)
+### JWT tokens (0.2 — demo; 0.3 — Auth0)
 
-The UI loads demo assets from static files (shipped in the build):
+**Today (0.2):** UI loads static files — no token env vars:
 
 - `/demo-tokens.json` — JWT dropdown (`read_only`, `booking`, `admin`)
 - `/demo-public.pem` — client `ToolGuard` verify
 
-No `VITE_*` token variables. Flight server **`MCP_GUARD_PUBLIC_KEY_PEM`** must be the matching public key.
+Flight: **`MCP_GUARD_PUBLIC_KEY_PEM`** must match the demo signing key.
+
+**0.3 (planned):** Auth0 login **or guest demo** (existing JWTs). See [identity.md](identity.md). Flight keeps **`MCP_GUARD_PUBLIC_KEY_PEM`** for guest + adds `MCP_JWT_*` for Auth0.
 
 ### Browser smoke test
 

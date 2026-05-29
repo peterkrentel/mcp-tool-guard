@@ -1,110 +1,100 @@
 # Next steps (post–0.2.0)
 
-**Navigation:** [Roadmap](ROADMAP.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [CONCEPT](CONCEPT.md)
+**Navigation:** [Roadmap](ROADMAP.md) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [CONCEPT](CONCEPT.md)
 
-This doc captures **what to do after 0.2.0** — release housekeeping and the **0.3.0** backlog (peer-review priorities). Task numbers match [ROADMAP → 0.3.0](ROADMAP.md#release-030--hardening--multi-server).
+Post–0.2.0 work and **0.3.0** priorities. Task numbers: [ROADMAP → 0.3.0](ROADMAP.md#release-030--hardening--multi-server).
 
 ---
 
 ## 0.2.0 — done
 
-- [x] Merged to `main`; Vercel prod (UI + flight) on `96482e8` / PR #11
-- [x] Tag `v0.2.0` pushed
+- [x] Merged to `main`; Vercel prod (UI + flight)
+- [x] Tag `v0.2.0`
 - [x] Live smoke test (scope deny, dual audit, admin cancel)
-- [ ] GitHub Releases page (optional — tag + CHANGELOG on `main` is enough)
-
-Flight env (optional): `MCP_CORS_ORIGINS` — see [vercel-deploy → CORS](vercel-deploy.md#part-3--cors-020).
 
 ---
 
-## What 0.2.0 proved
+## Strategic choice (0.3)
 
-- JWT scope enforcement on MCP `tools/call` (server authoritative; client pre-check + intent audit).
-- Dual audit correlation via `trace_id` / `session_id`.
-- Remote browser → HTTPS flight MCP on Vercel with demo tokens.
+**Path A — Real IdP (Auth0)** is the primary 0.3 track: login → access token → MCP + `/audit`. Matches “bring your IdP.”
 
-The **enforcement path** is production-capable. Gaps are **platform and ops** (audit persistence, `/audit` auth, identity lifecycle, proxy for third-party MCP). **Do not refactor the enforcement core** for 0.3 — harden around it.
+**Path B — toy audit secret** is **not** pursuing (see [identity.md](identity.md)). If IdP slips, **disable public `/audit`** temporarily instead.
+
+**Auth0 now, Keycloak later** — same JWKS + `iss`/`aud` code; swap issuer env ([identity → Auth0 vs Keycloak](identity.md#auth0-vs-keycloak-same-gateway-different-issuer)).
+
+**Before coding:** complete [auth0-setup.md](auth0-setup.md) and set env from [auth0-env.example](auth0-env.example).
 
 ---
 
 ## 0.3.0 — recommended order
 
-**Ship #1–#3 together first** on the public Vercel deploy — open `/audit` and a silent guard kill switch are the urgent gaps. KV (#4) fixes flaky panels but is second.
-
-### Phase A — Public deploy hygiene (PR 1)
-
-Do in **one PR** where possible:
+### Phase A — Identity + Auth0 (primary PRs)
 
 | ROADMAP # | Work |
 |-----------|------|
-| 1 | Protect `GET /audit` (shared secret header via env, or remove route on public deploy) |
-| 2 | `MCP_GUARD_ENABLED=false` — fail-closed or loud startup warning on public deploy |
-| 3 | UI: show when server audit fetch fails (required once #1 is gated; today errors become empty panel) |
+| 1 | Auth0 SPA login **+ guest demo** (`demo-tokens.json` dropdown) | Dual trust on flight |
+| 2 | Flight + SDK: JWKS (Auth0) **and** PEM (guest); `iss` / `aud` for IdP tokens only |
+| 3 | `GET /audit` requires same Bearer JWT (+ optional `audit:read`) |
+| 4 | `MCP_GUARD_ENABLED=false` — fail-closed or loud startup warning |
+| 5 | UI: show when server audit fetch fails |
 
-### Phase B — Reliable server audit on Vercel (PR 2)
-
-| ROADMAP # | Work |
-|-----------|------|
-| 4 | Vercel KV (or Redis) for server audit append/read — fixes serverless instance split |
-
-### Phase C — Security hygiene (PR 3)
+### Phase B — Reliable server audit on Vercel (PR after A)
 
 | ROADMAP # | Work |
 |-----------|------|
-| 5 | JWT `iss` / `aud` validation (env-configured) — **before** any IdP wiring |
-| 7 | Cap middleware body size (e.g. 1–4 MB) |
+| 6 | Vercel KV (or Redis) for server audit — fixes serverless instance split |
 
-### Phase D — Multi-server client (1–2 PRs)
+### Phase C — Hardening & multi-server
 
 | ROADMAP # | Work |
 |-----------|------|
-| 6 | Single policy source + CI drift test |
-| 8 | Agent selects server alias; MCP client uses `servers.*.url` |
-| 9 | Optional `servers/notes/` mock with its own guard |
+| 7 | Middleware max request body size |
+| 8 | Single policy source + CI drift test |
+| 9 | Multi-server UI (`gateway/config.yaml` routing) |
+| 10 | Optional second mock MCP (`servers/notes/`) |
 
-**Not in 0.3:** Real Slack/GitHub MCP URLs without a **guard proxy** (ROADMAP Tier 2 #11). Client-only scoping is UX, not authoritative for third-party endpoints.
+**Not in 0.3:** Real vendor MCP URLs without **guard proxy** (Tier 2). Client-only scoping is not authoritative for unowned MCP — [CONCEPT](CONCEPT.md#third-party--unowned-mcp).
 
-### Phase E — Production platform (Tier 2)
+### Phase D — Production platform (Tier 2)
 
-- **IdP + OAuth/OIDC** — replaces `demo-tokens.json` with short-lived, issuer-minted JWTs (see below).
-- Audit export to Loki/Datadog/OTel.
-- HTTP **guard gateway** in front of arbitrary upstream MCP.
-- Rate limiting.
+- **Keycloak / Azure AD** — same env as Auth0; second demo environment
+- Audit export to Loki/Datadog/OTel
+- HTTP **guard gateway** for unowned upstream MCP
+- Rate limiting
 
 ---
 
-## Demo tokens — no 0.3 work
+## Demo tokens — guest + Auth0
 
-`ui/public/demo-tokens.json` stays as-is for the public demo (**365-day** JWTs from `make keys`). No shorter expiry, no `make tokens`, no rotation automation in 0.3 — that would add operational overhead without real security until identity moves off static files.
+| Mode | Tokens |
+|------|--------|
+| **Guest (default)** | `demo-tokens.json` dropdown — keep on public Vercel |
+| **Auth0 login** | Access token from IdP — product demo |
+| **Flight** | **Both** PEM (guest) and JWKS (Auth0) validators |
 
-**Production path:** Tier 2 **IdP integration** replaces demo tokens entirely; pair with 0.3 **#5 (`iss` / `aud`)** before wiring OAuth.
+See [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth0).
 
 ---
 
-## Known demo limitations (documented, not bugs)
+## Known limitations (until Phase A ships)
 
 | Topic | Detail |
 |-------|--------|
-| Server audit on Vercel | In-memory per instance until KV (0.3 #4); panel may be empty intermittently |
-| `GET /audit` | No auth today — **fix first** (0.3 #1) |
-| Policy in three files | Must stay aligned manually until 0.3 #6 |
-| `initialize` / `tools/list` | Unguarded — tool surface enumerable |
-| Demo tokens | Static committed JWTs; acceptable for demo until **Tier 2 IdP** |
-| Client audit | Browser tab memory; not tamper-proof |
-| External MCP | No shared server log unless traffic hits **your** guarded hop |
-
-See [CONCEPT → Current limitations](CONCEPT.md#current-limitations-demo) and [CONCEPT → Demo vs production](CONCEPT.md#demo-vs-production).
+| `GET /audit` | Unauthenticated on public flight — fixed by Phase A (#3) |
+| Server audit on Vercel | Intermittent until KV (Phase B) |
+| Demo tokens in repo | Replaced by Auth0 on public UI after Phase A |
+| Policy in three files | Until #8 |
 
 ---
 
 ## Client scoping for remote MCP
 
-The SDK already supports multiple servers in `gateway/config.yaml` (`authorize(server, tool, …)`). The UI only wires `flight`. **0.3 #8** adds routing; **Tier 2 proxy** adds authoritative enforcement for vendors you do not control.
+SDK supports multiple servers in `gateway/config.yaml`; UI wires `flight` only. **#9** adds routing; **Tier 2 proxy** adds authoritative enforcement for vendors you do not control — [CONCEPT → Third-party / unowned MCP](CONCEPT.md#third-party--unowned-mcp).
 
 ---
 
 ## Related
 
-- [ROADMAP.md](ROADMAP.md) — task checklist
-- [RELEASE.md](RELEASE.md) — versioning and tag workflow
-- [vercel-deploy.md](vercel-deploy.md) — deploy and troubleshooting
+- [identity.md](identity.md) — Path A vs B, architecture, env vars
+- [auth0-setup.md](auth0-setup.md) — dashboard checklist
+- [ROADMAP.md](ROADMAP.md) — full task table

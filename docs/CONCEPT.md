@@ -111,7 +111,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | Enforcement | Server on flight MCP + client SDK pre-check | Same pattern on every MCP hop |
 | Audit storage | In-memory + UI panel | Log shipper → Loki/Datadog/etc. |
 | Dashboards | In-browser sections | Grafana / SIEM |
-| Identity | `demo-tokens.json` + public PEM (static demo JWTs; no 0.3 rotation) | IdP, JWKS, short-lived tokens |
+| Identity | `demo-tokens.json` + public PEM (transitional) | **Auth0 / OIDC** — [identity.md](identity.md), [auth0-setup.md](auth0-setup.md) |
 
 ## Current limitations (demo)
 
@@ -124,7 +124,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
 | Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
-| Demo tokens | Static 365-day JWTs in `ui/public/demo-tokens.json` — demo only; **Tier 2 IdP** replaces (no 0.3 rotation) |
+| Demo tokens | Guest JWTs in repo + Auth0 login — [identity.md](identity.md#guest-demo-existing-jwts--auth0) |
 
 ## Remote deployment
 
@@ -134,6 +134,56 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 - **HTTPS + JWT scopes** for browser → MCP; mTLS optional for service-to-service.
 
 Walkthrough: [vercel-deploy.md](vercel-deploy.md). After deploy: [NEXT-STEPS.md](NEXT-STEPS.md).
+
+This is **remote MCP you own** (your flight server on Vercel). For MCP hosts you **do not** control, see [Third-party / unowned MCP](#third-party--unowned-mcp).
+
+## Third-party / unowned MCP
+
+Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub). Scoped protection and audit depend on **who runs the server**.
+
+### Two meanings of “remote”
+
+| Kind | Example | Who runs MCP |
+|------|---------|--------------|
+| **Remote, yours** | Flight on Vercel | You — server guard + `/audit` |
+| **Remote, unowned** | Vendor MCP URL | Vendor — client SDK only until **guard proxy** (Tier 2) |
+
+### Capability by deployment
+
+| Goal | Client SDK | Your flight + KV | Guard proxy (Tier 2) |
+|------|------------|------------------|----------------------|
+| Scope pre-check | Yes | N/A | Yes — authoritative |
+| Authoritative enforce on vendor | No | No | Yes |
+| Authoritative audit | No | Your flight only | Yes — proxy log |
+
+**Client-only** multi-server ([ROADMAP #9](ROADMAP.md#release-030--hardening--multi-server)) = intent audit, not tamper-proof. **KV** on flight does not audit vendor MCP — see [identity.md](identity.md).
+
+```
+Unowned MCP (production):  Browser → YOUR guard proxy → vendor MCP
+                                    ↑ JWKS + scopes + audit (KV/Loki)
+```
+
+## Identity & IdP
+
+Product pitch: **bring your IdP** — we validate JWT scopes at `tools/call`.
+
+| Topic | Doc |
+|-------|-----|
+| Auth0 vs Keycloak, Path A vs audit secret | [identity.md](identity.md) |
+| Auth0 dashboard checklist | [auth0-setup.md](auth0-setup.md) |
+| Env template | [auth0-env.example](auth0-env.example) |
+
+**0.3:** Auth0 login **or guest demo** (existing JWTs); dual verify on flight; `/audit` requires Bearer from either path.
+
+### Guest vs signed-in
+
+| | Guest | Auth0 |
+|--|-------|-------|
+| UX | Scope dropdown (today) | Login button |
+| Token | `demo-tokens.json` | Access token |
+| Verify | Demo PEM | JWKS + iss/aud |
+
+Details: [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth0).
 
 ## JWT & demo tokens
 
@@ -145,7 +195,7 @@ Walkthrough: [vercel-deploy.md](vercel-deploy.md). After deploy: [NEXT-STEPS.md]
 | `ui/public/demo-public.pem` | Verify in browser + server (local/CI) | Yes (public key only) |
 | `ui/public/demo-tokens.json` | `read_only`, `booking`, `admin` JWTs | Yes (demo credentials) |
 
-Regenerate: `make keys` or `npm run generate-keys`. Demo JWTs are static (365-day `exp`) until **Tier 2 IdP** — no 0.3 token-rotation work; see [NEXT-STEPS → Demo tokens](NEXT-STEPS.md#demo-tokens--no-03-work).
+Regenerate: `make keys` or `npm run generate-keys`. **Guest mode** keeps these JWTs on the public demo; **Auth0** is optional login ([identity → Guest](identity.md#guest-demo-existing-jwts--auth0)).
 
 ### Token format
 
