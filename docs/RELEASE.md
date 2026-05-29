@@ -36,16 +36,17 @@ Example: ship **0.2.0** after [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--se
 
 1. Branch: `release/0.2.0`
 2. In **CHANGELOG.md**: rename `[Unreleased]` → `## [0.2.0] - YYYY-MM-DD`, add fresh empty `[Unreleased]`
-3. Set `"version": "0.2.0"` in `package.json`
+3. Set `"version": "0.2.0"` in root, `gateway`, and `ui` `package.json`
 4. PR → merge `main`
-5. Tag and push:
+5. **Redeploy flight** on Vercel (CORS and any server changes)
+6. Tag and push:
    ```bash
    git checkout main && git pull
    git tag -a v0.2.0 -m "v0.2.0: Remote deploy and server-side JWT"
    git push origin v0.2.0
    ```
-6. Create **GitHub Release** from tag; paste CHANGELOG section for 0.2.0
-7. Update [ROADMAP.md](ROADMAP.md): mark 0.2.0 complete; set **Next release** to the next milestone
+7. Create **GitHub Release** from tag; paste CHANGELOG section for 0.2.0
+8. Follow [NEXT-STEPS.md](NEXT-STEPS.md) for 0.3.0 work
 
 ---
 
@@ -57,12 +58,17 @@ Initial demo: FastMCP flight server, browser UI (WebLLM), `ToolGuard` SDK, serve
 
 ## 0.2.0 — Remote & server auth {#020-remote--server-auth}
 
-Planned scope (see [ROADMAP.md](ROADMAP.md#release-020--remote--server-auth), [vercel-deploy.md](vercel-deploy.md)):
+Shipped **2026-05-25** (see [CHANGELOG 0.2.0](../CHANGELOG.md#020---2026-05-25), [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth)):
 
 - Flight MCP + UI on Vercel — **live:** [UI](https://mcp-tool-guard-ui.vercel.app/), [health](https://mcp-tool-guard-flight-server.vercel.app/health)
-- Remote `mcpUrl`, HTTPS
-- Bearer token on MCP requests
-- Server-side JWT scope enforcement
-- CORS restricted to UI origin (optional; `*` for demo)
+- Remote `mcpUrl`, HTTPS; Bearer token on MCP requests
+- Server-side JWT scope enforcement on `tools/call`
+- CORS defaults to UI + local Vite; `MCP_CORS_ORIGINS` override
 
-Track implementation in CHANGELOG `[Unreleased]` until release day.
+**Next:** [0.3.0 hardening](ROADMAP.md#release-030--hardening--multi-server) — [NEXT-STEPS.md](NEXT-STEPS.md).
+
+---
+
+## 0.3.0 — Hardening & multi-server {#030-hardening--multi-server}
+
+Planned scope: [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server), priorities in [NEXT-STEPS.md](NEXT-STEPS.md). Not released yet.

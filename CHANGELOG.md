@@ -6,9 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Planned (0.3.0)
+
+See [docs/ROADMAP.md](docs/ROADMAP.md#release-030--hardening--multi-server) and [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
+
+- Authenticate `GET /audit` or disable on public deploy
+- Durable server audit (Vercel KV / Redis) for serverless
+- UI indicator when server audit fetch fails
+- JWT `iss` / `aud` validation; policy single-source + CI drift test
+- Multi-server client routing; optional second mock MCP
+- Guard HTTP proxy (Tier 2) for external upstream MCP
+
+---
+
+## [0.2.0] - 2026-05-25
+
 ### Added
 
 - [docs/vercel-deploy.md](docs/vercel-deploy.md) — Vercel deploy guide (verified settings, troubleshooting, live demo URLs)
+- [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) — post–0.2.0 priorities and 0.3.0 backlog
 - Live demo: [UI](https://mcp-tool-guard-ui.vercel.app/), [flight health](https://mcp-tool-guard-flight-server.vercel.app/health)
 - Server-side JWT scope enforcement on flight MCP (`guard.py`, `guard_middleware.py`, `guard_config.yaml`)
 - `Authorization: Bearer` on MCP HTTP client; `VITE_MCP_URL` for remote flight deploy
@@ -19,8 +35,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- CORS on flight server: default allow UI + local Vite origins; override via `MCP_CORS_ORIGINS` (see [vercel-deploy.md](docs/vercel-deploy.md))
 - CONCEPT: observability scope (metrics/traces/logs framing vs tool-gate focus; in/out of scope for 0.x)
-- Docs: README live demo + [vercel-deploy.md](docs/vercel-deploy.md); ROADMAP 0.2.0 tasks 1–2 and 6 done
+- Docs: README live demo + [vercel-deploy.md](docs/vercel-deploy.md); ROADMAP 0.2.0 complete, [0.3.0 hardening](docs/ROADMAP.md#release-030--hardening--multi-server)
 - Bump `typescript` from 5.9.x to 6.0.3 in `ui` and `gateway` (with Vite 8 on `ui`)
 - Document demo vs production shape in ROADMAP and CONCEPT (dual audit UI; Grafana/Loki for prod server logs)
 - Dual audit framing in UI/docs: server = security decisions, agent attempts = intent (not compliance evidence)
@@ -30,6 +47,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - PR template and CI check requiring CHANGELOG updates on pull requests to `main`
 - Cursor rule for branch + PR + changelog workflow
 - Condensed [CONCEPT.md](docs/CONCEPT.md) with current limitations and remote deployment notes
+- Root / workspace package version → `0.2.0`
 
 ### Fixed
 
@@ -38,12 +56,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI flight job: commit `ui/public/demo-public.pem` (was ignored by `*.pem`; required for server import)
 - ASGI middleware SSE fix: forward `receive()` after body replay (fixes Initialize failures)
 - Agent pending-state loop when LLM picked wrong tool; help text and book-by-route heuristics
-
-### Planned (target: [0.2.0](docs/RELEASE.md#020-remote--server-auth))
-
-- Tighten CORS to UI origin(s)
-- Tag `0.2.0` release (CHANGELOG + version bump)
-- Central audit persistence (DB / log sink)
 
 ---
 
