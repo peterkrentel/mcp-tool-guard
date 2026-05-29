@@ -169,7 +169,7 @@ Optional flight env:
 - [x] UI deployed with `VITE_MCP_URL`
 - [x] Live demo smoke test
 - [x] CORS restricted to UI + local Vite (redeploy flight after merge)
-- [ ] Tag `v0.2.0` on `main` per [RELEASE.md](RELEASE.md) (after PR merge)
+- [x] Tag `v0.2.0` on `main` per [RELEASE.md](RELEASE.md)
 
 ---
 

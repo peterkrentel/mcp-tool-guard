@@ -6,15 +6,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Docs: reorder 0.3 priorities (#1–#3 before KV); demo tokens unchanged until Tier 2 IdP ([NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md))
+
 ### Planned (0.3.0)
 
 See [docs/ROADMAP.md](docs/ROADMAP.md#release-030--hardening--multi-server) and [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
 
+**First PR:** `/audit` auth + guard disable warning + UI audit fetch errors (#1–#3).
+
 - Authenticate `GET /audit` or disable on public deploy
-- Durable server audit (Vercel KV / Redis) for serverless
+- `MCP_GUARD_ENABLED` fail-closed or loud warning
 - UI indicator when server audit fetch fails
-- JWT `iss` / `aud` validation; policy single-source + CI drift test
+- Durable server audit (Vercel KV / Redis) for serverless — after #1–#3
+- JWT `iss` / `aud` validation (before IdP); policy single-source + CI drift test
 - Multi-server client routing; optional second mock MCP
+- Demo tokens: **no 0.3 change** — Tier 2 IdP replaces static `demo-tokens.json`
 - Guard HTTP proxy (Tier 2) for external upstream MCP
 
 ---
