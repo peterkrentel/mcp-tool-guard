@@ -1,6 +1,6 @@
 # Deploy to Vercel (0.2.0)
 
-**Navigation:** [Quick start](../README.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
+**Navigation:** [Quick start](../README.md) · [NEXT-STEPS](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
 
 Step-by-step guide for hosting the **flight MCP server** and **demo UI** as two separate Vercel projects from this monorepo.
 
@@ -130,9 +130,21 @@ No `VITE_*` token variables. Flight server **`MCP_GUARD_PUBLIC_KEY_PEM`** must b
 
 ---
 
-## Part 3 — CORS (optional, roadmap task 5)
+## Part 3 — CORS (0.2.0+)
 
-Flight currently allows `allow_origins=["*"]` — fine for demo. Later restrict to `https://mcp-tool-guard-ui.vercel.app` in `server.py` and redeploy flight.
+Flight server defaults to these origins (no env var required):
+
+- `https://mcp-tool-guard-ui.vercel.app`
+- `http://localhost:5173`, `http://127.0.0.1:5173` (local `make ui`)
+
+Optional flight env:
+
+| Variable | Example | Purpose |
+|----------|---------|---------|
+| `MCP_CORS_ORIGINS` | `https://my-ui.example.com,http://localhost:5173` | Extra or replacement origins (comma-separated) |
+| `MCP_CORS_ORIGINS` | `*` | Open CORS (not recommended on public deploy) |
+
+**Redeploy flight** after changing CORS. If the UI shows CORS errors in the browser console, add your UI origin here.
 
 ---
 
@@ -145,6 +157,8 @@ Flight currently allows `allow_origins=["*"]` — fine for demo. Later restrict 
 | 403 on tools | `MCP_GUARD_PUBLIC_KEY_PEM` must match `demo-tokens.json` signing key |
 | UI can't reach MCP | Set `VITE_MCP_URL`, redeploy UI |
 | GET `/mcp` → Method Not Allowed | Expected — use `/health` or the UI |
+| Server enforcement panel empty but tools work | Serverless: MCP and `/audit` may hit different instances; see [NEXT-STEPS](NEXT-STEPS.md) (0.3 KV) |
+| CORS error from UI to flight | Redeploy flight; set `MCP_CORS_ORIGINS` to include your UI origin |
 
 ---
 
@@ -154,13 +168,14 @@ Flight currently allows `allow_origins=["*"]` — fine for demo. Later restrict 
 - [x] `MCP_GUARD_PUBLIC_KEY_PEM` on flight project
 - [x] UI deployed with `VITE_MCP_URL`
 - [x] Live demo smoke test
-- [ ] Tighten CORS to UI origin (optional)
-- [ ] Tag [0.2.0](RELEASE.md#020-remote--server-auth) per [RELEASE.md](RELEASE.md)
+- [x] CORS restricted to UI + local Vite (redeploy flight after merge)
+- [ ] Tag `v0.2.0` on `main` per [RELEASE.md](RELEASE.md) (after PR merge)
 
 ---
 
 ## Related
 
 - [README → Deploy](../README.md#deploy)
+- [NEXT-STEPS](NEXT-STEPS.md) — redeploy, tag, 0.3 backlog
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)
 - Local deps: `uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt`

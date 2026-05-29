@@ -1,6 +1,6 @@
 # MCPToolGuard — Concept
 
-**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
 
 Design reference for the repo. Task checklists and release status live in [ROADMAP.md](ROADMAP.md) only.
 
@@ -104,7 +104,7 @@ Wildcards: `flights:*` or `*`.
 
 ## Demo vs production
 
-Reference demo, not a hosted security product. [ROADMAP](ROADMAP.md) tracks IdP, durable audit, and observability sinks.
+Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server) and [NEXT-STEPS](NEXT-STEPS.md) track hardening; Tier 2 covers IdP, proxy, and observability sinks.
 
 | Concern | Demo (now) | Production (later) |
 |---------|------------|---------------------|
@@ -118,7 +118,9 @@ Reference demo, not a hosted security product. [ROADMAP](ROADMAP.md) tracks IdP,
 | Limitation | Detail |
 |------------|--------|
 | Guard | Server enforces every `tools/call`; client pre-check is UX + intent audit only when MCP is public |
-| Server audit | In-memory (`GET /audit`); resets on cold start |
+| Server audit | In-memory (`GET /audit`); resets on cold start; **unauthenticated** on public deploy; intermittent on Vercel serverless (see [NEXT-STEPS](NEXT-STEPS.md)) |
+| CORS | Defaults to demo UI + local Vite; not `*` on flight server (0.2.0+) |
+| Policy | Three files must stay aligned (`guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`) |
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
 | Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
@@ -130,7 +132,7 @@ Reference demo, not a hosted security product. [ROADMAP](ROADMAP.md) tracks IdP,
 - **Server** must enforce scopes — client-only checks are not sufficient.
 - **HTTPS + JWT scopes** for browser → MCP; mTLS optional for service-to-service.
 
-Walkthrough: [vercel-deploy.md](vercel-deploy.md). Tasks: [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth).
+Walkthrough: [vercel-deploy.md](vercel-deploy.md). After deploy: [NEXT-STEPS.md](NEXT-STEPS.md).
 
 ## JWT & demo tokens
 

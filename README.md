@@ -20,8 +20,9 @@ Pick a JWT scope → **Initialize** → chat. First WebLLM load may take ~1 minu
 | **README** (here) | Quick start, live demo links |
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, observability scope, JWT, limitations |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — release 0.2.0 tasks and future tiers |
-| [CHANGELOG.md](CHANGELOG.md) | What shipped and what is in progress |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — 0.2.0 shipped; [0.3.0 hardening](docs/ROADMAP.md#release-030--hardening--multi-server) |
+| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **After 0.2.0** — redeploy, tag, peer-review backlog |
+| [CHANGELOG.md](CHANGELOG.md) | What shipped (`0.2.0`) and [Unreleased](CHANGELOG.md#unreleased) |
 | [docs/RELEASE.md](docs/RELEASE.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Releases and PR workflow |
 
 ## Quick start

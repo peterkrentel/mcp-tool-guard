@@ -37,6 +37,7 @@ make ui             # terminal 2 — smoke test UI + MCP
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy guide |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | Design — architecture, JWT, audit model, limitations |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned releases and tiers |
+| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | Post–0.2.0 priorities (0.3.0 backlog) |
 | [docs/RELEASE.md](docs/RELEASE.md) | How to cut a release |
 | [CHANGELOG.md](CHANGELOG.md) | History and unreleased work |
 

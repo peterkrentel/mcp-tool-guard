@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from fastmcp import FastMCP
@@ -174,11 +175,28 @@ async def audit_log(request: Request) -> JSONResponse:
     return JSONResponse({"entries": get_guard().recent_audit(session_id=session_id)})
 
 
+# CORS: demo UI + local Vite. Override with MCP_CORS_ORIGINS (comma-separated) or "*".
+_DEFAULT_CORS_ORIGINS = (
+    "https://mcp-tool-guard-ui.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
+
+def _cors_allow_origins() -> list[str]:
+    raw = os.environ.get("MCP_CORS_ORIGINS", "").strip()
+    if raw == "*":
+        return ["*"]
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return list(_DEFAULT_CORS_ORIGINS)
+
+
 # ASGI app for Vercel / uvicorn (stateless for serverless)
 CORS = Middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=_cors_allow_origins(),
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["Mcp-Session-Id", "X-Trace-Id", "X-Session-Id"],
 )

@@ -1,22 +1,22 @@
 # Roadmap
 
-**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
 
 Planned work and release tasks. Shipped changes are listed in [CHANGELOG.md](../CHANGELOG.md). Architecture and audit model: [CONCEPT.md](CONCEPT.md) only — not duplicated here.
 
-**Current release:** [0.1.0](RELEASE.md#010) — local demo (flight MCP, WebLLM UI, client SDK + server guard).
+**Current release:** [0.2.0](RELEASE.md#020-remote--server-auth) — remote deploy, server JWT guard, CORS to UI origin.
 
-**Next release:** [0.2.0 — Remote & server auth](RELEASE.md#020-remote--server-auth) — **deployed on Vercel**; tag pending ([vercel-deploy.md](vercel-deploy.md#live-demo)).
+**Next release:** [0.3.0 — Hardening & multi-server](#release-030--hardening--multi-server) — see [NEXT-STEPS.md](NEXT-STEPS.md).
 
 ## Product shape (summary)
 
 - **0.x** — Reference demo: enforce + audit at MCP `tools/call` (`session_id`, `trace_id`).
 - **Audit UI** — Two panels; details in [CONCEPT → Two audit planes](CONCEPT.md#two-audit-planes-demo-ui).
-- **Production (Tier 2+)** — Server guard JSON to your observability stack; Grafana/SIEM replaces the in-app panel.
+- **Production (Tier 2+)** — Server guard JSON to your observability stack; Grafana/SIEM replaces the in-app panel; optional **guard proxy** in front of external MCP.
 
 ---
 
-## Release 0.2.0 — Remote & server auth
+## Release 0.2.0 — Remote & server auth {#release-020--remote--server-auth}
 
 Deploy like production: external MCP URL, HTTPS, server enforcement for any client (browser, CLI).
 
@@ -26,25 +26,63 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 | 2 | Deploy UI; `VITE_MCP_URL` → remote flight | Done — [UI](https://mcp-tool-guard-ui.vercel.app/) |
 | 3 | `Authorization: Bearer` on every MCP request | Done |
 | 4 | JWT + per-tool scopes on flight server | Done |
-| 5 | Tighten CORS to UI origin(s) | Not started (`*` OK for demo) |
+| 5 | Tighten CORS to UI origin(s) | Done — defaults + `MCP_CORS_ORIGINS` override |
 | 6 | Deploy docs ([vercel-deploy.md](vercel-deploy.md), README live links) | Done |
-| 7 | On release: move CHANGELOG `[Unreleased]` → `0.2.0` + tag | Not started |
+| 7 | CHANGELOG `0.2.0` + version bump + tag `v0.2.0` | Done in release PR — tag after merge to `main` |
 
 **Out of scope for 0.2.0:** IdP login, multi-server routing, LangChain, MCP elicitation, real airline APIs.
 
 **Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [vercel-deploy.md](vercel-deploy.md) and [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
 
+**After merge:** redeploy flight on Vercel so CORS changes apply; then `git tag -a v0.2.0` per [RELEASE.md](RELEASE.md).
+
 ---
 
-## Tier 2 — Product depth (post-0.2.0)
+## Release 0.3.0 — Hardening & multi-server {#release-030--hardening--multi-server}
+
+Post–peer-review hardening for the demo deploy plus client-side multi-server scoping. Enforcement core stays as-is; surrounding ops and UX improve.
+
+### High — demo deploy & security hygiene
+
+| # | Task | Notes |
+|---|------|--------|
+| 1 | Authenticate `GET /audit` or disable on public deploy | Today unauthenticated; exposes scopes, session/trace IDs |
+| 2 | `MCP_GUARD_ENABLED=false` fail-closed or loud startup warning | Silent kill switch is a prod misconfig risk |
+| 3 | UI: show when server audit fetch fails | `fetchServerAudit` returns `[]` on any error today |
+| 4 | Durable server audit (Vercel KV / Redis) | Fixes serverless instance split; see [vercel-deploy troubleshooting](vercel-deploy.md#troubleshooting) |
+| 5 | JWT `iss` / `aud` validation (env-configured) | Required before multi-purpose or IdP keys |
+
+### Medium — correctness & ops
+
+| # | Task | Notes |
+|---|------|--------|
+| 6 | Single policy source + CI drift test | Today: `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts` |
+| 7 | Middleware max request body size | DoS: unbounded body read in `guard_middleware.py` |
+| 8 | Multi-server UI | Wire `gateway/config.yaml` servers; `authorize(server, …)` + per-URL MCP client |
+| 9 | Second mock MCP (`servers/notes/`) | Prove multi-server policy on infra you control |
+| 10 | Document prompt-injection mitigations | e.g. `sanitizeCancelBookingArgs` requires user text |
+
+### Larger — production shape (may spill to Tier 2)
+
+| # | Task | Notes |
+|---|------|--------|
+| 11 | **Guard HTTP proxy** | Client → your gateway → upstream MCP; authoritative log for “remote” vendors |
+| 12 | Rate limiting | Per-token / per-IP on MCP and `/audit` |
+| 13 | Guard `initialize` / `tools/list` (optional auth) | Capability enumeration today is open |
+
+Details and priority order: [NEXT-STEPS.md](NEXT-STEPS.md).
+
+---
+
+## Tier 2 — Product depth (post-0.3)
 
 | Item | Notes |
 |------|--------|
-| IdP integration | Replace `demo-tokens.json` with OAuth/OIDC |
-| JWKS verification | Server / SDK load issuer JWKS |
-| Multi-server UI | Wire slack/github stubs in `gateway/config.yaml` |
+| IdP integration | Replace `demo-tokens.json` with OAuth/OIDC; short-lived tokens |
+| JWKS verification | Server / SDK load issuer JWKS (`iss` / `aud` aligned) |
 | Audit export / observability sink | OTel, Loki, Datadog; server guard JSON ([CONCEPT → Observability scope](CONCEPT.md#observability-scope)) |
-| Second mock MCP | Optional `servers/notes/` for multi-server policy |
+| Python audit `LogSink` | Parity with TypeScript `AuditLogger` sinks |
+| LangChain / backend agent | Guarded MCP from a service, not only browser |
 
 ---
 
@@ -52,7 +90,6 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 
 | Item | Notes |
 |------|--------|
-| LangChain agent service | Backend agent with guarded MCP |
 | MCP elicitation | Server `elicit()` + client callback |
 | MCP CLI / Cursor docs | `mcp.json` for HTTP flight server |
 | UX polish | IATA false positives, empty-search messaging |
