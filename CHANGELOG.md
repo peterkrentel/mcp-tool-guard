@@ -8,22 +8,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Docs: reorder 0.3 priorities (#1–#3 before KV); demo tokens unchanged until Tier 2 IdP ([NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md))
+- Docs: reorder 0.3 priorities; demo tokens transitional until Auth0 ([NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md))
+- **0.3 pivot:** [identity.md](docs/identity.md) — Auth0 IdP (Path A) vs audit secret (Path B, not pursuing)
+- [auth0-setup.md](docs/auth0-setup.md) + [auth0-env.example](docs/auth0-env.example) — Auth0 prep before implementation
+- CONCEPT: [Third-party / unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [Identity & IdP](docs/CONCEPT.md#identity--idp)
 
 ### Planned (0.3.0)
 
-See [docs/ROADMAP.md](docs/ROADMAP.md#release-030--hardening--multi-server) and [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
+See [ROADMAP](docs/ROADMAP.md#release-030--hardening--multi-server), [NEXT-STEPS](docs/NEXT-STEPS.md), [auth0-setup.md](docs/auth0-setup.md).
 
-**First PR:** `/audit` auth + guard disable warning + UI audit fetch errors (#1–#3).
+**First PRs:** Auth0 login + JWKS + `iss`/`aud` + `/audit` Bearer JWT + guard warning + UI audit errors.
 
-- Authenticate `GET /audit` or disable on public deploy
+- Auth0 SPA login **+ guest demo** (existing `demo-tokens.json`); dual PEM + JWKS on flight
+- JWKS + `iss` / `aud` on flight + SDK (PEM fallback for CI)
+- `GET /audit` requires same access token
 - `MCP_GUARD_ENABLED` fail-closed or loud warning
-- UI indicator when server audit fetch fails
-- Durable server audit (Vercel KV / Redis) for serverless — after #1–#3
-- JWT `iss` / `aud` validation (before IdP); policy single-source + CI drift test
-- Multi-server client routing; optional second mock MCP
-- Demo tokens: **no 0.3 change** — Tier 2 IdP replaces static `demo-tokens.json`
-- Guard HTTP proxy (Tier 2) for external upstream MCP
+- UI server audit fetch error state
+- Vercel KV — after identity PR
+- Multi-server client; guard proxy (Tier 2)
 
 ---
 
