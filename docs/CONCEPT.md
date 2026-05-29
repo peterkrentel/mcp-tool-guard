@@ -1,6 +1,6 @@
 # MCPToolGuard — Concept
 
-**Navigation:** [Quick start](../README.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
 
 Design reference for the repo. Task checklists and release status live in [ROADMAP.md](ROADMAP.md) only.
 
@@ -125,12 +125,12 @@ Reference demo, not a hosted security product. [ROADMAP](ROADMAP.md) tracks IdP,
 
 ## Remote deployment
 
-- **UI** and **flight MCP** on separate HTTPS origins.
+- **UI** and **flight MCP** on separate HTTPS origins (live: [UI](https://mcp-tool-guard-ui.vercel.app/), [health](https://mcp-tool-guard-flight-server.vercel.app/health)).
 - Browser sends `Authorization: Bearer` on every MCP request.
 - **Server** must enforce scopes — client-only checks are not sufficient.
 - **HTTPS + JWT scopes** for browser → MCP; mTLS optional for service-to-service.
 
-Deploy tasks: [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth). Env vars: [README](../README.md#deploy).
+Walkthrough: [vercel-deploy.md](vercel-deploy.md). Tasks: [ROADMAP 0.2.0](ROADMAP.md#release-020--remote--server-auth).
 
 ## JWT & demo tokens
 

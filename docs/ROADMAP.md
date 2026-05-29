@@ -1,12 +1,12 @@
 # Roadmap
 
-**Navigation:** [Quick start](../README.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
 
 Planned work and release tasks. Shipped changes are listed in [CHANGELOG.md](../CHANGELOG.md). Architecture and audit model: [CONCEPT.md](CONCEPT.md) only — not duplicated here.
 
 **Current release:** [0.1.0](RELEASE.md#010) — local demo (flight MCP, WebLLM UI, client SDK + server guard).
 
-**Next release:** [0.2.0 — Remote & server auth](RELEASE.md#020-remote--server-auth).
+**Next release:** [0.2.0 — Remote & server auth](RELEASE.md#020-remote--server-auth) — **deployed on Vercel**; tag pending ([vercel-deploy.md](vercel-deploy.md#live-demo)).
 
 ## Product shape (summary)
 
@@ -22,17 +22,17 @@ Deploy like production: external MCP URL, HTTPS, server enforcement for any clie
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Deploy flight MCP to Vercel; document URL (`/mcp`) | Not started |
-| 2 | Deploy UI static build; set `VITE_MCP_URL` to remote flight | Not started |
+| 1 | Deploy flight MCP to Vercel | Done — [health](https://mcp-tool-guard-flight-server.vercel.app/health) |
+| 2 | Deploy UI; `VITE_MCP_URL` → remote flight | Done — [UI](https://mcp-tool-guard-ui.vercel.app/) |
 | 3 | `Authorization: Bearer` on every MCP request | Done |
 | 4 | JWT + per-tool scopes on flight server | Done |
-| 5 | Tighten CORS to UI origin(s) | Not started |
-| 6 | README deploy section complete | In progress |
-| 7 | On release: move CHANGELOG `[Unreleased]` → `0.2.0` | Not started |
+| 5 | Tighten CORS to UI origin(s) | Not started (`*` OK for demo) |
+| 6 | Deploy docs ([vercel-deploy.md](vercel-deploy.md), README live links) | Done |
+| 7 | On release: move CHANGELOG `[Unreleased]` → `0.2.0` + tag | Not started |
 
 **Out of scope for 0.2.0:** IdP login, multi-server routing, LangChain, MCP elicitation, real airline APIs.
 
-**Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
+**Security:** HTTPS + Bearer JWT scopes for browser → MCP. See [vercel-deploy.md](vercel-deploy.md) and [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment).
 
 ---
 
