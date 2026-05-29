@@ -101,6 +101,8 @@ See [CONCEPT → Current limitations](CONCEPT.md#current-limitations-demo) and [
 
 The SDK already supports multiple servers in `gateway/config.yaml` (`authorize(server, tool, …)`). The UI only wires `flight`. **0.3 #8** adds routing; **Tier 2 proxy** adds authoritative enforcement for vendors you do not control.
 
+Full product story (client vs proxy, KV scope): [CONCEPT → Third-party / unowned MCP](CONCEPT.md#third-party--unowned-mcp).
+
 ---
 
 ## Related

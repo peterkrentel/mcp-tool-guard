@@ -135,6 +135,85 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 
 Walkthrough: [vercel-deploy.md](vercel-deploy.md). After deploy: [NEXT-STEPS.md](NEXT-STEPS.md).
 
+This is **remote MCP you own** (your flight server on Vercel). For MCP hosts you **do not** control, see [Third-party / unowned MCP](#third-party--unowned-mcp).
+
+## Third-party / unowned MCP
+
+Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub, a partner API). MCPToolGuard’s job is **scoped protection** and **audit** for those calls too — but **where** enforcement and logging run depends on who operates the server.
+
+### Two meanings of “remote”
+
+| Kind | Example | Who runs the MCP | What 0.2.0 proves |
+|------|---------|------------------|-------------------|
+| **Remote, yours** | Flight on Vercel | You | Server guard + `GET /audit` on **your** deploy |
+| **Remote, unowned** | `https://mcp.vendor.com/mcp` | Vendor | Client SDK only until you add a **guard proxy** |
+
+“Remote” in [vercel-deploy.md](vercel-deploy.md) means the first row. This section is the second.
+
+### What you can get without owning the MCP
+
+| Goal | Client `ToolGuard` (SDK) | Your flight server + KV | Guard HTTP proxy (Tier 2) |
+|------|--------------------------|-------------------------|---------------------------|
+| Scope check before `tools/call` | Yes — pre-check | N/A (traffic doesn’t hit flight) | Yes — **authoritative** |
+| Audit **agent attempts** (intent) | Yes — browser / agent log | No | Yes — client + server |
+| **Authoritative** allow/deny on vendor URL | No — bypassable | No | Yes — proxy enforces |
+| **Authoritative** audit of calls to vendor | No | No | Yes — proxy log → KV / Loki / OTel |
+| Works if user bypasses your UI | No | No | Yes — if agent only talks to proxy |
+
+**Client-only** (SDK + multi-server UI, [ROADMAP 0.3 #8](ROADMAP.md#release-030--hardening--multi-server)): honest agents, UX, and intent audit — **not** tamper-proof security on a public vendor endpoint.
+
+**Authoritative** protection and audit for unowned MCP: traffic must pass **infrastructure you run** — same middleware pattern as flight, forwarding allowed `tools/call` upstream with service credentials.
+
+### Architecture: owned vs unowned
+
+**Owned MCP (demo today)**
+
+```
+Browser → ToolGuard (client) → your flight MCP → guard middleware → tool handler
+                                      ↑
+                              GET /audit (KV in 0.3 #4)
+```
+
+**Unowned MCP — client-only (0.3 multi-server, not security-grade)**
+
+```
+Browser → ToolGuard (client) ──→ vendor MCP
+              ↑
+        Agent attempts audit only
+```
+
+**Unowned MCP — production shape (Tier 2 guard proxy)**
+
+```
+Browser → ToolGuard (client) → YOUR guard proxy → vendor MCP
+              │                        ↑
+        Agent attempts          enforce JWT + scopes
+                                authoritative audit → KV / Loki / OTel
+```
+
+Policy for both flight and upstream tools can live in one `gateway/config.yaml` (server aliases + URLs). The proxy applies the same scope rules as [flight `guard_middleware`](../servers/flight/guard_middleware.py); KV (or an observability sink) stores **proxy** decisions — not vendor-side memory.
+
+### KV and audit storage
+
+| Store | Applies to |
+|-------|------------|
+| In-memory / **Vercel KV** on flight | Audit for `tools/call` that hit **your** flight server |
+| KV / log sink on **guard proxy** | Authoritative audit when forwarding to **unowned** MCP |
+| Client `AuditLogger` | Intent for any URL the agent calls — not compliance evidence |
+
+KV does **not** create a shared log across arbitrary third-party hosts. It makes **your** enforcement hop’s audit durable on serverless.
+
+### Roadmap alignment
+
+| Work | Delivers |
+|------|----------|
+| [0.3 #8–9](ROADMAP.md#release-030--hardening--multi-server) | Client routing + policy for multiple `servers.*.url`; optional second **mock** you own |
+| [0.3 #4](ROADMAP.md#release-030--hardening--multi-server) | Reliable `/audit` for **flight** on Vercel |
+| [Tier 2 #11 — Guard HTTP proxy](ROADMAP.md#tier-2--product-depth-post-03) | Authoritative scope + audit for **unowned** upstream MCP |
+| [Tier 2 observability sink](ROADMAP.md#tier-2--product-depth-post-03) | Production dashboards (Grafana/Loki) instead of demo UI panel |
+
+Do **not** point the demo UI at real vendor MCP URLs without a proxy — see [NEXT-STEPS](NEXT-STEPS.md#phase-d--multi-server-client-1-2-prs).
+
 ## JWT & demo tokens
 
 ### Files

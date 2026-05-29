@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Docs: reorder 0.3 priorities (#1–#3 before KV); demo tokens unchanged until Tier 2 IdP ([NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md))
+- CONCEPT: [Third-party / unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp) — client vs proxy, KV scope, architecture diagrams
 
 ### Planned (0.3.0)
 

@@ -68,7 +68,7 @@ Post–peer-review hardening for the demo deploy plus client-side multi-server s
 
 | # | Task | Notes |
 |---|------|--------|
-| 11 | **Guard HTTP proxy** | Client → your gateway → upstream MCP; authoritative log for “remote” vendors |
+| 11 | **Guard HTTP proxy** | Client → your gateway → upstream MCP; authoritative log for “remote” vendors — see [CONCEPT → Third-party MCP](CONCEPT.md#third-party--unowned-mcp) |
 | 12 | Rate limiting | Per-token / per-IP on MCP and `/audit` |
 | 13 | Guard `initialize` / `tools/list` (optional auth) | Capability enumeration today is open |
 
