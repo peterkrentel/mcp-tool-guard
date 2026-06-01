@@ -82,7 +82,8 @@ Access token (decode at [jwt.io](https://jwt.io)) should include:
 
 - `iss`: `https://YOUR_TENANT.us.auth0.com/`
 - `aud`: `https://mcp-tool-guard` (or array containing it)
-- `scope` or `permissions`: includes `flights:read` etc.
+- `permissions`: includes `flights:read` etc. (Auth0 RBAC — enforced by guard)
+- `scope`: may only show `openid profile email`; tool scopes live in `permissions`
 
 Use the **access token** (not ID token) for MCP `Authorization: Bearer`.
 
