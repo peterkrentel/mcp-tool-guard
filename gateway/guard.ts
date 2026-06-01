@@ -1,4 +1,9 @@
-import { importSPKI, jwtVerify } from "jose";
+import {
+  createRemoteJWKSet,
+  decodeJwt,
+  importSPKI,
+  jwtVerify,
+} from "jose";
 import { parse as parseYaml } from "yaml";
 
 import { AuditLogger } from "./logger.js";
@@ -17,6 +22,10 @@ export interface ToolGuardOptions {
   publicKey?: CryptoKey | string;
   algorithm?: string;
   logger?: AuditLogger;
+  /** IdP issuer — when token `iss` matches, verify via JWKS instead of PEM. */
+  jwtIssuer?: string;
+  jwtAudience?: string;
+  jwksUrl?: string;
 }
 
 export class ToolGuard {
@@ -24,6 +33,9 @@ export class ToolGuard {
   private publicKey?: CryptoKey;
   private algorithm: string;
   readonly logger: AuditLogger;
+  private jwtIssuer?: string;
+  private jwtAudience?: string;
+  private jwks?: ReturnType<typeof createRemoteJWKSet>;
 
   constructor(options: ToolGuardOptions) {
     this.config =
@@ -32,6 +44,11 @@ export class ToolGuard {
         : options.config;
     this.algorithm = options.algorithm ?? "RS256";
     this.logger = options.logger ?? new AuditLogger();
+    this.jwtIssuer = options.jwtIssuer?.replace(/\/$/, "");
+    this.jwtAudience = options.jwtAudience;
+    if (options.jwksUrl) {
+      this.jwks = createRemoteJWKSet(new URL(options.jwksUrl));
+    }
     if (options.publicKey && typeof options.publicKey === "string") {
       this.publicKeyPromise = importSPKI(options.publicKey, this.algorithm);
     } else if (options.publicKey && typeof options.publicKey !== "string") {
@@ -77,7 +94,27 @@ export class ToolGuard {
     return tokenScopes.includes(`${resource}:*`) || tokenScopes.includes("*");
   }
 
+  private issMatches(tokenIss: unknown): boolean {
+    if (!this.jwtIssuer || typeof tokenIss !== "string") return false;
+    return tokenIss.replace(/\/$/, "") === this.jwtIssuer;
+  }
+
   async validateToken(token: string): Promise<{ payload: JwtPayload; scopes: string[] }> {
+    const unverified = decodeJwt(token) as JwtPayload;
+    if (
+      this.jwks &&
+      this.jwtIssuer &&
+      this.jwtAudience &&
+      this.issMatches(unverified.iss)
+    ) {
+      const { payload } = await jwtVerify(token, this.jwks, {
+        issuer: `${this.jwtIssuer}/`,
+        audience: this.jwtAudience,
+      });
+      const jwtPayload = payload as JwtPayload;
+      return { payload: jwtPayload, scopes: this.extractScopes(jwtPayload) };
+    }
+
     if (!this.publicKey) {
       throw new Error("Public key not configured — call init() with a PEM key");
     }

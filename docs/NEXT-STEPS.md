@@ -22,23 +22,23 @@ Post–0.2.0 work and **0.3.0** priorities. Task numbers: [ROADMAP → 0.3.0](RO
 
 **Auth0 now, Keycloak later** — same JWKS + `iss`/`aud` code; swap issuer env ([identity → Auth0 vs Keycloak](identity.md#auth0-vs-keycloak-same-gateway-different-issuer)).
 
-**Before coding:** complete [auth0-setup.md](auth0-setup.md) and set env from [auth0-env.example](auth0-env.example).
+**Before deploy:** complete [auth0-setup.md](auth0-setup.md) and set env from [auth0-env.example](auth0-env.example).
 
 ---
 
-## 0.3.0 — recommended order
+## 0.3.0 Phase A — done
 
-### Phase A — Identity + Auth0 (primary PRs)
+- [x] Auth0 SPA login + guest demo (`demo-tokens.json` dropdown)
+- [x] Flight + SDK: JWKS (Auth0) + PEM (guest); `iss` / `aud` for IdP tokens
+- [x] `GET /audit` requires Bearer JWT
+- [x] `MCP_GUARD_ENABLED=false` loud startup warning
+- [x] UI: server audit fetch error state
 
-| ROADMAP # | Work |
-|-----------|------|
-| 1 | Auth0 SPA login **+ guest demo** (`demo-tokens.json` dropdown) | Dual trust on flight |
-| 2 | Flight + SDK: JWKS (Auth0) **and** PEM (guest); `iss` / `aud` for IdP tokens only |
-| 3 | `GET /audit` requires same Bearer JWT (+ optional `audit:read`) |
-| 4 | `MCP_GUARD_ENABLED=false` — fail-closed or loud startup warning |
-| 5 | UI: show when server audit fetch fails |
+**Deploy:** set env from [auth0-env.example](auth0-env.example) on **both** Vercel projects; redeploy UI + flight.
 
-### Phase B — Reliable server audit on Vercel (PR after A)
+---
+
+## 0.3.0 — remaining (Phase B+) {#030--remaining-phase-b}
 
 | ROADMAP # | Work |
 |-----------|------|
@@ -76,14 +76,13 @@ See [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth0).
 
 ---
 
-## Known limitations (until Phase A ships)
+## Known limitations (until Phase B)
 
 | Topic | Detail |
 |-------|--------|
-| `GET /audit` | Unauthenticated on public flight — fixed by Phase A (#3) |
-| Server audit on Vercel | Intermittent until KV (Phase B) |
-| Demo tokens in repo | Replaced by Auth0 on public UI after Phase A |
-| Policy in three files | Until #8 |
+| Server audit on Vercel | Intermittent until KV (Phase B) — not an auth issue |
+| Guest JWTs in repo | Public demo credentials; Auth0 path is the IdP story |
+| Policy in three files | Until ROADMAP #8 |
 
 ---
 

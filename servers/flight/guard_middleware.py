@@ -37,11 +37,7 @@ class JwtToolGuardMiddleware:
 
         tool_name = payload.get("params", {}).get("name", "")
         request_id = payload.get("id")
-        bearer = _extract_header(scope, "authorization")
-        if bearer and bearer.lower().startswith("bearer "):
-            bearer = bearer[7:].strip()
-        else:
-            bearer = None
+        bearer = FlightToolGuard.extract_bearer(_extract_header(scope, "authorization"))
 
         trace_id = _extract_header(scope, "x-trace-id")
         session_id = _extract_header(scope, "x-session-id")

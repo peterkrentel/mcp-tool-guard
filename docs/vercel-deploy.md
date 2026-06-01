@@ -1,4 +1,4 @@
-# Deploy to Vercel (0.2.0)
+# Deploy to Vercel (0.3.0)
 
 **Navigation:** [Quick start](../README.md) · [NEXT-STEPS](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
 
@@ -11,9 +11,9 @@ Step-by-step guide for hosting the **flight MCP server** and **demo UI** as two 
 | **UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 | **MCP endpoint** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
-| **Server audit** | [mcp-tool-guard-flight-server.vercel.app/audit](https://mcp-tool-guard-flight-server.vercel.app/audit) |
+| **Server audit** | `GET /audit` with `Authorization: Bearer` (same JWT as MCP) |
 
-Open the UI → pick a **JWT scope** → **Initialize** (WebLLM may take ~1 min first load) → chat.
+Open the UI → **Sign in** (Auth0) or pick a **guest JWT scope** → **Initialize** (WebLLM may take ~1 min first load) → chat.
 
 ---
 
@@ -63,10 +63,15 @@ See `servers/flight/vercel.json` in the repo (rewrites for `/mcp`, `/health`, `/
 
 | Variable | Required | Value |
 |----------|----------|--------|
-| `MCP_GUARD_PUBLIC_KEY_PEM` | **Yes** | Full PEM from `ui/public/demo-public.pem` |
-| `MCP_GUARD_ENABLED` | No | `true` (default) |
+| `MCP_GUARD_PUBLIC_KEY_PEM` | **Yes** | Full PEM from `ui/public/demo-public.pem` (guest demo tokens) |
+| `MCP_JWT_ISSUER` | For Auth0 | `https://YOUR_TENANT.us.auth0.com/` |
+| `MCP_JWT_AUDIENCE` | For Auth0 | `https://mcp-tool-guard` |
+| `MCP_JWT_JWKS_URL` | Optional | Derived from issuer if omitted |
+| `MCP_GUARD_ENABLED` | No | `true` (default). `false` logs a loud warning and disables enforcement |
 
 Set on **Production**, **Preview**, and **Development**. Redeploy after adding env vars.
+
+**Dual trust:** keep **`MCP_GUARD_PUBLIC_KEY_PEM`** for guest JWTs **and** set `MCP_JWT_*` for Auth0 — see [identity.md](identity.md).
 
 The flight project root is only `servers/flight/` — it cannot read `ui/public/` from disk on Vercel.
 
@@ -76,12 +81,12 @@ The flight project root is only `servers/flight/` — it cannot read `ui/public/
 curl https://mcp-tool-guard-flight-server.vercel.app/health
 ```
 
-Expected: `"status":"healthy"`, `"guard_enabled":true`.
+Expected: `"status":"healthy"`, `"guard_enabled":true`. With Auth0 env: `"jwt_trust_enabled":true`.
 
 | URL | Browser GET | Meaning |
 |-----|-------------|---------|
 | `/health` | JSON | Server OK |
-| `/audit` | JSON | Server audit log |
+| `/audit` | **401** without Bearer | Protected when guard enabled — use UI or `curl -H "Authorization: Bearer …"` |
 | `/mcp` | **Method Not Allowed** | **Normal** — MCP expects POST, not browser GET |
 
 ### Serverless notes
@@ -104,24 +109,30 @@ Expected: `"status":"healthy"`, `"guard_enabled":true`.
 
 Do **not** use `npm install --prefix=..` (that was for a misconfigured Python project, not the UI).
 
-### Environment variable
+### Environment variables
 
 | Variable | Required | Value |
 |----------|----------|--------|
 | `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
+| `VITE_AUTH0_DOMAIN` | For Auth0 login | `YOUR_TENANT.us.auth0.com` |
+| `VITE_AUTH0_CLIENT_ID` | For Auth0 login | SPA client id from Auth0 dashboard |
+| `VITE_AUTH0_AUDIENCE` | For Auth0 login | `https://mcp-tool-guard` |
+| `VITE_ENABLE_GUEST_DEMO` | No | `true` (default) — show guest JWT dropdown alongside Auth0 |
 
-Set **before** build — Vite bakes it in. Redeploy UI if the flight URL changes.
+Set **before** build — Vite bakes `VITE_*` in. Redeploy UI after env changes.
 
-### JWT tokens (0.2 — demo; 0.3 — Auth0)
+Copy full template: [auth0-env.example](auth0-env.example). Dashboard steps: [auth0-setup.md](auth0-setup.md).
 
-**Today (0.2):** UI loads static files — no token env vars:
+### JWT tokens
+
+**Guest (default):** static files — no token env vars:
 
 - `/demo-tokens.json` — JWT dropdown (`read_only`, `booking`, `admin`)
 - `/demo-public.pem` — client `ToolGuard` verify
 
-Flight: **`MCP_GUARD_PUBLIC_KEY_PEM`** must match the demo signing key.
+**Auth0:** Sign in button when `VITE_AUTH0_*` set. Access token sent as Bearer on MCP + `/audit`.
 
-**0.3 (planned):** Auth0 login **or guest demo** (existing JWTs). See [identity.md](identity.md). Flight keeps **`MCP_GUARD_PUBLIC_KEY_PEM`** for guest + adds `MCP_JWT_*` for Auth0.
+Flight must trust **both** paths: `MCP_GUARD_PUBLIC_KEY_PEM` (guest) + `MCP_JWT_*` (Auth0).
 
 ### Browser smoke test
 
@@ -159,12 +170,21 @@ Optional flight env:
 | 403 on tools | `MCP_GUARD_PUBLIC_KEY_PEM` must match `demo-tokens.json` signing key |
 | UI can't reach MCP | Set `VITE_MCP_URL`, redeploy UI |
 | GET `/mcp` → Method Not Allowed | Expected — use `/health` or the UI |
-| Server enforcement panel empty but tools work | Serverless: MCP and `/audit` may hit different instances; see [NEXT-STEPS](NEXT-STEPS.md) (0.3 KV) |
+| Server enforcement panel empty but tools work | Serverless instance split — Phase B KV; or 401 on `/audit` — send Bearer from UI |
+| `/audit` returns 401 in browser | Expected — authenticated endpoint since 0.3 |
 | CORS error from UI to flight | Redeploy flight; set `MCP_CORS_ORIGINS` to include your UI origin |
 
 ---
 
-## 0.2.0 checklist
+## 0.3.0 checklist
+
+- [ ] Flight: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` (Auth0)
+- [ ] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
+- [ ] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
+- [ ] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
+- [ ] Tag `v0.3.0` on `main` per [RELEASE.md](RELEASE.md)
+
+## 0.2.0 checklist (done)
 
 - [x] Flight deployed; `/health` returns `guard_enabled: true`
 - [x] `MCP_GUARD_PUBLIC_KEY_PEM` on flight project

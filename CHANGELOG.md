@@ -6,26 +6,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-25
+
+### Added
+
+- Auth0 SPA login in demo UI (`@auth0/auth0-spa-js`) with **guest demo** fallback (`demo-tokens.json` dropdown)
+- Dual JWT trust on flight server and SDK: **JWKS + `iss`/`aud`** (Auth0) or **demo PEM** (guest)
+- `GET /audit` requires valid `Authorization: Bearer` when guard is enabled
+- UI audit panel: visible error when server audit fetch fails (401, network, etc.)
+- Flight health response includes `jwt_trust_enabled` and warning when guard disabled
+
 ### Changed
 
-- Docs: reorder 0.3 priorities; demo tokens transitional until Auth0 ([NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md))
-- **0.3 pivot:** [identity.md](docs/identity.md) — Auth0 IdP (Path A) vs audit secret (Path B, not pursuing)
-- [auth0-setup.md](docs/auth0-setup.md) + [auth0-env.example](docs/auth0-env.example) — Auth0 prep before implementation
-- CONCEPT: [Third-party / unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [Identity & IdP](docs/CONCEPT.md#identity--idp)
+- `ToolGuard` accepts optional `jwtIssuer`, `jwtAudience`, `jwksUrl` for IdP tokens
+- Env vars: `VITE_AUTH0_*`, `MCP_JWT_*`, `VITE_ENABLE_GUEST_DEMO` — see [auth0-env.example](docs/auth0-env.example)
+- Docs: [identity.md](docs/identity.md), [NEXT-STEPS](docs/NEXT-STEPS.md), [vercel-deploy.md](docs/vercel-deploy.md), [README](README.md) updated for 0.3 identity
 
-### Planned (0.3.0)
+### Security
 
-See [ROADMAP](docs/ROADMAP.md#release-030--hardening--multi-server), [NEXT-STEPS](docs/NEXT-STEPS.md), [auth0-setup.md](docs/auth0-setup.md).
+- Loud startup warning when `MCP_GUARD_ENABLED=false` (enforcement bypassed)
 
-**First PRs:** Auth0 login + JWKS + `iss`/`aud` + `/audit` Bearer JWT + guard warning + UI audit errors.
+### Planned (0.3.x follow-up)
 
-- Auth0 SPA login **+ guest demo** (existing `demo-tokens.json`); dual PEM + JWKS on flight
-- JWKS + `iss` / `aud` on flight + SDK (PEM fallback for CI)
-- `GET /audit` requires same access token
-- `MCP_GUARD_ENABLED` fail-closed or loud warning
-- UI server audit fetch error state
-- Vercel KV — after identity PR
-- Multi-server client; guard proxy (Tier 2)
+- Vercel KV for durable server audit (Phase B)
+- Multi-server UI, guard proxy (Tier 2)
 
 ---
 

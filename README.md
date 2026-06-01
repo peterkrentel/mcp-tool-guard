@@ -11,7 +11,7 @@
 | **Try the UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
-Pick a JWT scope → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
+Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
 
 ## Documentation map
 
@@ -44,7 +44,7 @@ make flight    # Terminal 1 → http://localhost:8000/mcp
 make ui        # Terminal 2 → http://localhost:5173
 ```
 
-Open `http://localhost:5173`, pick a **JWT scope**, click **Initialize**, then chat. Vite proxies `/mcp` to the flight server locally.
+Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the flight server locally.
 
 <details>
 <summary>Manual commands</summary>
@@ -87,10 +87,10 @@ mcp-tool-guard/
 
 | Project | Key settings |
 |---------|----------------|
-| **Flight** (`servers/flight`) | Root `servers/flight`; empty install/build; `MCP_GUARD_PUBLIC_KEY_PEM` |
-| **UI** (repo root) | `npm ci` + build gateway + ui; output `ui/dist`; `VITE_MCP_URL` → flight `/mcp` |
+| **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for Auth0 |
+| **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` |
 
-Demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars on the UI project.
+Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md).
 
 Regenerate Python deps after `pyproject.toml` changes:
 

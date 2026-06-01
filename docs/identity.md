@@ -6,16 +6,16 @@ MCPToolGuard’s product pitch: **bring your identity provider; we enforce JWT s
 
 ---
 
-## Current state (0.2.0)
+## Current state (0.3.0)
 
 | Piece | Today |
 |-------|--------|
-| MCP `tools/call` | `Authorization: Bearer` + RS256 verify against **static PEM** (`MCP_GUARD_PUBLIC_KEY_PEM` / `demo-public.pem`) |
+| MCP `tools/call` | `Authorization: Bearer` + dual trust: **JWKS** (`MCP_JWT_*`) or **demo PEM** |
 | Scopes | `flights:read`, `flights:write`, `flights:delete` in JWT `scope` claim |
-| UI tokens | Dropdown loads **`ui/public/demo-tokens.json`** (365-day demo JWTs) |
-| `GET /audit` | **No authentication** — public on Vercel |
-| `iss` / `aud` | Not validated |
-| JWKS | Not used — PEM only |
+| UI tokens | **Guest:** `demo-tokens.json` dropdown · **Auth0:** SPA login (`VITE_AUTH0_*`) |
+| `GET /audit` | **Bearer JWT required** when guard enabled (guest or Auth0 token) |
+| `iss` / `aud` | Validated on IdP path only |
+| JWKS | Auth0 (or any OIDC issuer via env) + PEM fallback for guest |
 
 ---
 
@@ -32,7 +32,7 @@ Use the **same access token** for MCP and `/audit` (optional `audit:read` permis
 | `/audit` gated by Bearer JWT | Requires UI login before agent demo |
 | Replaces committed demo tokens on public deploy | Local dev needs Auth0 app or fallback |
 
-**Implementation:** [auth0-setup.md](auth0-setup.md) → code PRs in [NEXT-STEPS → Phase A](NEXT-STEPS.md#phase-a--identity--auth0-primary).
+**Implementation:** [auth0-setup.md](auth0-setup.md) → deploy env from [auth0-env.example](auth0-env.example).
 
 ### Path B — Shared audit secret (not pursuing)
 
@@ -66,7 +66,7 @@ Swap IdP = change env vars + issuer dashboard — **no change** to scope middlew
 
 ---
 
-## Target architecture (after 0.3 Phase A)
+## Target architecture (0.3.0)
 
 ```
 User → Auth0 login (PKCE) → access token (aud + scopes)
@@ -120,7 +120,7 @@ User opens UI ──────┤
 
 ---
 
-## Env vars (planned — see [auth0-env.example](auth0-env.example))
+## Env vars (see [auth0-env.example](auth0-env.example))
 
 | Where | Variable | Purpose |
 |-------|----------|---------|
@@ -131,20 +131,19 @@ User opens UI ──────┤
 | Flight | `MCP_JWT_AUDIENCE` | Expected `aud` |
 | Flight | `MCP_JWT_JWKS_URL` | JWKS URI (or derive from issuer `/.well-known/openid-configuration`) |
 
-When unset, flight keeps **PEM mode** (`MCP_GUARD_PUBLIC_KEY_PEM`) for backward compatibility during migration.
+When `MCP_JWT_*` unset, flight uses **PEM mode only** (guest demo / CI). Set all three JWKS vars on Vercel flight for Auth0 alongside `MCP_GUARD_PUBLIC_KEY_PEM`.
 
 ---
 
-## Code changes (checklist — not implemented yet)
+## Code (0.3.0 — shipped)
 
 | Area | Change |
 |------|--------|
-| `servers/flight/guard.py` | **Dual trust:** JWKS (Auth0) or PEM (guest); same scope check |
-| `gateway/guard.ts` | Same for client pre-check (PEM for guest, JWKS when configured) |
-| `ui/` | Auth0 login **+ guest mode** (demo-tokens dropdown); active Bearer for MCP + audit |
-| `ui/src/audit-view.ts` | Send Bearer on `/audit`; surface fetch errors |
-| `servers/flight/server.py` | `/audit` requires valid JWT |
-| CI | Keep PEM path for tests; optional Auth0 smoke manual |
+| `servers/flight/guard.py` | Dual trust: JWKS (Auth0) or PEM (guest); `validate_token()` |
+| `gateway/guard.ts` | Same for client pre-check |
+| `ui/src/auth.ts`, `main.ts` | Auth0 login + guest mode |
+| `ui/src/audit-view.ts` | Bearer on `/audit`; error banner |
+| `servers/flight/server.py` | `/audit` requires valid JWT when guard enabled |
 
 ---
 
@@ -162,6 +161,6 @@ No shorter expiry — guest JWTs remain committed for zero-friction try-it; IdP 
 
 ## Related
 
-- [auth0-setup.md](auth0-setup.md) — dashboard checklist before coding
+- [auth0-setup.md](auth0-setup.md) — dashboard checklist + deploy
 - [auth0-env.example](auth0-env.example) — copy to Vercel / local `.env`
 - [CONCEPT → Third-party / unowned MCP](CONCEPT.md#third-party--unowned-mcp) — proxy for MCP you don’t own (separate from identity)

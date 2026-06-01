@@ -13,6 +13,7 @@ from typing import Any
 
 import jwt
 import yaml
+from jwt import PyJWKClient
 
 logger = logging.getLogger("mcp-tool-guard")
 
@@ -35,6 +36,14 @@ class GuardResult:
 
 
 @dataclass
+class TokenValidation:
+    ok: bool
+    payload: dict[str, Any] | None = None
+    scopes: list[str] = field(default_factory=list)
+    reason: str | None = None
+
+
+@dataclass
 class AuditEntry:
     timestamp: str
     decision: str
@@ -49,12 +58,50 @@ class AuditEntry:
     trace_id: str | None = None
 
 
+@dataclass
+class JwtTrustConfig:
+    issuer: str | None = None
+    audience: str | None = None
+    jwks_url: str | None = None
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.issuer and self.audience and self.jwks_url)
+
+    @classmethod
+    def from_env(cls) -> JwtTrustConfig:
+        issuer = os.environ.get("MCP_JWT_ISSUER", "").strip() or None
+        audience = os.environ.get("MCP_JWT_AUDIENCE", "").strip() or None
+        jwks_url = os.environ.get("MCP_JWT_JWKS_URL", "").strip() or None
+        if issuer and not jwks_url:
+            jwks_url = issuer.rstrip("/") + "/.well-known/jwks.json"
+        return cls(issuer=issuer, audience=audience, jwks_url=jwks_url)
+
+
 class FlightToolGuard:
-    def __init__(self, tools: dict[str, ToolConfig], public_key_pem: str) -> None:
+    def __init__(
+        self,
+        tools: dict[str, ToolConfig],
+        public_key_pem: str,
+        jwt_trust: JwtTrustConfig | None = None,
+    ) -> None:
         self.tools = tools
         self.public_key_pem = public_key_pem
+        self.jwt_trust = jwt_trust or JwtTrustConfig.from_env()
         self.enabled = os.environ.get("MCP_GUARD_ENABLED", "true").lower() != "false"
         self._audit: list[AuditEntry] = []
+        self._jwks_client: PyJWKClient | None = None
+
+        if not self.enabled:
+            logger.warning(
+                "[MCPToolGuard] MCP_GUARD_ENABLED=false — JWT enforcement DISABLED. "
+                "tools/call and /audit are not protected. Do not use in production."
+            )
+        elif self.jwt_trust.enabled:
+            logger.info(
+                "[MCPToolGuard] Dual trust: JWKS (%s) + demo PEM",
+                self.jwt_trust.jwks_url,
+            )
 
     @classmethod
     def load(cls) -> FlightToolGuard:
@@ -87,6 +134,62 @@ class FlightToolGuard:
         resource = required.split(":", 1)[0]
         return f"{resource}:*" in token_scopes or "*" in token_scopes
 
+    @staticmethod
+    def extract_bearer(header_value: str | None) -> str | None:
+        if not header_value:
+            return None
+        if header_value.lower().startswith("bearer "):
+            token = header_value[7:].strip()
+            return token or None
+        return None
+
+    def _jwks(self) -> PyJWKClient:
+        if self._jwks_client is None:
+            if not self.jwt_trust.jwks_url:
+                raise RuntimeError("JWKS URL not configured")
+            self._jwks_client = PyJWKClient(self.jwt_trust.jwks_url)
+        return self._jwks_client
+
+    @staticmethod
+    def _normalize_issuer(issuer: str) -> str:
+        return issuer.rstrip("/") + "/"
+
+    def _iss_matches(self, token_iss: str | None) -> bool:
+        if not self.jwt_trust.issuer or not token_iss:
+            return False
+        return self._normalize_issuer(self.jwt_trust.issuer) == self._normalize_issuer(token_iss)
+
+    def validate_token(self, bearer_token: str | None) -> TokenValidation:
+        if not bearer_token:
+            return TokenValidation(ok=False, reason="Missing Authorization: Bearer token")
+
+        try:
+            unverified = jwt.decode(
+                bearer_token,
+                options={"verify_signature": False},
+                algorithms=["RS256"],
+            )
+            token_iss = unverified.get("iss")
+            if isinstance(token_iss, str) and self.jwt_trust.enabled and self._iss_matches(token_iss):
+                signing_key = self._jwks().get_signing_key_from_jwt(bearer_token)
+                payload = jwt.decode(
+                    bearer_token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    issuer=self._normalize_issuer(self.jwt_trust.issuer or ""),
+                    audience=self.jwt_trust.audience,
+                )
+            else:
+                payload = jwt.decode(
+                    bearer_token,
+                    self.public_key_pem,
+                    algorithms=["RS256"],
+                )
+            scopes = self.extract_scopes(payload)
+            return TokenValidation(ok=True, payload=payload, scopes=scopes)
+        except jwt.PyJWTError as exc:
+            return TokenValidation(ok=False, reason=f"JWT validation failed: {exc}")
+
     def _log(self, entry: AuditEntry, tool_cfg: ToolConfig | None) -> None:
         self._audit.append(entry)
         payload = {
@@ -117,7 +220,9 @@ class FlightToolGuard:
         tool_cfg = self.tools.get(tool)
         required = tool_cfg.required_scope if tool_cfg else "(unknown)"
 
-        if not bearer_token:
+        validation = self.validate_token(bearer_token)
+        if not validation.ok:
+            reason = validation.reason or "JWT validation failed"
             self._log(
                 AuditEntry(
                     timestamp=_now(),
@@ -126,47 +231,16 @@ class FlightToolGuard:
                     tool=tool,
                     required_scope=required,
                     token_scopes=[],
-                    reason="Missing Authorization: Bearer token",
+                    reason=reason,
                     duration_ms=_ms(start),
                     session_id=session_id,
                     trace_id=trace_id,
                 ),
                 tool_cfg,
             )
-            return GuardResult(
-                allowed=False,
-                required_scope=required,
-                reason="Missing Authorization: Bearer token",
-            )
+            return GuardResult(allowed=False, required_scope=required, reason=reason)
 
-        try:
-            payload = jwt.decode(
-                bearer_token,
-                self.public_key_pem,
-                algorithms=["RS256"],
-            )
-            scopes = self.extract_scopes(payload)
-        except jwt.PyJWTError as exc:
-            self._log(
-                AuditEntry(
-                    timestamp=_now(),
-                    decision="deny",
-                    server=SERVER_ID,
-                    tool=tool,
-                    required_scope=required,
-                    token_scopes=[],
-                    reason=f"JWT validation failed: {exc}",
-                    duration_ms=_ms(start),
-                    session_id=session_id,
-                    trace_id=trace_id,
-                ),
-                tool_cfg,
-            )
-            return GuardResult(
-                allowed=False,
-                required_scope=required,
-                reason=f"JWT validation failed: {exc}",
-            )
+        scopes = validation.scopes
 
         if not tool_cfg:
             reason = f"Tool '{tool}' not configured for server '{SERVER_ID}'"

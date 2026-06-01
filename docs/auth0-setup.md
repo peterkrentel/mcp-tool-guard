@@ -1,8 +1,8 @@
-# Auth0 setup (0.3 prep)
+# Auth0 setup (0.3)
 
-**Navigation:** [Identity overview](identity.md) · [Env template](auth0-env.example) · [Next steps → Phase A](NEXT-STEPS.md#phase-a--identity--auth0-primary)
+**Navigation:** [Identity overview](identity.md) · [Env template](auth0-env.example) · [Next steps](NEXT-STEPS.md)
 
-Step-by-step **Auth0 dashboard** configuration before implementing OIDC login in the UI and JWKS validation on the flight server. Keycloak uses the same env shape later — see [identity.md → Auth0 vs Keycloak](identity.md#auth0-vs-keycloak-same-gateway-different-issuer).
+Auth0 dashboard configuration for OIDC login in the UI and JWKS validation on the flight server. Code ships in **0.3.0** — set env and redeploy both Vercel projects after completing this checklist.
 
 ---
 
@@ -74,7 +74,7 @@ Assign via **User Management → Users → Permissions** or **Roles**.
 
 ---
 
-## 5. Verify token shape (before coding)
+## 5. Verify token shape (before deploy)
 
 Use Auth0 **Test** tab or a quick SPA login:
 

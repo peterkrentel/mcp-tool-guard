@@ -15,8 +15,13 @@
     <main>
       <section class="panel chat-panel">
         <div class="controls">
-          <label>
-            JWT scope
+          <div id="auth-controls" class="auth-controls" hidden>
+            <button id="auth-login" type="button">Sign in</button>
+            <button id="auth-logout" type="button" hidden>Sign out</button>
+            <span id="auth-status" class="auth-status"></span>
+          </div>
+          <label id="guest-token-label">
+            JWT scope (guest)
             <select id="token">
               <option value="read_only">Read only (flights:read)</option>
               <option value="booking">Booking (read + write)</option>

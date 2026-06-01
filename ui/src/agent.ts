@@ -27,6 +27,9 @@ export interface AgentOptions {
   mcpUrl: string;
   jwt: string;
   publicKeyPem: string;
+  jwtIssuer?: string;
+  jwtAudience?: string;
+  jwksUrl?: string;
   onLog?: (entry: AuditLogEntry) => void;
   onStatus?: (status: string) => void;
   onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
@@ -49,7 +52,13 @@ export class FlightAgent {
 
   constructor(private options: AgentOptions) {
     this.jwt = options.jwt;
-    this.guard = new ToolGuard({ config: GUARD_CONFIG, publicKey: options.publicKeyPem });
+    this.guard = new ToolGuard({
+      config: GUARD_CONFIG,
+      publicKey: options.publicKeyPem,
+      jwtIssuer: options.jwtIssuer,
+      jwtAudience: options.jwtAudience,
+      jwksUrl: options.jwksUrl,
+    });
     this.mcp = new McpHttpClient({ url: options.mcpUrl, bearerToken: options.jwt });
     this.onLog = options.onLog;
     this.onStatus = options.onStatus;

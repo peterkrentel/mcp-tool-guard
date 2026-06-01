@@ -4,9 +4,9 @@
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [CONCEPT.md](CONCEPT.md).
 
-**Current release:** [0.2.0](RELEASE.md#020-remote--server-auth) — remote deploy, server JWT guard, CORS to UI origin.
+**Current release:** [0.3.0 — Identity Phase A shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust; KV next.
 
-**Next release:** [0.3.0 — Identity, hardening & multi-server](#release-030--hardening--multi-server) — **Auth0 first**; see [auth0-setup.md](auth0-setup.md).
+**Next:** [0.3 Phase B](#release-030--hardening--multi-server) — Vercel KV for server audit.
 
 ## Product shape (summary)
 
@@ -32,22 +32,22 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 ## Release 0.3.0 — Identity, hardening & multi-server {#release-030--hardening--multi-server}
 
-**Primary track:** [Auth0 OIDC](auth0-setup.md) + JWKS + `iss`/`aud` — replaces toy audit secret and public `demo-tokens.json` on Vercel. **Enforcement core unchanged.**
+**Primary track:** [Auth0 OIDC](auth0-setup.md) + JWKS + `iss`/`aud` — **Phase A shipped** (guest demo retained).
 
-**Prep:** [identity.md](identity.md) (Path A vs B), [auth0-env.example](auth0-env.example).
+**Prep:** [identity.md](identity.md), [auth0-env.example](auth0-env.example).
 
-**Ship order:** [NEXT-STEPS → Phase A–B](NEXT-STEPS.md#phase-a--identity--auth0-primary).
+**Ship order:** [NEXT-STEPS → Phase B+](NEXT-STEPS.md#030--remaining-phase-b).
 
 ### High — identity & public deploy
 
 | # | Task | Notes | Priority |
 |---|------|--------|----------|
-| 1 | Auth0 login **+ guest demo** (demo-tokens.json) | Dual trust: JWKS + PEM; [identity → Guest](identity.md#guest-demo-existing-jwts--auth0) | **First** |
-| 2 | JWKS + `iss` / `aud` on flight + SDK | PEM fallback for local/CI | **First** |
-| 3 | `GET /audit` requires Bearer JWT | Same token; optional `audit:read` | **First** |
-| 4 | `MCP_GUARD_ENABLED=false` warning / fail-closed | Silent kill switch risk | With #1–#3 |
-| 5 | UI: server audit fetch errors visible | Not silent empty panel | With #1–#3 |
-| 6 | Durable server audit (Vercel KV / Redis) | Serverless instance split | After identity PR |
+| 1 | Auth0 login **+ guest demo** | Dual trust: JWKS + PEM | **Done** |
+| 2 | JWKS + `iss` / `aud` on flight + SDK | PEM fallback for guest/CI | **Done** |
+| 3 | `GET /audit` requires Bearer JWT | Same token as MCP | **Done** |
+| 4 | `MCP_GUARD_ENABLED=false` warning | Loud startup log | **Done** |
+| 5 | UI: server audit fetch errors visible | Error banner in audit panel | **Done** |
+| 6 | Durable server audit (Vercel KV / Redis) | Serverless instance split | **Next** |
 
 ### Medium — correctness & multi-server
 

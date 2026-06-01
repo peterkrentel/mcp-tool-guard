@@ -2,20 +2,37 @@ import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
 import { shortId } from "./trace.js";
 
+export type ServerAuditResult =
+  | { ok: true; entries: AuditLogEntry[] }
+  | { ok: false; error: string; status?: number };
+
 export async function fetchServerAudit(
   auditUrl: string,
+  bearerToken: string,
   sessionId?: string,
-): Promise<AuditLogEntry[]> {
+): Promise<ServerAuditResult> {
   try {
     const url = sessionId
       ? `${auditUrl}?session_id=${encodeURIComponent(sessionId)}`
       : auditUrl;
-    const res = await fetch(url);
-    if (!res.ok) return [];
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) detail = body.error;
+      } catch {
+        /* ignore */
+      }
+      return { ok: false, error: detail, status: res.status };
+    }
     const data = (await res.json()) as { entries?: AuditLogEntry[] };
-    return data.entries ?? [];
-  } catch {
-    return [];
+    return { ok: true, entries: data.entries ?? [] };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 }
 
@@ -125,13 +142,23 @@ function renderSection(
   </div>`;
 }
 
+function renderAuditError(error: string, status?: number): string {
+  const statusLabel = status ? ` (${status})` : "";
+  return `<div class="audit-fetch-error" role="alert">
+    <strong>Server audit unavailable${escapeHtml(statusLabel)}</strong>
+    <p>${escapeHtml(error)}</p>
+    <p class="audit-fetch-hint">Server enforcement requires a valid Bearer JWT on GET /audit. Sign in with Auth0 or use a guest demo token, then Initialize.</p>
+  </div>`;
+}
+
 export function renderAuditPanel(
   container: HTMLElement,
-  server: readonly AuditLogEntry[],
+  server: ServerAuditResult,
   client: readonly AuditLogEntry[],
   sessionId: string,
 ): void {
-  const serverFiltered = filterSession(server, sessionId);
+  const serverEntries = server.ok ? server.entries : [];
+  const serverFiltered = filterSession(serverEntries, sessionId);
   const clientFiltered = filterSession(client, sessionId);
   const mismatches = findMismatches(serverFiltered, clientFiltered);
 
@@ -139,8 +166,11 @@ export function renderAuditPanel(
     ? `<p class="audit-session-id">Session <code>${escapeHtml(shortId(sessionId))}</code></p>`
     : "";
 
+  const errorBanner = server.ok ? "" : renderAuditError(server.error, server.status);
+
   container.innerHTML =
     sessionLabel +
+    errorBanner +
     renderSection(
       "Server enforcement",
       "Authoritative security record — JWT verified and scopes enforced on every MCP tools/call",
@@ -148,7 +178,9 @@ export function renderAuditPanel(
       "server",
       mismatches,
       serverFiltered,
-      "No server entries this session. Rows appear after MCP receives tools/call. If the agent was blocked in the browser first, check Agent attempts — no server row is expected.",
+      server.ok
+        ? "No server entries this session. Rows appear after MCP receives tools/call. If the agent was blocked in the browser first, check Agent attempts — no server row is expected."
+        : "Could not load server audit — fix the error above and refresh.",
     ) +
     renderSection(
       "Agent attempts",

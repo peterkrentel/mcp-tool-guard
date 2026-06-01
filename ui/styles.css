@@ -73,6 +73,47 @@ main {
   color: var(--muted);
 }
 
+.auth-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-controls button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.auth-controls button:hover {
+  border-color: var(--accent);
+}
+
+.auth-status {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.audit-fetch-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--deny);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.audit-fetch-error strong {
+  color: var(--deny);
+}
+
+.audit-fetch-hint {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 select,
 input,
 button {

@@ -159,20 +159,34 @@ def track_flight_tool(flight_id: str) -> str:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(_request: Request) -> JSONResponse:
     guard = get_guard()
-    return JSONResponse(
-        {
-            "status": "healthy",
-            "service": "flight-mcp",
-            "guard_enabled": guard.enabled,
-        }
-    )
+    body: dict[str, Any] = {
+        "status": "healthy",
+        "service": "flight-mcp",
+        "guard_enabled": guard.enabled,
+        "jwt_trust_enabled": guard.jwt_trust.enabled,
+    }
+    if not guard.enabled:
+        body["warning"] = (
+            "MCP_GUARD_ENABLED=false — JWT enforcement disabled; not safe for production"
+        )
+    return JSONResponse(body)
 
 
 @mcp.custom_route("/audit", methods=["GET"])
 async def audit_log(request: Request) -> JSONResponse:
     """Recent server-side allow/deny entries (in-memory; resets on cold start)."""
+    guard = get_guard()
+    if guard.enabled:
+        bearer = FlightToolGuard.extract_bearer(request.headers.get("authorization"))
+        validation = guard.validate_token(bearer)
+        if not validation.ok:
+            return JSONResponse(
+                {"error": validation.reason or "Unauthorized"},
+                status_code=401,
+            )
+
     session_id = request.query_params.get("session_id")
-    return JSONResponse({"entries": get_guard().recent_audit(session_id=session_id)})
+    return JSONResponse({"entries": guard.recent_audit(session_id=session_id)})
 
 
 # CORS: demo UI + local Vite. Override with MCP_CORS_ORIGINS (comma-separated) or "*".
