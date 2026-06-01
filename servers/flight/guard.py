@@ -120,12 +120,23 @@ class FlightToolGuard:
 
     @staticmethod
     def extract_scopes(payload: dict[str, Any]) -> list[str]:
+        scopes: list[str] = []
         raw = payload.get("scope") or payload.get("scopes") or payload.get("scp")
-        if not raw:
-            return []
-        if isinstance(raw, list):
-            return [str(s) for s in raw]
-        return [s for s in str(raw).replace(",", " ").split() if s]
+        if raw:
+            if isinstance(raw, list):
+                scopes.extend(str(s) for s in raw)
+            else:
+                scopes.extend(s for s in str(raw).replace(",", " ").split() if s)
+        perms = payload.get("permissions")
+        if isinstance(perms, list):
+            scopes.extend(str(p) for p in perms)
+        seen: set[str] = set()
+        out: list[str] = []
+        for s in scopes:
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
 
     @staticmethod
     def has_scope(token_scopes: list[str], required: str) -> bool:

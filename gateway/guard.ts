@@ -82,10 +82,16 @@ export class ToolGuard {
   }
 
   extractScopes(payload: JwtPayload): string[] {
+    const scopes: string[] = [];
     const raw = payload.scope ?? payload.scopes ?? payload.scp;
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw.map(String);
-    return String(raw).split(/[\s,]+/).filter(Boolean);
+    if (raw) {
+      if (Array.isArray(raw)) scopes.push(...raw.map(String));
+      else scopes.push(...String(raw).split(/[\s,]+/).filter(Boolean));
+    }
+    if (Array.isArray(payload.permissions)) {
+      scopes.push(...payload.permissions.map(String));
+    }
+    return [...new Set(scopes)];
   }
 
   hasScope(tokenScopes: string[], required: string): boolean {

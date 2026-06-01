@@ -3,6 +3,8 @@ keys/
 node_modules/
 dist/
 .env
+.env.local
+ui/.env.local
 *.pem
 !ui/public/demo-public.pem
 __pycache__/

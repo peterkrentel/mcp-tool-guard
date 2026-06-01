@@ -21,7 +21,7 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
-| [docs/auth0-setup.md](docs/auth0-setup.md) | **Auth0 prep** — dashboard checklist (before 0.3 code) |
+| [auth0-setup.md](docs/auth0-setup.md) | **Auth0** — full walkthrough + troubleshooting ([screenshots](docs/images/auth0/README.md)) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.3 Auth0 + hardening](docs/ROADMAP.md#release-030--hardening--multi-server) |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **What to build next** — Phase A–D |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped (`0.2.0`) and [Unreleased](CHANGELOG.md#unreleased) |

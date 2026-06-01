@@ -47,6 +47,9 @@ export interface JwtPayload {
   exp?: number;
   scope?: string;
   scopes?: string | string[];
+  scp?: string | string[];
+  /** Auth0 RBAC — API permissions when "Add Permissions in the Access Token" is enabled. */
+  permissions?: string[];
   [key: string]: unknown;
 }
 
