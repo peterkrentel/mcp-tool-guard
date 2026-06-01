@@ -1,46 +1,27 @@
-# Immediate next step — 0.3.0 deploy
+# Immediate next step
 
-Phase A code is on `main`: Auth0 login + guest demo, dual JWT trust, `/audit` Bearer auth.
+Follow the full walkthrough: **[docs/auth0-setup.md](docs/auth0-setup.md)** (dashboard → local → Vercel → token verify).
 
-## 1. Auth0 dashboard
+## Quick checklist
 
-Finish [docs/auth0-setup.md](docs/auth0-setup.md):
+### Local (do first)
 
-- API `https://mcp-tool-guard` with `flights:read`, `flights:write`, `flights:delete`
-- SPA callbacks: `https://mcp-tool-guard-ui.vercel.app`, `http://localhost:5173`
-- API Access → enable user-delegated permissions for the SPA
+1. [auth0-setup.md → Part 1](docs/auth0-setup.md#part-1--auth0-dashboard) — API, RBAC, SPA, user permissions
+2. `ui/.env.local` from [auth0-env.example](docs/auth0-env.example)
+3. `export MCP_JWT_ISSUER=…` + `export MCP_JWT_AUDIENCE=…` → `make flight`
+4. `make ui` → Sign in → Initialize → smoke test
+5. Merge [permissions claim PR](https://github.com/peterkrentel/mcp-tool-guard/pull/new/fix/auth0-permissions-claim) if not on `main` yet
 
-## 2. Vercel env — flight project
+### Vercel (after local works)
 
-| Variable | Value |
-|----------|--------|
-| `MCP_GUARD_PUBLIC_KEY_PEM` | (keep — guest demo) |
-| `MCP_JWT_ISSUER` | `https://YOUR_TENANT.us.auth0.com/` |
-| `MCP_JWT_AUDIENCE` | `https://mcp-tool-guard` |
+1. Flight env: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` — [vercel-deploy.md](docs/vercel-deploy.md)
+2. UI env: `VITE_MCP_URL` + `VITE_AUTH0_*` → redeploy (rebuild)
+3. Tag `v0.3.0` when happy — [RELEASE.md](docs/RELEASE.md)
 
-Redeploy flight.
+### Screenshots for docs
 
-## 3. Vercel env — UI project
+Capture PNGs listed in [docs/images/auth0/README.md](docs/images/auth0/README.md) and commit to `docs/images/auth0/` so [auth0-setup.md](docs/auth0-setup.md) renders them on GitHub.
 
-| Variable | Value |
-|----------|--------|
-| `VITE_MCP_URL` | `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
-| `VITE_AUTH0_DOMAIN` | your tenant |
-| `VITE_AUTH0_CLIENT_ID` | SPA client id |
-| `VITE_AUTH0_AUDIENCE` | `https://mcp-tool-guard` |
+### Next backlog
 
-Redeploy UI (rebuild required).
-
-## 4. Smoke test
-
-- Guest: scope dropdown → Initialize → search → cancel (deny)
-- Auth0: Sign in → Initialize → same flows with IdP token
-- Server audit panel loads (no red error banner)
-
-## 5. Tag
-
-When happy: `git tag v0.3.0` on `main` per [docs/RELEASE.md](docs/RELEASE.md).
-
-## Next backlog
-
-Phase B: Vercel KV for durable server audit — [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
+Phase B: Vercel KV for durable server audit — [NEXT-STEPS.md](docs/NEXT-STEPS.md).
