@@ -77,13 +77,14 @@ async function refreshAuditPanel(): Promise<void> {
       logEl,
       { ok: false, error: "No Bearer token — sign in or pick a guest scope, then Initialize" },
       client,
+      agent?.getAgentTraces() ?? [],
       sessionId,
     );
     return;
   }
 
   const server = await fetchServerAudit(auditUrl, bearer, sessionId || undefined);
-  renderAuditPanel(logEl, server, client, sessionId);
+  renderAuditPanel(logEl, server, client, agent?.getAgentTraces() ?? [], sessionId);
 }
 
 async function loadDemoAssets(): Promise<void> {
@@ -108,6 +109,9 @@ function buildAgent(jwt: string): FlightAgent {
       void refreshAuditPanel();
     },
     onMessage: (role, content) => appendMessage(role, content),
+    onTrace: () => {
+      void refreshAuditPanel();
+    },
   });
 }
 

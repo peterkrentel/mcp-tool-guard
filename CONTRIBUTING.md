@@ -38,7 +38,8 @@ make ui             # terminal 2 — smoke test UI + MCP
 |-----|---------|
 | [README.md](README.md) | Quick start, live demo links |
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy guide |
-| [docs/CONCEPT.md](docs/CONCEPT.md) | Design — architecture, JWT, audit model, limitations |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture — diagrams, components, observability planes |
+| [docs/CONCEPT.md](docs/CONCEPT.md) | Design — rationale, JWT, audit trust model, limitations |
 | [docs/identity.md](docs/identity.md) | IdP — Auth0 vs Keycloak, Path A vs audit secret |
 | [docs/auth0-setup.md](docs/auth0-setup.md) | Auth0 tenant setup + Vercel env |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned releases and tiers |

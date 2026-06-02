@@ -35,7 +35,8 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 |-----|----------------|
 | **README** (here) | Quick start, live demo links |
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
-| [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — architecture, dual audit, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
+| [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
 | [auth0-setup.md](docs/auth0-setup.md) | **Auth0** — full walkthrough + troubleshooting ([screenshots](docs/images/auth0/README.md)) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.3 Auth0 + hardening](docs/ROADMAP.md#release-030--hardening--multi-server) |
@@ -83,7 +84,7 @@ npm run dev -w ui                                     # terminal 2
 | `ToolGuard` SDK (TypeScript) | `gateway/` |
 | Demo UI (Vite, WebLLM) | `ui/` |
 
-Architecture and audit model: **[docs/CONCEPT.md](docs/CONCEPT.md)**.
+Architecture diagrams: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. Design and audit trust model: **[docs/CONCEPT.md](docs/CONCEPT.md)**.
 
 ## Repo structure
 

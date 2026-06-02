@@ -2,6 +2,8 @@ import { CreateMLCEngine, type MLCEngineInterface } from "@mlc-ai/web-llm";
 import { ToolGuard } from "@mcp-tool-guard/gateway";
 import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 
+import { TurnRecorder } from "./agent-trace.js";
+import type { AgentTraceEntry } from "./agent-trace.js";
 import { GUARD_CONFIG, TOOL_DESCRIPTIONS } from "./guard-config.js";
 import { McpHttpClient } from "./mcp-client.js";
 import { newSessionId, newTraceId } from "./trace.js";
@@ -31,6 +33,7 @@ export interface AgentOptions {
   jwtAudience?: string;
   jwksUrl?: string;
   onLog?: (entry: AuditLogEntry) => void;
+  onTrace?: (entries: readonly AgentTraceEntry[]) => void;
   onStatus?: (status: string) => void;
   onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
 }
@@ -46,7 +49,9 @@ export class FlightAgent {
   private pending: PendingToolCall | null = null;
   private session: SessionContext = { lastBookingId: null, lastFlightId: null };
   private sessionId = "";
+  private traces: AgentTraceEntry[] = [];
   private onLog?: (entry: AuditLogEntry) => void;
+  private onTrace?: (entries: readonly AgentTraceEntry[]) => void;
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
 
@@ -61,6 +66,7 @@ export class FlightAgent {
     });
     this.mcp = new McpHttpClient({ url: options.mcpUrl, bearerToken: options.jwt });
     this.onLog = options.onLog;
+    this.onTrace = options.onTrace;
     this.onStatus = options.onStatus;
     this.onMessage = options.onMessage;
     this.guard.logger.addSink((entry: AuditLogEntry) => this.onLog?.(entry));
@@ -73,6 +79,8 @@ export class FlightAgent {
 
   async init(): Promise<void> {
     this.sessionId = newSessionId();
+    this.traces = [];
+    this.onTrace?.(this.traces);
     this.guard.logger.clear();
     this.onStatus?.("Loading WebLLM model (this may take a minute)...");
     await this.guard.init();
@@ -132,40 +140,62 @@ If required information is missing, respond with plain text asking the user (do 
     return text;
   }
 
+  private beginTurn(userMessage: string): TurnRecorder {
+    return new TurnRecorder(newTraceId(), this.sessionId, userMessage);
+  }
+
+  private finishTurn(turn: TurnRecorder): void {
+    this.traces.push(turn.build());
+    this.onTrace?.(this.traces);
+  }
+
   getSessionId(): string {
     return this.sessionId;
+  }
+
+  getAgentTraces(): readonly AgentTraceEntry[] {
+    return this.traces;
   }
 
   private async executeTool(
     tool: string,
     args: Record<string, unknown>,
     summary: string,
+    turn: TurnRecorder,
   ): Promise<string> {
     this.onStatus?.(`Calling ${summary}`);
-    const traceId = newTraceId();
+    turn.setIntent(tool, args);
     const audit = {
       session_id: this.sessionId,
-      trace_id: traceId,
+      trace_id: turn.trace_id,
     };
     const auth = await this.guard.authorize("flight", tool, this.jwt, audit);
 
     if (!auth.allowed) {
       auth.entry.reached_server = false;
+      turn.setGuard("deny", auth.required_scope, auth.reason);
+      this.finishTurn(turn);
       return this.replyAssistant(`Blocked before MCP: ${auth.reason}`);
     }
+
+    turn.setGuard("allow", auth.required_scope);
 
     let toolResult: string;
     try {
       toolResult = await this.mcp.callTool(tool, args, {
         session_id: this.sessionId,
-        trace_id: traceId,
+        trace_id: turn.trace_id,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/403|access denied|jwt|missing authorization/i.test(message)) {
+        turn.setOutcome(`server_denied: ${message}`);
+        this.finishTurn(turn);
         return this.replyAssistant(`Access denied (server): ${message}`);
       }
-      toolResult = `Tool error: ${message}`;
+      turn.setOutcome(`tool_error: ${message}`);
+      this.finishTurn(turn);
+      return this.replyAssistant(`Tool error: ${message}`);
     }
 
     if (tool === "create_booking_tool") {
@@ -173,6 +203,9 @@ If required information is missing, respond with plain text asking the user (do 
       if (ids.bookingId) this.session.lastBookingId = ids.bookingId;
       if (ids.flightId) this.session.lastFlightId = ids.flightId;
     }
+
+    turn.setOutcome("tool_ok");
+    this.finishTurn(turn);
 
     const display =
       tool === "cancel_booking_tool" ? formatCancelToolResult(toolResult) : toolResult;
@@ -183,7 +216,10 @@ If required information is missing, respond with plain text asking the user (do 
   private async resolveIntent(
     userMessage: string,
     intent: ToolCallIntent,
+    turn: TurnRecorder,
   ): Promise<string | null> {
+    turn.setIntent(intent.tool, intent.arguments ?? {});
+
     const prepared = prepareToolCall(
       intent.tool,
       userMessage,
@@ -194,21 +230,28 @@ If required information is missing, respond with plain text asking the user (do 
 
     if (!prepared.ok) {
       this.pending = prepared.pending;
+      turn.setOutcome("prepare_blocked");
+      this.finishTurn(turn);
       return this.replyAssistant(prepared.message);
     }
 
     this.pending = null;
-    return this.executeTool(prepared.tool, prepared.arguments, prepared.summary);
+    return this.executeTool(prepared.tool, prepared.arguments, prepared.summary, turn);
   }
 
   async chat(userMessage: string): Promise<string> {
     if (!this.engine) throw new Error("Agent not initialized");
+
+    const turn = this.beginTurn(userMessage);
 
     this.onMessage?.("user", userMessage);
     this.messages.push({ role: "user", content: userMessage });
 
     if (isHelpQuestion(userMessage)) {
       this.pending = null;
+      turn.setRoute("help");
+      turn.setOutcome("help_text");
+      this.finishTurn(turn);
       return this.replyAssistant(formatHelpText());
     }
 
@@ -219,11 +262,13 @@ If required information is missing, respond with plain text asking the user (do 
     }
 
     if (heuristic) {
-      const result = await this.resolveIntent(userMessage, heuristic);
+      turn.setRoute("heuristic");
+      const result = await this.resolveIntent(userMessage, heuristic, turn);
       if (result) return result;
     }
 
     if (this.pending) {
+      turn.setRoute("pending");
       if (canContinuePending(this.pending, userMessage, this.session)) {
         const prepared = prepareToolCall(
           this.pending.tool,
@@ -234,13 +279,17 @@ If required information is missing, respond with plain text asking the user (do 
         );
         if (!prepared.ok) {
           this.pending = prepared.pending;
+          turn.setOutcome("prepare_blocked");
+          this.finishTurn(turn);
           return this.replyAssistant(prepared.message);
         }
         this.pending = null;
-        return this.executeTool(prepared.tool, prepared.arguments, prepared.summary);
+        return this.executeTool(prepared.tool, prepared.arguments, prepared.summary, turn);
       }
       this.pending = null;
     }
+
+    turn.setRoute("llm");
 
     const response = await this.engine.chat.completions.create({
       messages: [
@@ -256,17 +305,22 @@ If required information is missing, respond with plain text asking the user (do 
 
     const assistantText =
       response.choices[0]?.message?.content?.toString() ?? "No response";
+    turn.setLlmRaw(assistantText);
     const intent = this.parseToolIntent(assistantText);
 
     if (!intent) {
       const intercepted = interceptNonToolReply(userMessage, assistantText);
+      turn.setOutcome(intercepted ? "intercepted_hallucination" : "plain_reply");
+      this.finishTurn(turn);
       return this.replyAssistant(intercepted ?? assistantText);
     }
 
-    const result = await this.resolveIntent(userMessage, intent);
+    const result = await this.resolveIntent(userMessage, intent, turn);
     if (result) return result;
 
     const intercepted = interceptNonToolReply(userMessage, assistantText);
+    turn.setOutcome(intercepted ? "intercepted_hallucination" : "plain_reply");
+    this.finishTurn(turn);
     return this.replyAssistant(intercepted ?? assistantText);
   }
 

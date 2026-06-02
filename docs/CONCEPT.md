@@ -1,6 +1,6 @@
 # MCPToolGuard — Concept
 
-**Navigation:** [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Architecture](ARCHITECTURE.md) · [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
 
 Design reference for the repo. Task checklists and release status live in [ROADMAP.md](ROADMAP.md) only.
 
@@ -20,28 +20,34 @@ MCPToolGuard validates **JWT scopes** against per-tool policy on MCP `tools/call
 
 ## Architecture
 
+**Diagrams and component map:** [ARCHITECTURE.md](ARCHITECTURE.md) (system context, sequence per turn, policy, IdP, today vs proxy).
+
 ```
 Browser tab (Vite + WebLLM)
 ├── WebLLM              ← local LLM (not the MCP caller)
 ├── Agent loop          ← ui/src/agent.ts
+├── Agent trace         ← ui/src/agent-trace.ts — routing + model preview per turn
 ├── ToolGuard (SDK)     ← gateway/guard.ts — pre-check + agent-attempt log
-└── MCP HTTP client     ← ui/src/mcp-client.ts (Bearer JWT)
+└── MCP HTTP client     ← ui/src/mcp-client.ts (Bearer JWT, X-Trace-Id)
          │
          │  HTTP / HTTPS
          ▼
-Flight MCP server       ← servers/flight/ — guard middleware on tools/call
+Flight MCP server       ← servers/flight/ — guard middleware on tools/call (demo embedded guard)
 ```
 
 The **MCP caller** is `mcp-client.ts`, not WebLLM. WebLLM proposes tool JSON; the agent runs `ToolGuard.authorize`, then `tools/call` when allowed.
 
-### Two audit planes (demo UI)
+### Three audit planes (demo UI)
 
-| Plane | Question | Trust |
-|-------|----------|-------|
-| **Agent attempts** (client `ToolGuard` log) | What did the agent try? Blocked before network? | Observability / debugging only |
-| **Server enforcement** (`GET /audit`) | What reached MCP? JWT valid? Allow/deny? | **Authoritative** security record |
+Full diagrams: [ARCHITECTURE.md](ARCHITECTURE.md#three-observability-planes-demo-ui).
 
-Correlate with `trace_id` when both exist. **No server row after a client deny is expected** — the attempt still appears under Agent attempts.
+| Plane | Source | Question | Trust |
+|-------|--------|----------|-------|
+| **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? Model preview? Outcome before/after guard? | Debug only |
+| **Agent attempts** | `ToolGuard` in browser | Which tool and scopes? Client pre-check allow/deny? | Debug only |
+| **Server enforcement** | `GET /audit` on flight | What reached MCP? JWT valid? Final allow/deny? | **Authoritative** |
+
+Correlate with `trace_id` across all three (click a trace id in the audit panel). **No server row after a client deny is expected** — the attempt still appears under Agent trace and Agent attempts.
 
 For compliance and production dashboards, use **server** guard JSON (Tier 2 → Grafana/Loki), not the browser log.
 
@@ -54,6 +60,7 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 | Question | Signal type | How |
 |----------|-------------|-----|
 | Which tool did the agent try? | Logs / events | Client agent-attempt audit |
+| How was the turn routed (heuristic vs LLM)? | Logs / events | Agent trace panel (demo UI) |
 | Did it reach MCP? Allow or deny? | Logs / events | Server guard audit (`GET /audit`) |
 | Same attempt on client and server? | Trace (lightweight) | `trace_id`, `session_id` headers |
 | Was the JWT valid? Which scopes? | Logs / events | Server audit fields (`token_scopes`, `required_scope`) |
@@ -64,14 +71,13 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 
 - Structured allow/deny per `tools/call`
 - Correlation IDs across client SDK → MCP → server
-- Dual audit planes in the demo UI (teaching aid)
+- Three audit sections in the demo UI (agent trace, agent attempts, server — teaching aid)
 
 **Out of scope (0.x demo)**
 
-- WebLLM / chat “thought” tracing
-- Token or latency metrics in the browser
+- Full LLM platform observability (token/latency dashboards, prompt registry)
 - Full OpenTelemetry span trees for every model hop
-- Replacing Grafana/Datadog with a custom React dashboard
+- Replacing Grafana/Datadog with a custom production dashboard
 
 **Production path ([ROADMAP](ROADMAP.md) Tier 2)**
 
