@@ -11,3 +11,10 @@ alwaysApply: true
 - When implementing roadmap items, reference ROADMAP task numbers in the PR and check boxes when done.
 - Before suggesting a release tag, ensure the current milestone in ROADMAP is complete, version bumped in `package.json`, and CHANGELOG section dated.
 - Do not push to remote or create PRs unless the user explicitly asks.
+
+## Git only — never `gh`
+
+- **Do not run `gh`** (GitHub CLI) for any task: PRs, issues, checks, releases, or API queries.
+- Use **git** for branch, commit, and push. Give the user a **compare URL** or ask them to open the PR in the GitHub UI.
+- Example after push: `https://github.com/<owner>/<repo>/compare/main...<branch>`
+- Provide PR title and body in chat when helpful; the user creates the PR in the browser.
