@@ -35,6 +35,10 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] Read-only Auth0 scope demo on prod (`demo-read@…` — search ALLOW, book client DENY)
 - [x] Demo screenshots: [prod-scope-deny-read-only](images/demo/prod-scope-deny-read-only.png), [read-only jwt.io](images/demo/auth0-access-token-read-only-jwtio.png)
 
+### On `main` ([Unreleased](../CHANGELOG.md#unreleased))
+
+- [x] **#8** UI policy from `gateway/config.yaml`; `check:demo-policy` for demo flight embedded guard
+
 ---
 
 ## Implementation backlog (post-0.3.0) {#implementation-backlog-post-030}
@@ -43,7 +47,6 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | # | Task | Touch | Acceptance |
 |---|------|-------|------------|
-| **8** | **Single policy source + CI drift** | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`, CI script | Drift fails CI |
 | 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
 | 10 | Second mock MCP (`servers/notes/`) | New server + UI routing | Two servers in demo |
@@ -67,7 +70,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 |-------|--------|
 | WebLLM (1B) | May still mis-route; heuristics shipped (#11) — prefer explicit `book FL505 for …` / `Cancel booking BK-…` |
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
-| Policy in three files | Until #8 |
+| Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only until proxy #12 |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
 
 ---

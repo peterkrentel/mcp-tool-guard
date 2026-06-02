@@ -8,7 +8,7 @@ Prior: [CHANGELOG 0.3.0](CHANGELOG.md#030---2026-06-02) — Auth0 + guest dual t
 
 See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)** (ROADMAP #7–10, #12).
 
-**Suggested first PR:** Single policy source + CI drift (**#8**).
+**Suggested first PR:** Max request body (**#7**) or multi-server UI (**#9**). Policy **#8** done — UI reads `gateway/config.yaml`.
 
 ## Reference
 

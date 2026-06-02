@@ -1,4 +1,6 @@
-# MCPToolGuard — per-tool JWT scope enforcement
+# MCPToolGuard — canonical guard / proxy policy (single source of truth).
+# UI client pre-check and future guard proxy (#12) read this file.
+# servers/flight/guard_config.yaml is demo-only (embedded guard on flight MCP until proxy).
 servers:
   flight:
     url: http://localhost:8000/mcp

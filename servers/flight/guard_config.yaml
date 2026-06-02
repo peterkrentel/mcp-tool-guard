@@ -1,4 +1,6 @@
-# Flight MCP tool scopes — mirrors gateway/config.yaml → servers.flight.tools
+# DEMO ONLY — embedded guard on the flight MCP server (Vercel demo without proxy #12).
+# Canonical policy: gateway/config.yaml → servers.flight.tools
+# Keep tools/scopes aligned with that slice until flight drops embedded enforcement.
 server: flight
 tools:
   search_flights_tool:

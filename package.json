@@ -7,7 +7,8 @@
     "build": "npm run build --workspaces --if-present",
     "dev:ui": "npm run dev -w ui",
     "generate-keys": "node scripts/generate-keys.mjs",
-    "typecheck": "npm run build -w @mcp-tool-guard/gateway && npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run build -w @mcp-tool-guard/gateway && npm run typecheck --workspaces --if-present",
+    "check:demo-policy": "node scripts/check-demo-policy-align.mjs"
   },
   "devDependencies": {
     "jose": "^6.0.11"

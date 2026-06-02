@@ -12,7 +12,8 @@
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.11.0",
     "@mcp-tool-guard/gateway": "*",
-    "@mlc-ai/web-llm": "^0.2.79"
+    "@mlc-ai/web-llm": "^0.2.79",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

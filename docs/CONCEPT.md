@@ -81,15 +81,15 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 
 ## Policy configuration
 
-Keep these aligned (same tool names and `required_scope` values):
+**Canonical:** [`gateway/config.yaml`](../gateway/config.yaml) — per-server `url` + `tools` → `required_scope` (guard / proxy; vendor MCP never reads this file).
 
 | File | Used by |
 |------|---------|
-| `servers/flight/guard_config.yaml` | Python server guard |
-| `gateway/config.yaml` | SDK / tests |
-| `ui/src/guard-config.ts` | Browser demo agent |
+| `gateway/config.yaml` | Client `ToolGuard` (UI imports at build), future **guard proxy** (#12) |
+| `servers/flight/guard_config.yaml` | **Demo only** — embedded guard on flight MCP until proxy; must match `servers.flight` in gateway yaml (CI: `npm run check:demo-policy`) |
+| `ui/src/guard-config.ts` | Imports gateway yaml + demo `TOOL_DESCRIPTIONS` (LLM hints, not policy) |
 
-Example (flight tools):
+Example (flight tools in gateway config):
 
 ```yaml
 tools:
@@ -120,7 +120,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | Guard | Server enforces every `tools/call`; client pre-check is UX + intent audit only when MCP is public |
 | Server audit | In-memory (`GET /audit`); resets on cold start; **unauthenticated** on public deploy; intermittent on Vercel serverless (see [NEXT-STEPS](NEXT-STEPS.md)) |
 | CORS | Defaults to demo UI + local Vite; not `*` on flight server (0.2.0+) |
-| Policy | Three files must stay aligned (`guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`) |
+| Policy | One canonical yaml; flight `guard_config.yaml` is temporary demo scaffolding |
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
 | Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
