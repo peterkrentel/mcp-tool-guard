@@ -33,9 +33,20 @@ export interface PendingToolCall {
 
 const IATA = /\b([A-Z]{3})\b/g;
 const ISO_DATE = /\b(\d{4}-\d{2}-\d{2})\b/;
-const FLIGHT_ID = /\b(FL\d+)\b/i;
+/** Matches FL101 and "FL 505" (space optional). */
+const FLIGHT_ID_LOOSE = /\bFL\s*(\d+)\b/i;
 const BOOKING_ID = /\b(BK-[A-Z0-9]+)\b/i;
 const EMAIL = /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/;
+
+/** Normalize flight id from user text (FL 505 → FL505). */
+export function extractFlightIdFromUser(message: string): string | undefined {
+  const m = message.match(FLIGHT_ID_LOOSE);
+  return m ? `FL${m[1]}` : undefined;
+}
+
+export function messageHasFlightId(message: string): boolean {
+  return FLIGHT_ID_LOOSE.test(message);
+}
 
 export function extractIataCodes(message: string): string[] {
   const upper = message.toUpperCase();
@@ -55,7 +66,7 @@ export function extractUserDate(message: string): string | undefined {
 export function extractPassengerName(message: string): string | undefined {
   const forMatch = message.match(/\bfor\s+([^,]+?)(?:,|\s+\S+@)/i);
   if (forMatch) return forMatch[1].trim();
-  const bookMatch = message.match(/\bbook\b\s+FL\d+\s+(.+?),\s*[\w.+-]+@/i);
+  const bookMatch = message.match(/\bbook\b\s+FL\s*\d+\s+(.+?),\s*[\w.+-]+@/i);
   if (bookMatch) return bookMatch[1].trim();
   return undefined;
 }
@@ -92,7 +103,7 @@ export function shouldSupersedePending(
 
   if (pending.missing.some((m) => m.includes("booking_id"))) {
     if (extractBookingIdFromUser(userMessage)) return false;
-    if (/\bbook\b/.test(lower) && FLIGHT_ID.test(userMessage)) return true;
+    if (/\bbook\b/.test(lower) && messageHasFlightId(userMessage)) return true;
     if (/\b(search|find|list|show)\b/.test(lower)) return true;
     if (/\bflight\b/.test(lower) && extractIataCodes(userMessage).length >= 2) return true;
   }
@@ -102,7 +113,7 @@ export function shouldSupersedePending(
       const codes = extractIataCodes(userMessage);
       if (codes.length >= 2) return true;
     }
-    if (pending.tool === "create_booking_tool" && FLIGHT_ID.test(userMessage)) {
+    if (pending.tool === "create_booking_tool" && messageHasFlightId(userMessage)) {
       return true;
     }
   }
@@ -126,7 +137,7 @@ export function canContinuePending(
       return extractIataCodes(userMessage).length > 0;
     }
     if (field.includes("flight_id")) {
-      return FLIGHT_ID.test(userMessage);
+      return messageHasFlightId(userMessage);
     }
     if (field.includes("passenger_name") || field.includes("passenger_email")) {
       return EMAIL.test(userMessage) || extractPassengerName(userMessage) !== undefined;
@@ -203,6 +214,23 @@ function isCancelDeleteIntent(message: string): boolean {
   return /\b(cancel|void|delete|remove)\b/.test(lower);
 }
 
+function wantsListAllFlights(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  if (/^search\s*(all\s+)?flights?\.?$/i.test(lower)) return true;
+  if (/^(list|show)\s+(all\s+)?flights?\.?$/i.test(lower)) return true;
+  if (lower === "search" || lower === "search flights") return true;
+  return false;
+}
+
+function looksLikeInventedBookingJson(text: string): boolean {
+  return (
+    /\b"booking_id"\s*:/.test(text) ||
+    /\b"flight_details"\s*:/.test(text) ||
+    (/\b"success"\s*:/.test(text) && /\b"booking_id"\b/.test(text)) ||
+    /\bBK-FL\d+/i.test(text)
+  );
+}
+
 /** Replace raw LLM JSON that was not a real MCP tool call. */
 export function interceptNonToolReply(userMessage: string, assistantText: string): string | null {
   const trimmed = assistantText.trim();
@@ -213,6 +241,15 @@ export function interceptNonToolReply(userMessage: string, assistantText: string
     /\b"count"\s*:/.test(trimmed) ||
     /\b"flights"\s*:/.test(trimmed) ||
     /^\s*\{\s*"count"/.test(trimmed);
+
+  if (looksLikeInventedBookingJson(trimmed)) {
+    const bookHint = /\bbook\b/i.test(lower)
+      ? '\n\nUse: "Book FL505 for Your Name, you@example.com" and wait for a line starting with `Tool create_booking_tool result:`. Real booking IDs look like BK-A1B2C3D4 (random hex), not BK-FL505.'
+      : "";
+    return (
+      "That response was not from the MCP server — the model invented JSON." + bookHint
+    );
+  }
 
   if (looksLikeSearchJson || (/\bdelete\b/.test(lower) && /\bflight\b/.test(lower))) {
     const bookFirst = !lower.includes("bk-")
@@ -244,7 +281,7 @@ function wantsCancelLastBooking(userMessage: string): boolean {
       /\b(cancel|delete)\s+(it|that|the\s+booking)\b/.test(lower) ||
       (/\b(cancel|delete)\b/.test(lower) &&
         !extractBookingIdFromUser(userMessage) &&
-        !FLIGHT_ID.test(userMessage) &&
+        !messageHasFlightId(userMessage) &&
         /\bbooking\b/.test(lower)))
   );
 }
@@ -318,7 +355,7 @@ function sanitizeCancelBookingArgs(
       ? `\n\nYour last booking: ${session.lastBookingId}\nExample: "Cancel booking ${session.lastBookingId}"`
       : '\n\nExample: "Cancel booking BK-XXXXXXXX" (from your booking confirmation)';
     const flightHint =
-      FLIGHT_ID.test(userMessage) && !fromUser
+      FLIGHT_ID_LOOSE.test(userMessage) && !fromUser
         ? "\n\nNote: FL101 is a flight ID, not a booking ID."
         : "";
     return {
@@ -370,6 +407,10 @@ export function tryHeuristicIntent(
     return { tool: "cancel_booking_tool", arguments: bk ? { booking_id: bk } : {} };
   }
 
+  if (wantsListAllFlights(userMessage)) {
+    return { tool: "search_flights_tool", arguments: {} };
+  }
+
   if (/\b(search|find|list|show)\b.*\bflight/.test(lower) || /\bflight/.test(lower)) {
     const codes = extractIataCodes(userMessage);
     if (codes.length >= 2) {
@@ -385,7 +426,7 @@ export function tryHeuristicIntent(
 
   if (/\bbook\b/.test(lower)) {
     const codes = extractIataCodes(userMessage);
-    if (codes.length >= 2 && !FLIGHT_ID.test(userMessage)) {
+    if (codes.length >= 2 && !messageHasFlightId(userMessage)) {
       return {
         tool: "search_flights_tool",
         arguments: { origin: codes[0], destination: codes[1] },
@@ -393,8 +434,8 @@ export function tryHeuristicIntent(
     }
   }
 
-  if (/\bbook\b/.test(lower) && FLIGHT_ID.test(userMessage)) {
-    const flightId = userMessage.match(FLIGHT_ID)?.[1]?.toUpperCase();
+  if (/\bbook\b/.test(lower) && messageHasFlightId(userMessage)) {
+    const flightId = extractFlightIdFromUser(userMessage);
     const email = userMessage.match(EMAIL)?.[1];
     const name = extractPassengerName(userMessage);
     const args: Record<string, unknown> = {};
@@ -406,17 +447,19 @@ export function tryHeuristicIntent(
     }
   }
 
-  if (/\b(track|status)\b/.test(lower) && FLIGHT_ID.test(userMessage)) {
+  if (/\b(track|status)\b/.test(lower) && messageHasFlightId(userMessage)) {
+    const flightId = extractFlightIdFromUser(userMessage);
     return {
       tool: "track_flight_tool",
-      arguments: { flight_id: userMessage.match(FLIGHT_ID)?.[1]?.toUpperCase() },
+      arguments: { flight_id: flightId },
     };
   }
 
-  if (/\b(details|info)\b/.test(lower) && FLIGHT_ID.test(userMessage)) {
+  if (/\b(details|info)\b/.test(lower) && messageHasFlightId(userMessage)) {
+    const flightId = extractFlightIdFromUser(userMessage);
     return {
       tool: "get_flight_details",
-      arguments: { flight_id: userMessage.match(FLIGHT_ID)?.[1]?.toUpperCase() },
+      arguments: { flight_id: flightId },
     };
   }
 
@@ -433,7 +476,7 @@ function mergePending(
   if (!merged.destination && codes[1]) merged.destination = codes[1];
   const date = extractUserDate(userMessage);
   if (date) merged.departure_date = date;
-  const flightId = userMessage.match(FLIGHT_ID)?.[1]?.toUpperCase();
+  const flightId = extractFlightIdFromUser(userMessage);
   if (!merged.flight_id && flightId) merged.flight_id = flightId;
   const bookingId = extractBookingIdFromUser(userMessage);
   if (!merged.booking_id && bookingId) merged.booking_id = bookingId;
@@ -493,6 +536,9 @@ export function prepareToolCall(
   switch (tool) {
     case "search_flights_tool": {
       const args = sanitizeSearchArgs(userMessage, base);
+      if (wantsListAllFlights(userMessage) && extractIataCodes(userMessage).length < 2) {
+        return { ok: true, tool, arguments: {}, summary: "search_flights_tool(all flights)" };
+      }
       const missing = searchMissing(args);
       if (missing.length > 0) {
         return {
@@ -512,6 +558,8 @@ export function prepareToolCall(
 
     case "create_booking_tool": {
       const args = mergePending(base, userMessage);
+      const flightFromUser = extractFlightIdFromUser(userMessage);
+      if (flightFromUser) args.flight_id = flightFromUser;
       const missing: string[] = [];
       if (!args.flight_id) missing.push("flight_id (e.g. FL101)");
       if (!args.passenger_name) missing.push("passenger_name");
@@ -580,6 +628,8 @@ export function prepareToolCall(
     case "get_flight_details":
     case "track_flight_tool": {
       const args = mergePending(base, userMessage);
+      const flightFromUser = extractFlightIdFromUser(userMessage);
+      if (flightFromUser) args.flight_id = flightFromUser;
       if (!args.flight_id) {
         return {
           ok: false,

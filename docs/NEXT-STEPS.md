@@ -37,7 +37,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | # | Task | Touch | Acceptance |
 |---|------|-------|------------|
-| **11** | **WebLLM heuristics** (recommended first) | [`ui/src/tool-args.ts`](../ui/src/tool-args.ts), [`ui/src/agent.ts`](../ui/src/agent.ts) | `FL 505` → `FL505` book; `search all flights` → real tool; fake booking JSON intercepted |
+| **11** | **WebLLM heuristics** | [`ui/src/tool-args.ts`](../ui/src/tool-args.ts), [`ui/src/agent.ts`](../ui/src/agent.ts) | **In progress** — branch `feature/webllm-heuristics` |
 | 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 8 | Single policy source + CI drift | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`, CI script | Drift fails CI |
 | 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |

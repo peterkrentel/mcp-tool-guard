@@ -101,6 +101,8 @@ Rules:
 - Use flight IDs like FL101 for search/details only.
 - For cancel/get/check-in use booking IDs like BK-XXXXXXXX only — never use FL... as booking_id.
 - NEVER invent booking IDs or success messages. If info is missing, ask in plain text.
+- NEVER output raw flight or booking JSON (no {"count":...}, {"booking_id":...}). Only {"tool":...} or plain text.
+- A real book result always comes from the server as Tool \`create_booking_tool\` result with booking_id like BK-A1B2C3D4.
 
 Available tools:
 ${tools}
