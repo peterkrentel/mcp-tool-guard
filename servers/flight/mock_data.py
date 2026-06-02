@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 from typing import Any
 import uuid
 
+from kv_store import get_booking_store
+
 # ---------------------------------------------------------------------------
 # Seed data
 # ---------------------------------------------------------------------------
@@ -69,8 +71,19 @@ FLIGHTS: list[dict[str, Any]] = [
     },
 ]
 
-# In-memory booking store (resets on server restart)
-BOOKINGS: dict[str, dict[str, Any]] = {}
+def _booking_store():
+    return get_booking_store()
+
+
+def _save_booking(booking_id: str, booking: dict[str, Any]) -> None:
+    _booking_store().set(booking_id, booking)
+
+
+def _require_booking(booking_id: str) -> dict[str, Any]:
+    booking = _booking_store().get(booking_id)
+    if not booking:
+        raise ValueError(f"Booking {booking_id} not found")
+    return booking
 
 
 @dataclass
@@ -140,19 +153,18 @@ def create_booking(
         passenger_name=passenger_name,
         passenger_email=passenger_email,
     )
-    BOOKINGS[booking_id] = booking.to_dict()
+    data = booking.to_dict()
+    _save_booking(booking_id, data)
     flight["seats_available"] -= 1
-    return booking.to_dict()
+    return data
 
 
 def get_booking(booking_id: str) -> dict[str, Any] | None:
-    return BOOKINGS.get(booking_id)
+    return _booking_store().get(booking_id)
 
 
 def cancel_booking(booking_id: str) -> dict[str, Any]:
-    booking = BOOKINGS.get(booking_id)
-    if not booking:
-        raise ValueError(f"Booking {booking_id} not found")
+    booking = _require_booking(booking_id)
     if booking["status"] == "cancelled":
         raise ValueError(f"Booking {booking_id} is already cancelled")
 
@@ -160,7 +172,9 @@ def cancel_booking(booking_id: str) -> dict[str, Any]:
     if flight:
         flight["seats_available"] += 1
 
+    booking = dict(booking)
     booking["status"] = "cancelled"
+    _save_booking(booking_id, booking)
     return booking
 
 
@@ -169,9 +183,7 @@ def modify_booking(
     passenger_name: str | None = None,
     passenger_email: str | None = None,
 ) -> dict[str, Any]:
-    booking = BOOKINGS.get(booking_id)
-    if not booking:
-        raise ValueError(f"Booking {booking_id} not found")
+    booking = dict(_require_booking(booking_id))
     if booking["status"] == "cancelled":
         raise ValueError(f"Cannot modify cancelled booking {booking_id}")
 
@@ -179,13 +191,12 @@ def modify_booking(
         booking["passenger_name"] = passenger_name
     if passenger_email:
         booking["passenger_email"] = passenger_email
+    _save_booking(booking_id, booking)
     return booking
 
 
 def check_in(booking_id: str) -> dict[str, Any]:
-    booking = BOOKINGS.get(booking_id)
-    if not booking:
-        raise ValueError(f"Booking {booking_id} not found")
+    booking = dict(_require_booking(booking_id))
     if booking["status"] == "cancelled":
         raise ValueError(f"Cannot check in cancelled booking {booking_id}")
     if booking["checked_in"]:
@@ -193,31 +204,31 @@ def check_in(booking_id: str) -> dict[str, Any]:
 
     booking["checked_in"] = True
     if not booking["seat"]:
-        booking["seat"] = f"{chr(65 + len(BOOKINGS) % 26)}{len(BOOKINGS) % 30 + 1}"
+        suffix = sum(ord(c) for c in booking_id) % 30 + 1
+        booking["seat"] = f"{chr(65 + suffix % 26)}{suffix}"
+    _save_booking(booking_id, booking)
     return booking
 
 
 def select_seats(booking_id: str, seat: str) -> dict[str, Any]:
-    booking = BOOKINGS.get(booking_id)
-    if not booking:
-        raise ValueError(f"Booking {booking_id} not found")
+    booking = dict(_require_booking(booking_id))
     if booking["status"] == "cancelled":
         raise ValueError(f"Cannot select seat for cancelled booking {booking_id}")
 
     booking["seat"] = seat.upper()
+    _save_booking(booking_id, booking)
     return booking
 
 
 def add_baggage(booking_id: str, baggage_kg: int) -> dict[str, Any]:
-    booking = BOOKINGS.get(booking_id)
-    if not booking:
-        raise ValueError(f"Booking {booking_id} not found")
+    booking = dict(_require_booking(booking_id))
     if booking["status"] == "cancelled":
         raise ValueError(f"Cannot add baggage to cancelled booking {booking_id}")
     if baggage_kg < 0:
         raise ValueError("Baggage weight must be non-negative")
 
     booking["baggage_kg"] += baggage_kg
+    _save_booking(booking_id, booking)
     return booking
 
 

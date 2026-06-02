@@ -437,6 +437,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pyyaml" },
+    { name = "upstash-redis" },
     { name = "uvicorn" },
 ]
 
@@ -445,6 +446,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=2.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "upstash-redis", specifier = ">=1.0.0" },
     { name = "uvicorn", specifier = ">=0.30.0" },
 ]
 
@@ -1372,6 +1374,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b5/82/345cc927f7fbdae6065e7768759932fcc827fc20b29b45dfbafa2f1f7da4/uncalled_for-0.3.2.tar.gz", hash = "sha256:89f5dbcd71e2b8f47c030b1fa302e6cce2ec795d1ac565eeb6525c5fe55cb8a2", size = 50032, upload-time = "2026-05-06T13:38:25.204Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/25/2c87754f3a9e692315f7b811244090e68f362979fc8886b3fbd2985a1d8c/uncalled_for-0.3.2-py3-none-any.whl", hash = "sha256:0ff60b142c7d1f8070bde9d42afaa70aedc77dcc10998c227687e9c15713418e", size = 11444, upload-time = "2026-05-06T13:38:24.025Z" },
+]
+
+[[package]]
+name = "upstash-redis"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/ec/a2d5027239be97421f0bb26ca74b7be3f5597e4222431c5bb6ccc7c0f018/upstash_redis-1.7.0.tar.gz", hash = "sha256:19b46dff2d81b89da5cbfb23a38232f7ca3b9ba441b22a1df766c64972d936d1", size = 47336, upload-time = "2026-03-18T14:17:46.874Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/00/d4aede377301a66a751c8c240c1d989124afb42ee8a201d7f7406306dde3/upstash_redis-1.7.0-py3-none-any.whl", hash = "sha256:6c17b4cd1f88bd0d34d978b9cf13041032482f7dfb4cdf8e00f6f6277db0006a", size = 49746, upload-time = "2026-03-18T14:17:45.955Z" },
 ]
 
 [[package]]
