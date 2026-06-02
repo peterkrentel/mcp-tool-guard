@@ -37,15 +37,17 @@ Flight MCP server       ← servers/flight/ — guard middleware on tools/call (
 
 The **MCP caller** is `mcp-client.ts`, not WebLLM. WebLLM proposes tool JSON; the agent runs `ToolGuard.authorize`, then `tools/call` when allowed.
 
-### Two audit planes (demo UI)
+### Three audit planes (demo UI)
 
-| Plane | Question | Trust |
-|-------|----------|-------|
-| **Agent attempts** (client `ToolGuard` log) | What did the agent try? Blocked before network? | Observability / debugging only |
-| **Agent trace** (browser UI) | How was the turn routed? Raw model output? Same `trace_id` | Observability / debugging only |
-| **Server enforcement** (`GET /audit`) | What reached MCP? JWT valid? Allow/deny? | **Authoritative** security record |
+Full diagrams: [ARCHITECTURE.md](ARCHITECTURE.md#three-observability-planes-demo-ui).
 
-Correlate with `trace_id` when both exist. **No server row after a client deny is expected** — the attempt still appears under Agent attempts.
+| Plane | Source | Question | Trust |
+|-------|--------|----------|-------|
+| **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? Model preview? Outcome before/after guard? | Debug only |
+| **Agent attempts** | `ToolGuard` in browser | Which tool and scopes? Client pre-check allow/deny? | Debug only |
+| **Server enforcement** | `GET /audit` on flight | What reached MCP? JWT valid? Final allow/deny? | **Authoritative** |
+
+Correlate with `trace_id` across all three (click a trace id in the audit panel). **No server row after a client deny is expected** — the attempt still appears under Agent trace and Agent attempts.
 
 For compliance and production dashboards, use **server** guard JSON (Tier 2 → Grafana/Loki), not the browser log.
 
