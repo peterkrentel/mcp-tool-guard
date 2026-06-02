@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - [auth0-setup.md](docs/auth0-setup.md): local testing notes — UI vs flight env split, smoke phrasing, troubleshooting after Auth0 validation
+- [README.md](README.md): prod demo screenshot in Live demo section
 
 ## [0.3.0] - 2026-05-25
 

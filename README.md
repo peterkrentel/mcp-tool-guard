@@ -11,6 +11,10 @@
 | **Try the UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
+![MCPToolGuard on Vercel — Auth0 sign-in, chat, server audit ALLOW](docs/images/demo/prod-ui-audit-success.png)
+
+*Signed-in Auth0 user, tool call in chat, **Server enforcement** audit rows, `/mcp` + `/audit` in Network tab.*
+
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
 
 ## Documentation map
