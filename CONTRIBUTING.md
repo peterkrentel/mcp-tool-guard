@@ -17,7 +17,7 @@ git checkout -b feature/my-change
 npm run typecheck
 # Update CHANGELOG.md
 git push -u origin feature/my-change
-gh pr create   # or open PR in GitHub UI
+# Open PR in GitHub UI (compare branch → main)
 ```
 
 ## Local checks

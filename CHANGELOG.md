@@ -6,13 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Fixed
-
-- Auth0 RBAC: read `permissions` claim in flight guard and SDK `ToolGuard` (alongside `scope` / `scp`)
-
 ### Changed
 
-- [auth0-setup.md](docs/auth0-setup.md): step-by-step dashboard, local, Vercel, token verify, troubleshooting (screenshot slots in [docs/images/auth0/](docs/images/auth0/README.md))
+- [auth0-setup.md](docs/auth0-setup.md): local testing notes — UI vs flight env split, smoke phrasing, troubleshooting after Auth0 validation
 
 ## [0.3.0] - 2026-05-25
 
@@ -24,11 +20,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - UI audit panel: visible error when server audit fetch fails (401, network, etc.)
 - Flight health response includes `jwt_trust_enabled` and warning when guard disabled
 
+### Fixed
+
+- Auth0 RBAC: read `permissions` claim in flight guard and SDK `ToolGuard` (alongside `scope` / `scp`)
+
 ### Changed
 
 - `ToolGuard` accepts optional `jwtIssuer`, `jwtAudience`, `jwksUrl` for IdP tokens
 - Env vars: `VITE_AUTH0_*`, `MCP_JWT_*`, `VITE_ENABLE_GUEST_DEMO` — see [auth0-env.example](docs/auth0-env.example)
-- Docs: [identity.md](docs/identity.md), [NEXT-STEPS](docs/NEXT-STEPS.md), [vercel-deploy.md](docs/vercel-deploy.md), [README](README.md) updated for 0.3 identity
+- Docs: [auth0-setup.md](docs/auth0-setup.md), [identity.md](docs/identity.md), [NEXT-STEPS](docs/NEXT-STEPS.md), [vercel-deploy.md](docs/vercel-deploy.md), [README](README.md) updated for 0.3 identity
 
 ### Security
 
