@@ -24,6 +24,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Demo embedded guard matches gateway policy
+        run: npm run check:demo-policy
+
       - name: Build UI
         run: npm run build -w @mcp-tool-guard/ui
 

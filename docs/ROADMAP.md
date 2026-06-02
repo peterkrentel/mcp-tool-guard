@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#8** policy drift (suggested), then #7, #9–10.
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — #7, #9–10 (policy #8 done on `main`).
 
 ## Product shape (summary)
 
@@ -58,7 +58,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | # | Task | Notes |
 |---|------|--------|
 | 7 | Middleware max request body size | DoS: unbounded body in middleware |
-| 8 | Single policy source + CI drift test | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts` |
+| 8 | Policy from `gateway/config.yaml` in UI + demo alignment CI | **Done** — `ui/guard-config.ts` imports yaml; `check:demo-policy` until #12 |
 | 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client |
 | 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own |
 | 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — **Done** (PR #22, on `main`) |

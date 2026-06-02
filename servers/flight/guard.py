@@ -107,6 +107,7 @@ class FlightToolGuard:
 
     @classmethod
     def load(cls) -> FlightToolGuard:
+        """Load demo embedded guard policy from guard_config.yaml (see gateway/config.yaml)."""
         config_path = Path(__file__).parent / "guard_config.yaml"
         raw = yaml.safe_load(config_path.read_text())
         tools_raw = raw.get("tools", {})
