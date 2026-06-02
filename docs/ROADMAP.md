@@ -4,7 +4,7 @@
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [CONCEPT.md](CONCEPT.md).
 
-**Current release:** [0.3.0 shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust + Vercel KV (tag `v0.3.0`).
+**Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
 **Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#8** policy drift (suggested), then #7, #9–10.
 
@@ -27,6 +27,12 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 5 | Tighten CORS to UI origin(s) | Done |
 | 6 | Deploy docs | Done |
 | 7 | Tag `v0.2.0` | Done |
+
+---
+
+## Release 0.3.1 — Demo polish {#release-031--demo-polish}
+
+**Shipped 2026-06-02** — tag `v0.3.1`. WebLLM heuristics (#11), read-only scope demo screenshots, planning doc sync.
 
 ---
 

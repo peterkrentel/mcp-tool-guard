@@ -29,7 +29,7 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] [auth0-setup.md](auth0-setup.md) testing learnings, README demo screenshots
 - [x] Tag **`v0.3.0`**
 
-### Post-0.3.0 tag (on `main`, [Unreleased](../CHANGELOG.md#unreleased))
+### Shipped in [0.3.1](../CHANGELOG.md#031---2026-06-02) (tag `v0.3.1`)
 
 - [x] **#11** WebLLM heuristics + anti-hallucination ([PR #22](https://github.com/peterkrentel/mcp-tool-guard/pull/22))
 - [x] Read-only Auth0 scope demo on prod (`demo-read@…` — search ALLOW, book client DENY)

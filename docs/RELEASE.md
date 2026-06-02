@@ -78,3 +78,15 @@ Shipped **2026-05-25** (see [CHANGELOG 0.2.0](../CHANGELOG.md#020---2026-05-25),
 - Live: [UI](https://mcp-tool-guard-ui.vercel.app/), [health](https://mcp-tool-guard-flight-server.vercel.app/health) (`jwt_trust_enabled`, `kv_enabled`)
 
 **Next:** [post-0.3.0 backlog](NEXT-STEPS.md#implementation-backlog-post-030).
+
+---
+
+## 0.3.1 — Demo polish {#031-demo-polish}
+
+**Shipped 2026-06-02** — tag [`v0.3.1`](https://github.com/peterkrentel/mcp-tool-guard/releases/tag/v0.3.1). See [CHANGELOG 0.3.1](../CHANGELOG.md#031---2026-06-02).
+
+- WebLLM heuristics (#11): flight ID normalization, search-all, block invented booking JSON
+- Read-only Auth0 scope demo screenshots in README and [auth0-setup.md](auth0-setup.md)
+- Prod smoke: `demo-read@…` — search ALLOW, book client DENY before MCP
+
+**Next:** [post-0.3.0 backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#8** policy drift suggested.
