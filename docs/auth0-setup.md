@@ -159,6 +159,8 @@ Open the user → **Permissions** tab → **Assign Permissions**:
 | Booking | `flights:read`, `flights:write` |
 | Admin | `flights:read`, `flights:write`, `flights:delete` |
 
+Create **separate users** (or roles) for read-only and booking personas — a user with all three permissions will **allow** every demo action and will not show scope **deny** in the audit panel.
+
 ![User permissions](images/auth0/06-user-permissions.png)
 
 **Authorized Applications** tab showing the SPA is **not** the same as Permissions — both should exist, but only Permissions puts `flights:*` in the token.
@@ -166,6 +168,17 @@ Open the user → **Permissions** tab → **Assign Permissions**:
 ---
 
 ## Part 2 — Local development
+
+### Two places for env vars (common gotcha)
+
+| Where | Read by | Variables |
+|-------|---------|-----------|
+| **`ui/.env.local`** | Vite (UI only) | `VITE_*` only |
+| **Shell before `make flight`** | Python flight server | `MCP_JWT_*`, `MCP_GUARD_*` |
+
+**Do not put `MCP_JWT_*` in `ui/.env.local`** — Vite does not pass them to `make flight`, so Auth0 tokens will fail on the server (client ALLOW, server DENY). Same split on Vercel: flight project vs UI project.
+
+Do **not** store Auth0 user passwords in `.env.local` — only public SPA/API config (`VITE_*`, issuer URLs).
 
 ### Step 7 — UI env file
 
@@ -182,13 +195,23 @@ Restart **`make ui`** after any change (Vite reads env at startup).
 
 ### Step 8 — Flight server env (Auth0 path)
 
-Guest demo works without these. For **Sign in** tokens, export before **`make flight`**:
+Guest demo works without these. For **Sign in** tokens, export in the **same terminal** before **`make flight`** (or one line):
 
 ```bash
 export MCP_JWT_ISSUER=https://dev-p5fg6ldthdyeom16.us.auth0.com/
 export MCP_JWT_AUDIENCE=https://mcp-tool-guard
 make flight
 ```
+
+Or:
+
+```bash
+MCP_JWT_ISSUER=https://dev-p5fg6ldthdyeom16.us.auth0.com/ \
+MCP_JWT_AUDIENCE=https://mcp-tool-guard \
+make flight
+```
+
+Restart flight after changing env — a stale process without `MCP_JWT_*` causes server scope DENY while the UI client guard ALLOWs.
 
 ![Local flight terminal](images/auth0/09-local-flight-env.png)
 
@@ -198,10 +221,15 @@ Terminal 2: `make ui` → open `http://localhost:5173`
 
 1. Click **Sign in** → Auth0 login → return to localhost
 2. **Initialize** (WebLLM may take ~1 min first load)
-3. *Search flights from SFO to JFK* → should **allow** if user has `flights:read`
-4. *Cancel booking …* with read-only user → **deny** in audit
+3. *Search flights from SFO to JFK* → **allow** (needs `flights:read`)
+4. *book FL101 Name, email@example.com* → **allow** (needs `flights:write`)
+5. *Cancel booking BK-…* using the ID from step 4 → **allow** (needs `flights:delete`)
 
-Guest mode still works: use JWT dropdown without signing in.
+Use **`Cancel booking BK-…`** (include the word *booking*). Bare `delete BK-…` can work but is easier to mis-route.
+
+Guest mode still works: use JWT dropdown without signing in. The guest dropdown may still show while signed in — Auth0 token is used when you clicked Sign in.
+
+**In-memory bookings** reset when the flight process restarts; book and cancel in one session without restarting `make flight`. On Vercel, bookings may not persist across requests (serverless) — see troubleshooting below.
 
 ![Signed-in UI success](images/auth0/10-local-ui-signed-in.png)
 
@@ -275,21 +303,26 @@ Redeploy **both** after env changes (UI needs a **rebuild**).
 | Sign in redirect error | Callback URL mismatch | Add exact `http://localhost:5173` to SPA Settings |
 | Token `aud` = Client ID, has `email` | Decoded **ID token** | Use access token from localStorage key with `https://mcp-tool-guard` |
 | No `permissions` in token | RBAC off or not saved | Step 3 toggles ON + Save; Sign out/in |
-| `permissions` present but still deny | Guard read only `scope` (pre-fix) | Merge PR with `permissions` claim support |
+| Client ALLOW, server DENY (missing scope) | Flight without `MCP_JWT_*` or old process | Step 8: export in flight terminal; restart `make flight` on current `main` |
 | Deny with empty scopes | User lacks API permissions | Step 6 — user Permissions tab |
 | SPA 3/3 but token empty | Add Permissions in Access Token off | Step 3 |
 | Server audit 401 locally | No Bearer on `/audit` | Initialize first; same token as MCP |
-| Auth0 allow, server deny | Flight missing `MCP_JWT_*` | Step 8 exports before `make flight` |
 | Guest works, Auth0 fails on server | Dual trust | Keep PEM **and** set `MCP_JWT_*` on flight |
+| Audit ALLOW but chat says cancel failed / not found | Scope passed; mock booking missing | Same flight process; use `Cancel booking BK-…`; on Vercel = in-memory split |
+| `curl …/health` → `jwt_trust_enabled: false` | `MCP_JWT_*` not set in that terminal | Re-export and restart flight |
+
+Verify flight Auth0 config: `curl http://localhost:8000/health` → `"jwt_trust_enabled": true` when using Sign in locally.
 
 ---
 
 ## Smoke test checklist
 
 - [ ] Guest: dropdown → Initialize → search allow, cancel deny
-- [ ] Auth0: Sign in → Initialize → search allow (with `flights:read`)
+- [ ] Auth0: Sign in → Initialize → search → book → **Cancel booking BK-…** (all allow with full permissions)
+- [ ] Auth0 read-only user: search allow, book/cancel **deny**
 - [ ] Access token has `permissions` array after RBAC enabled
-- [ ] Server enforcement panel shows rows after tool calls
+- [ ] Client and server audit rows **match** (no mismatch banner)
+- [ ] `curl http://localhost:8000/health` → `jwt_trust_enabled: true` (local Auth0)
 - [ ] `curl /audit` without Bearer → 401 (when guard enabled)
 
 ---
