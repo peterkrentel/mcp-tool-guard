@@ -278,7 +278,9 @@ After changing RBAC or user permissions: **Sign out → Sign in** (old tokens do
 }
 ```
 
-Search → allow; book/cancel → **deny** (client blocks before MCP when scopes are missing).
+Search → allow; book/cancel → **deny** (client blocks before MCP when scopes are missing):
+
+![Read-only scope deny in prod UI](images/demo/prod-scope-deny-read-only.png)
 
 ---
 
@@ -331,7 +333,7 @@ Verify flight Auth0 config: `curl http://localhost:8000/health` → `"jwt_trust_
 
 - [ ] Guest: dropdown → Initialize → search allow, cancel deny
 - [ ] Auth0: Sign in → Initialize → search → book → **Cancel booking BK-…** (all allow with full permissions)
-- [ ] Auth0 read-only user: search allow, book/cancel **deny** (see [read-only jwt.io](images/demo/auth0-access-token-read-only-jwtio.png))
+- [ ] Auth0 read-only user: search allow, book/cancel **deny** ([UI](images/demo/prod-scope-deny-read-only.png), [token](images/demo/auth0-access-token-read-only-jwtio.png))
 - [ ] Access token has `permissions` array after RBAC enabled (not only OIDC `scope`)
 - [ ] Client and server audit rows **match** (no mismatch banner)
 - [ ] `curl http://localhost:8000/health` → `jwt_trust_enabled: true` (local Auth0)

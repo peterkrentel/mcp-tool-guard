@@ -23,6 +23,10 @@
 
 *Read-only user (`demo-read@…`): same `aud`; **`permissions`** is only `["flights:read"]` — book/cancel deny in the UI.*
 
+![Read-only user — book blocked before MCP](docs/images/demo/prod-scope-deny-read-only.png)
+
+*Search → **Server** ALLOW; `book` → **Agent attempts** DENY (`flights:write`), blocked before MCP — no matching server row.*
+
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
 
 ## Documentation map
