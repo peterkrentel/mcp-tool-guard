@@ -15,9 +15,13 @@
 
 *Signed-in Auth0 user, tool call in chat, **Server enforcement** audit rows, `/mcp` + `/audit` in Network tab.*
 
-![Auth0 access token on jwt.io — permissions claim with flights scopes](docs/images/demo/auth0-access-token-jwtio.png)
+![Auth0 access token on jwt.io — admin permissions](docs/images/demo/auth0-access-token-jwtio.png)
 
-*Access token (not ID token): `aud` includes `https://mcp-tool-guard`; `flights:*` scopes live in the **`permissions`** array.*
+*Admin user: `aud` includes `https://mcp-tool-guard`; full **`permissions`** (`flights:read`, `flights:write`, `flights:delete`).*
+
+![Auth0 access token on jwt.io — read-only permissions](docs/images/demo/auth0-access-token-read-only-jwtio.png)
+
+*Read-only user (`demo-read@…`): same `aud`; **`permissions`** is only `["flights:read"]` — book/cancel deny in the UI.*
 
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
 
