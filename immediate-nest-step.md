@@ -1,30 +1,19 @@
 # Immediate next step
 
-Follow the full walkthrough: **[docs/auth0-setup.md](docs/auth0-setup.md)** (dashboard → local → Vercel → token verify).
+**Phase B (KV)** code is on branch `feature/vercel-kv-phase-b`. Deploy steps below.
 
-Permissions + Auth0 walkthrough docs are on **`main`** (PR #14 merged).
+## Deploy KV (flight project)
 
-## Quick checklist
+1. [vercel-deploy.md → Vercel KV](docs/vercel-deploy.md#vercel-kv-phase-b) — create KV, connect to **`mcp-tool-guard-flight-server`**, redeploy
+2. `curl https://mcp-tool-guard-flight-server.vercel.app/health` → `"kv_enabled": true`
+3. Prod smoke: book → **Cancel booking BK-…** → server audit rows persist; cancel finds booking
 
-### Local (validated)
+## After merge
 
-1. [auth0-setup.md → Part 1](docs/auth0-setup.md#part-1--auth0-dashboard) — API, RBAC, SPA, user permissions
-2. **`ui/.env.local`** — `VITE_*` only ([auth0-env.example](docs/auth0-env.example))
-3. **`export MCP_JWT_*`** in the flight terminal → `make flight` (not in `.env.local`)
-4. `make ui` → Sign in → Initialize → search → book → **Cancel booking BK-…**
-5. `curl http://localhost:8000/health` → `jwt_trust_enabled: true`
+1. Tag **`v0.3.0`** — [RELEASE.md](docs/RELEASE.md)
+2. Phase C: ROADMAP #7–10 — [NEXT-STEPS.md](docs/NEXT-STEPS.md)
 
-### Vercel (next)
+## Reference
 
-1. Flight env: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` — [vercel-deploy.md](docs/vercel-deploy.md)
-2. UI env: `VITE_MCP_URL` + `VITE_AUTH0_*` → redeploy (rebuild)
-3. Prod smoke: Sign in + guest on [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/)
-4. Tag `v0.3.0` when happy — [RELEASE.md](docs/RELEASE.md)
-
-### Screenshots (optional)
-
-PNG filenames: [docs/images/auth0/README.md](docs/images/auth0/README.md)
-
-### Next backlog
-
-Phase B: Vercel KV for durable server audit + booking persistence — [NEXT-STEPS.md](docs/NEXT-STEPS.md).
+- [kv-design.md](docs/kv-design.md) — key schema
+- [auth0-setup.md](docs/auth0-setup.md) — Auth0 (live on prod)

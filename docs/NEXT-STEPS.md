@@ -38,13 +38,16 @@ Post–0.2.0 work and **0.3.0** priorities. Task numbers: [ROADMAP → 0.3.0](RO
 
 ---
 
-## 0.3.0 — remaining (Phase B+) {#030--remaining-phase-b}
+## 0.3.0 Phase B — code shipped {#phase-b}
 
-| ROADMAP # | Work |
-|-----------|------|
-| 6 | Vercel KV (or Redis) for server audit — fixes serverless instance split |
+- [x] Vercel KV / Upstash REST for server audit (`audit:recent`, `audit:session:{id}`)
+- [x] KV booking store (`booking:{BK-…}`) — book/cancel across serverless invocations
+- [x] In-memory fallback when `KV_REST_API_*` unset (local dev)
+- [ ] **Deploy:** link KV store to flight project — [vercel-deploy → KV](vercel-deploy.md#vercel-kv-phase-b)
 
-### Phase C — Hardening & multi-server
+Design: [kv-design.md](kv-design.md).
+
+## 0.3.0 — remaining (Phase C+) {#030--remaining-phase-b}
 
 | ROADMAP # | Work |
 |-----------|------|
@@ -76,13 +79,14 @@ See [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth0).
 
 ---
 
-## Known limitations (until Phase B)
+## Known limitations (post–Phase B deploy)
 
 | Topic | Detail |
 |-------|--------|
-| Server audit on Vercel | Intermittent until KV (Phase B) — not an auth issue |
+| Server audit on Vercel | Fixed when KV linked (`kv_enabled: true` on `/health`) |
 | Guest JWTs in repo | Public demo credentials; Auth0 path is the IdP story |
 | Policy in three files | Until ROADMAP #8 |
+| Flight seat counts | Still in-memory seed data; only bookings use KV |
 
 ---
 

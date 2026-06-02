@@ -26,6 +26,7 @@ from mock_data import (
 )
 from guard import FlightToolGuard
 from guard_middleware import JwtToolGuardMiddleware
+from kv_store import kv_configured
 
 _guard: FlightToolGuard | None = None
 
@@ -164,6 +165,7 @@ async def health_check(_request: Request) -> JSONResponse:
         "service": "flight-mcp",
         "guard_enabled": guard.enabled,
         "jwt_trust_enabled": guard.jwt_trust.enabled,
+        "kv_enabled": kv_configured(),
     }
     if not guard.enabled:
         body["warning"] = (
@@ -174,7 +176,7 @@ async def health_check(_request: Request) -> JSONResponse:
 
 @mcp.custom_route("/audit", methods=["GET"])
 async def audit_log(request: Request) -> JSONResponse:
-    """Recent server-side allow/deny entries (in-memory; resets on cold start)."""
+    """Recent server-side allow/deny entries (KV when configured; else in-memory)."""
     guard = get_guard()
     if guard.enabled:
         bearer = FlightToolGuard.extract_bearer(request.headers.get("authorization"))

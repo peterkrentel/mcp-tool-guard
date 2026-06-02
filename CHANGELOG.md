@@ -6,11 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Flight server: Vercel KV (Upstash REST) for durable **server audit** and **bookings** on serverless; in-memory fallback locally ([kv-design.md](docs/kv-design.md))
+- `/health` includes `kv_enabled` when `KV_REST_API_*` is set
+
 ### Changed
 
-- [auth0-setup.md](docs/auth0-setup.md): local testing notes — UI vs flight env split, smoke phrasing, troubleshooting after Auth0 validation
-- [README.md](README.md): prod demo screenshot in Live demo section
-- [README.md](README.md): Auth0 access token (`permissions` claim) screenshot in Live demo section
+- [vercel-deploy.md](docs/vercel-deploy.md): Vercel KV setup and Phase B deploy checklist
+- [NEXT-STEPS.md](docs/NEXT-STEPS.md), [ROADMAP.md](docs/ROADMAP.md): Phase B shipped (code); Phase C next
 
 ## [0.3.0] - 2026-05-25
 

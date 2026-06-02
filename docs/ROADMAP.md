@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.0 — Identity Phase A shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust; KV next.
 
-**Next:** [0.3 Phase B](#release-030--hardening--multi-server) — Vercel KV for server audit.
+**Next:** [0.3 Phase B deploy](#release-030--hardening--multi-server) — link Vercel KV on flight; then Phase C.
 
 ## Product shape (summary)
 
@@ -47,7 +47,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 3 | `GET /audit` requires Bearer JWT | Same token as MCP | **Done** |
 | 4 | `MCP_GUARD_ENABLED=false` warning | Loud startup log | **Done** |
 | 5 | UI: server audit fetch errors visible | Error banner in audit panel | **Done** |
-| 6 | Durable server audit (Vercel KV / Redis) | Serverless instance split | **Next** |
+| 6 | Durable server audit + bookings (Vercel KV) | [kv-design.md](kv-design.md); deploy KV on flight | **Done** (code) |
 
 ### Medium — correctness & multi-server
 

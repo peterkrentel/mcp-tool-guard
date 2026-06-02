@@ -15,6 +15,8 @@ import jwt
 import yaml
 from jwt import PyJWKClient
 
+from kv_store import get_audit_store
+
 logger = logging.getLogger("mcp-tool-guard")
 
 SERVER_ID = "flight"
@@ -89,7 +91,7 @@ class FlightToolGuard:
         self.public_key_pem = public_key_pem
         self.jwt_trust = jwt_trust or JwtTrustConfig.from_env()
         self.enabled = os.environ.get("MCP_GUARD_ENABLED", "true").lower() != "false"
-        self._audit: list[AuditEntry] = []
+        self._audit_store = get_audit_store()
         self._jwks_client: PyJWKClient | None = None
 
         if not self.enabled:
@@ -202,8 +204,7 @@ class FlightToolGuard:
             return TokenValidation(ok=False, reason=f"JWT validation failed: {exc}")
 
     def _log(self, entry: AuditEntry, tool_cfg: ToolConfig | None) -> None:
-        self._audit.append(entry)
-        payload = {
+        row = {
             "timestamp": entry.timestamp,
             "decision": entry.decision,
             "server": entry.server,
@@ -215,10 +216,11 @@ class FlightToolGuard:
             "session_id": entry.session_id,
             "trace_id": entry.trace_id,
         }
+        self._audit_store.append(row)
         if tool_cfg and tool_cfg.alert:
-            logger.warning("[MCPToolGuard ALERT] %s", json.dumps(payload))
+            logger.warning("[MCPToolGuard ALERT] %s", json.dumps(row))
         else:
-            logger.info("[MCPToolGuard] %s", json.dumps(payload))
+            logger.info("[MCPToolGuard] %s", json.dumps(row))
 
     def authorize(
         self,
@@ -298,24 +300,7 @@ class FlightToolGuard:
         )
 
     def recent_audit(self, limit: int = 100, session_id: str | None = None) -> list[dict[str, Any]]:
-        entries = self._audit
-        if session_id:
-            entries = [e for e in entries if e.session_id == session_id]
-        return [
-            {
-                "timestamp": e.timestamp,
-                "decision": e.decision,
-                "server": e.server,
-                "tool": e.tool,
-                "required_scope": e.required_scope,
-                "token_scopes": e.token_scopes,
-                "reason": e.reason,
-                "duration_ms": e.duration_ms,
-                "session_id": e.session_id,
-                "trace_id": e.trace_id,
-            }
-            for e in entries[-limit:]
-        ]
+        return self._audit_store.recent(limit=limit, session_id=session_id)
 
 
 def _now() -> str:

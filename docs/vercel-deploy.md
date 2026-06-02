@@ -81,7 +81,7 @@ The flight project root is only `servers/flight/` — it cannot read `ui/public/
 curl https://mcp-tool-guard-flight-server.vercel.app/health
 ```
 
-Expected: `"status":"healthy"`, `"guard_enabled":true`. With Auth0 env: `"jwt_trust_enabled":true`.
+Expected: `"status":"healthy"`, `"guard_enabled":true`. With Auth0 env: `"jwt_trust_enabled":true`. With Vercel KV linked: `"kv_enabled":true`.
 
 | URL | Browser GET | Meaning |
 |-----|-------------|---------|
@@ -92,7 +92,29 @@ Expected: `"status":"healthy"`, `"guard_enabled":true`. With Auth0 env: `"jwt_tr
 ### Serverless notes
 
 - Cold starts after idle
-- Audit log is in-memory; resets on cold start (demo only)
+- Without KV: audit + bookings are in-memory per instance (demo only)
+- With KV: audit and bookings persist across invocations — see below
+
+---
+
+## Vercel KV (Phase B) {#vercel-kv-phase-b}
+
+Fixes **empty server audit panel** and **cancel booking not found** when MCP and `/audit` hit different serverless instances.
+
+1. Vercel dashboard → **Storage** → **Create Database** → **KV**
+2. **Connect** the store to project **`mcp-tool-guard-flight-server`** (Production + Preview)
+3. Redeploy flight — Vercel injects `KV_REST_API_URL` and `KV_REST_API_TOKEN` (do not copy manually unless needed)
+4. Verify: `curl …/health` → `"kv_enabled":true`
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `KV_REST_API_URL` | Auto (linked store) | Upstash REST endpoint |
+| `KV_REST_API_TOKEN` | Auto (linked store) | REST auth |
+| `MCP_KV_PREFIX` | No | Key prefix (default `mcp-tool-guard:`) |
+
+Key layout: [kv-design.md](kv-design.md) — `audit:recent`, `audit:session:{id}`, `booking:{BK-…}`.
+
+Local dev works without KV (in-memory fallback). No UI env changes.
 
 ---
 
@@ -170,7 +192,7 @@ Optional flight env:
 | 403 on tools | `MCP_GUARD_PUBLIC_KEY_PEM` must match `demo-tokens.json` signing key |
 | UI can't reach MCP | Set `VITE_MCP_URL`, redeploy UI |
 | GET `/mcp` → Method Not Allowed | Expected — use `/health` or the UI |
-| Server enforcement panel empty but tools work | Serverless instance split — Phase B KV; or 401 on `/audit` — send Bearer from UI |
+| Server enforcement panel empty but tools work | Link Vercel KV to flight + redeploy; check `/health` → `kv_enabled: true` |
 | `/audit` returns 401 in browser | Expected — authenticated endpoint since 0.3 |
 | CORS error from UI to flight | Redeploy flight; set `MCP_CORS_ORIGINS` to include your UI origin |
 
@@ -178,10 +200,11 @@ Optional flight env:
 
 ## 0.3.0 checklist
 
-- [ ] Flight: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` (Auth0)
-- [ ] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
-- [ ] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
-- [ ] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
+- [x] Flight: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` (Auth0)
+- [x] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
+- [x] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
+- [x] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
+- [ ] Flight: Vercel KV linked → `/health` → `kv_enabled: true`
 - [ ] Tag `v0.3.0` on `main` per [RELEASE.md](RELEASE.md)
 
 ## 0.2.0 checklist (done)
