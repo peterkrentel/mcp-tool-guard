@@ -71,4 +71,10 @@ Shipped **2026-05-25** (see [CHANGELOG 0.2.0](../CHANGELOG.md#020---2026-05-25),
 
 ## 0.3.0 — Hardening & multi-server {#030-hardening--multi-server}
 
-Planned scope: [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server), priorities in [NEXT-STEPS.md](NEXT-STEPS.md). Not released yet.
+**Shipped 2026-06-02** — tag [`v0.3.0`](https://github.com/peterkrentel/mcp-tool-guard/releases/tag/v0.3.0). See [CHANGELOG 0.3.0](../CHANGELOG.md#030---2026-06-02).
+
+- Auth0 + guest dual trust; Bearer `/audit`; `permissions` claim
+- Vercel KV (Upstash) for server audit + bookings — [kv-design.md](kv-design.md)
+- Live: [UI](https://mcp-tool-guard-ui.vercel.app/), [health](https://mcp-tool-guard-flight-server.vercel.app/health) (`jwt_trust_enabled`, `kv_enabled`)
+
+**Next:** [post-0.3.0 backlog](NEXT-STEPS.md#implementation-backlog-post-030).
