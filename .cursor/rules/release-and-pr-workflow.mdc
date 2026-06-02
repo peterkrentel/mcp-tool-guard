@@ -12,9 +12,16 @@ alwaysApply: true
 - Before suggesting a release tag, ensure the current milestone in ROADMAP is complete, version bumped in `package.json`, and CHANGELOG section dated.
 - Do not push to remote or create PRs unless the user explicitly asks.
 
+## Releases — CHANGELOG + git tag only
+
+- **Source of truth:** [CHANGELOG.md](../CHANGELOG.md) (dated sections) and optional **annotated git tags** (`v0.3.1`, …) on `main`.
+- **Do not** ask the user to create a **GitHub Release** (Releases UI, `gh release create`, or paste notes on github.com/releases/new). We do not use that workflow.
+- After a release cut: update `immediate-nest-step.md`, [docs/RELEASE.md](../docs/RELEASE.md), and ROADMAP as needed; link to **CHANGELOG anchors**, not GitHub Release pages.
+
 ## Git only — never `gh`
 
 - **Do not run `gh`** (GitHub CLI) for any task: PRs, issues, checks, releases, or API queries.
-- Use **git** for branch, commit, and push. Give the user a **compare URL** or ask them to open the PR in the GitHub UI.
+- Use **git** for branch, commit, push, and `git tag` / `git push origin vX.Y.Z`.
+- Give the user a **compare URL** or ask them to open the PR in the GitHub UI.
 - Example after push: `https://github.com/<owner>/<repo>/compare/main...<branch>`
 - Provide PR title and body in chat when helpful; the user creates the PR in the browser.

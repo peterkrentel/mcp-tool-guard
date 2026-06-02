@@ -1,8 +1,8 @@
 # Immediate next step
 
-**Released:** [v0.3.1](https://github.com/peterkrentel/mcp-tool-guard/releases/tag/v0.3.1) — WebLLM heuristics (#11), read-only scope demo screenshots.
+**Released:** [CHANGELOG 0.3.1](CHANGELOG.md#031---2026-06-02) — WebLLM heuristics (#11), read-only scope demo screenshots.
 
-Prior: [v0.3.0](https://github.com/peterkrentel/mcp-tool-guard/releases/tag/v0.3.0) — Auth0 + guest dual trust, Vercel KV audit/bookings.
+Prior: [CHANGELOG 0.3.0](CHANGELOG.md#030---2026-06-02) — Auth0 + guest dual trust, Vercel KV audit/bookings.
 
 ## Implementation backlog (pick one PR)
 
