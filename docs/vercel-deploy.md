@@ -204,8 +204,8 @@ Optional flight env:
 - [x] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
 - [x] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
 - [x] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
-- [ ] Flight: Vercel KV linked → `/health` → `kv_enabled: true`
-- [ ] Tag `v0.3.0` on `main` per [RELEASE.md](RELEASE.md)
+- [x] Flight: Vercel KV linked → `/health` → `kv_enabled: true`
+- [x] Tag `v0.3.0` on `main` per [RELEASE.md](RELEASE.md)
 
 ## 0.2.0 checklist (done)
 

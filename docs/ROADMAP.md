@@ -4,9 +4,9 @@
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [CONCEPT.md](CONCEPT.md).
 
-**Current release:** [0.3.0 — Identity Phase A shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust; KV next.
+**Current release:** [0.3.0 shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust + Vercel KV (tag `v0.3.0`).
 
-**Next:** [0.3 Phase B deploy](#release-030--hardening--multi-server) — link Vercel KV on flight; then Phase C.
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — WebLLM heuristics (#11), then #7–10.
 
 ## Product shape (summary)
 
@@ -32,11 +32,9 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 ## Release 0.3.0 — Identity, hardening & multi-server {#release-030--hardening--multi-server}
 
-**Primary track:** [Auth0 OIDC](auth0-setup.md) + JWKS + `iss`/`aud` — **Phase A shipped** (guest demo retained).
+**Shipped 2026-06-02** — tag `v0.3.0`. Phases A (Auth0) + B (KV) complete on prod.
 
-**Prep:** [identity.md](identity.md), [auth0-env.example](auth0-env.example).
-
-**Ship order:** [NEXT-STEPS → Phase B+](NEXT-STEPS.md#030--remaining-phase-b).
+**Next:** [NEXT-STEPS → Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030).
 
 ### High — identity & public deploy
 
@@ -47,7 +45,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 3 | `GET /audit` requires Bearer JWT | Same token as MCP | **Done** |
 | 4 | `MCP_GUARD_ENABLED=false` warning | Loud startup log | **Done** |
 | 5 | UI: server audit fetch errors visible | Error banner in audit panel | **Done** |
-| 6 | Durable server audit + bookings (Vercel KV) | [kv-design.md](kv-design.md); deploy KV on flight | **Done** (code) |
+| 6 | Durable server audit + bookings (Vercel KV) | [kv-design.md](kv-design.md) | **Done** |
 
 ### Medium — correctness & multi-server
 
@@ -57,7 +55,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 8 | Single policy source + CI drift test | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts` |
 | 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client |
 | 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own |
-| 11 | Document prompt-injection mitigations | e.g. `sanitizeCancelBookingArgs` |
+| 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — see [NEXT-STEPS #11](NEXT-STEPS.md#implementation-backlog-post-030) |
 
 ### Larger — Tier 2 (may follow 0.3)
 

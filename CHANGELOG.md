@@ -6,17 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
+_No shipped changes yet. Implementation backlog: [NEXT-STEPS.md](docs/NEXT-STEPS.md#implementation-backlog-post-030)._
 
-- Flight server: Vercel KV (Upstash REST) for durable **server audit** and **bookings** on serverless; in-memory fallback locally ([kv-design.md](docs/kv-design.md))
-- `/health` includes `kv_enabled` when `KV_REST_API_*` is set
-
-### Changed
-
-- [vercel-deploy.md](docs/vercel-deploy.md): Vercel KV setup and Phase B deploy checklist
-- [NEXT-STEPS.md](docs/NEXT-STEPS.md), [ROADMAP.md](docs/ROADMAP.md): Phase B shipped (code); Phase C next
-
-## [0.3.0] - 2026-05-25
+## [0.3.0] - 2026-06-02
 
 ### Added
 
@@ -24,7 +16,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Dual JWT trust on flight server and SDK: **JWKS + `iss`/`aud`** (Auth0) or **demo PEM** (guest)
 - `GET /audit` requires valid `Authorization: Bearer` when guard is enabled
 - UI audit panel: visible error when server audit fetch fails (401, network, etc.)
-- Flight health response includes `jwt_trust_enabled` and warning when guard disabled
+- Flight health: `jwt_trust_enabled`, `kv_enabled` (when `KV_REST_API_*` set)
+- Vercel KV (Upstash REST) for durable **server audit** and **bookings** on serverless; in-memory fallback locally ([kv-design.md](docs/kv-design.md))
+- README Live demo screenshots (prod UI + Auth0 access token on jwt.io)
+- [docs/kv-design.md](docs/kv-design.md), [docs/images/demo/](docs/images/demo/README.md)
 
 ### Fixed
 
@@ -33,17 +28,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - `ToolGuard` accepts optional `jwtIssuer`, `jwtAudience`, `jwksUrl` for IdP tokens
-- Env vars: `VITE_AUTH0_*`, `MCP_JWT_*`, `VITE_ENABLE_GUEST_DEMO` — see [auth0-env.example](docs/auth0-env.example)
-- Docs: [auth0-setup.md](docs/auth0-setup.md), [identity.md](docs/identity.md), [NEXT-STEPS](docs/NEXT-STEPS.md), [vercel-deploy.md](docs/vercel-deploy.md), [README](README.md) updated for 0.3 identity
+- Env vars: `VITE_AUTH0_*`, `MCP_JWT_*`, `VITE_ENABLE_GUEST_DEMO`, `KV_REST_API_*` — see [auth0-env.example](docs/auth0-env.example), [vercel-deploy.md](docs/vercel-deploy.md#vercel-kv-phase-b)
+- Docs: [auth0-setup.md](docs/auth0-setup.md) (local testing learnings), [identity.md](docs/identity.md), [NEXT-STEPS](docs/NEXT-STEPS.md), [vercel-deploy.md](docs/vercel-deploy.md), [README](README.md)
+- Project rule: git-only workflow (no `gh` CLI); [CONTRIBUTING.md](CONTRIBUTING.md) updated
 
 ### Security
 
 - Loud startup warning when `MCP_GUARD_ENABLED=false` (enforcement bypassed)
-
-### Planned (0.3.x follow-up)
-
-- Vercel KV for durable server audit (Phase B)
-- Multi-server UI, guard proxy (Tier 2)
 
 ---
 

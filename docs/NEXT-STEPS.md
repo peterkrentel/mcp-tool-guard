@@ -1,103 +1,83 @@
-# Next steps (post–0.2.0)
+# Next steps (post–0.3.0)
 
 **Navigation:** [Roadmap](ROADMAP.md) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [CONCEPT](CONCEPT.md)
 
-Post–0.2.0 work and **0.3.0** priorities. Task numbers: [ROADMAP → 0.3.0](ROADMAP.md#release-030--hardening--multi-server).
+Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, Vercel KV for server audit + bookings. Tag: [RELEASE.md](RELEASE.md).
 
 ---
 
-## 0.2.0 — done
+## 0.3.0 — done
 
-- [x] Merged to `main`; Vercel prod (UI + flight)
-- [x] Tag `v0.2.0`
-- [x] Live smoke test (scope deny, dual audit, admin cancel)
-
----
-
-## Strategic choice (0.3)
-
-**Path A — Real IdP (Auth0)** is the primary 0.3 track: login → access token → MCP + `/audit`. Matches “bring your IdP.”
-
-**Path B — toy audit secret** is **not** pursuing (see [identity.md](identity.md)). If IdP slips, **disable public `/audit`** temporarily instead.
-
-**Auth0 now, Keycloak later** — same JWKS + `iss`/`aud` code; swap issuer env ([identity → Auth0 vs Keycloak](identity.md#auth0-vs-keycloak-same-gateway-different-issuer)).
-
-**Before deploy:** complete [auth0-setup.md](auth0-setup.md) and set env from [auth0-env.example](auth0-env.example).
-
----
-
-## 0.3.0 Phase A — done
+### Phase A — identity
 
 - [x] Auth0 SPA login + guest demo (`demo-tokens.json` dropdown)
 - [x] Flight + SDK: JWKS (Auth0) + PEM (guest); `iss` / `aud` for IdP tokens
 - [x] `GET /audit` requires Bearer JWT
 - [x] `MCP_GUARD_ENABLED=false` loud startup warning
 - [x] UI: server audit fetch error state
+- [x] Auth0 `permissions` claim in guards
+- [x] Prod: `VITE_AUTH0_*` + `MCP_JWT_*` on Vercel
 
-**Deploy:** set env from [auth0-env.example](auth0-env.example) on **both** Vercel projects; redeploy UI + flight.
+### Phase B — serverless durability
 
----
+- [x] Vercel KV / Upstash REST — audit lists + booking blobs ([kv-design.md](kv-design.md))
+- [x] `/health` → `kv_enabled: true` on flight when KV linked
+- [x] Prod smoke: book → cancel same `BK-…` across invocations
 
-## 0.3.0 Phase B — code shipped {#phase-b}
+### Docs / release
 
-- [x] Vercel KV / Upstash REST for server audit (`audit:recent`, `audit:session:{id}`)
-- [x] KV booking store (`booking:{BK-…}`) — book/cancel across serverless invocations
-- [x] In-memory fallback when `KV_REST_API_*` unset (local dev)
-- [ ] **Deploy:** link KV store to flight project — [vercel-deploy → KV](vercel-deploy.md#vercel-kv-phase-b)
-
-Design: [kv-design.md](kv-design.md).
-
-## 0.3.0 — remaining (Phase C+) {#030--remaining-phase-b}
-
-| ROADMAP # | Work |
-|-----------|------|
-| 7 | Middleware max request body size |
-| 8 | Single policy source + CI drift test |
-| 9 | Multi-server UI (`gateway/config.yaml` routing) |
-| 10 | Optional second mock MCP (`servers/notes/`) |
-
-**Not in 0.3:** Real vendor MCP URLs without **guard proxy** (Tier 2). Client-only scoping is not authoritative for unowned MCP — [CONCEPT](CONCEPT.md#third-party--unowned-mcp).
-
-### Phase D — Production platform (Tier 2)
-
-- **Keycloak / Azure AD** — same env as Auth0; second demo environment
-- Audit export to Loki/Datadog/OTel
-- HTTP **guard gateway** for unowned upstream MCP
-- Rate limiting
+- [x] [auth0-setup.md](auth0-setup.md) testing learnings, README demo screenshots
+- [x] Tag **`v0.3.0`**
 
 ---
 
-## Demo tokens — guest + Auth0
+## Implementation backlog (post-0.3.0) {#implementation-backlog-post-030}
 
-| Mode | Tokens |
-|------|--------|
-| **Guest (default)** | `demo-tokens.json` dropdown — keep on public Vercel |
-| **Auth0 login** | Access token from IdP — product demo |
-| **Flight** | **Both** PEM (guest) and JWKS (Auth0) validators |
+Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADMAP numbers in [ROADMAP.md](ROADMAP.md#release-030--hardening--multi-server).
 
-See [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth0).
+| # | Task | Touch | Acceptance |
+|---|------|-------|------------|
+| **11** | **WebLLM heuristics** (recommended first) | [`ui/src/tool-args.ts`](../ui/src/tool-args.ts), [`ui/src/agent.ts`](../ui/src/agent.ts) | `FL 505` → `FL505` book; `search all flights` → real tool; fake booking JSON intercepted |
+| 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
+| 8 | Single policy source + CI drift | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`, CI script | Drift fails CI |
+| 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
+| 10 | Second mock MCP (`servers/notes/`) | New server + UI routing | Two servers in demo |
+| 12 | Guard HTTP proxy (Tier 2) | New gateway service | Unowned MCP URL behind proxy + audit |
+
+### WebLLM heuristics (#11) — detail
+
+| Change | File | Notes |
+|--------|------|--------|
+| `FL\s*(\d+)` → `FL505` | `tool-args.ts` | `FLIGHT_ID` regex + normalize before `create_booking_tool` |
+| `search all flights` / bare `search` | `tryHeuristicIntent` | `search_flights_tool` with no filters (all seed flights) |
+| Intercept invented booking JSON | `interceptNonToolReply` | `"booking_id"`, `"flight_details"` without `Tool \`…\` result` |
+| Stronger system prompt | `agent.ts` `systemPrompt()` | Never emit raw flight/booking JSON — only `{"tool":…}` or plain text |
+
+### Not in 0.3.x
+
+- Real vendor MCP without **guard proxy** (#12) — [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp)
+
+### Tier 2 (later)
+
+- Keycloak / Azure AD (same `MCP_JWT_*` env)
+- Audit export → Loki / Datadog / OTel
+- Rate limiting on MCP + `/audit`
 
 ---
 
-## Known limitations (post–Phase B deploy)
+## Known limitations
 
 | Topic | Detail |
 |-------|--------|
-| Server audit on Vercel | Fixed when KV linked (`kv_enabled: true` on `/health`) |
-| Guest JWTs in repo | Public demo credentials; Auth0 path is the IdP story |
-| Policy in three files | Until ROADMAP #8 |
-| Flight seat counts | Still in-memory seed data; only bookings use KV |
-
----
-
-## Client scoping for remote MCP
-
-SDK supports multiple servers in `gateway/config.yaml`; UI wires `flight` only. **#9** adds routing; **Tier 2 proxy** adds authoritative enforcement for vendors you do not control — [CONCEPT → Third-party / unowned MCP](CONCEPT.md#third-party--unowned-mcp).
+| WebLLM (1B) | May invent JSON; use heuristics (#11) or explicit `book FL505 for …` phrasing |
+| Guest JWTs in repo | Public demo; Auth0 is the IdP story |
+| Policy in three files | Until #8 |
+| Flight seat counts | In-memory seed; only **bookings** use KV |
 
 ---
 
 ## Related
 
-- [identity.md](identity.md) — Path A vs B, architecture, env vars
+- [identity.md](identity.md) — Path A, dual trust
 - [auth0-setup.md](auth0-setup.md) — dashboard checklist
 - [ROADMAP.md](ROADMAP.md) — full task table
