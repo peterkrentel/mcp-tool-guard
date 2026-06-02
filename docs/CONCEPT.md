@@ -39,6 +39,7 @@ The **MCP caller** is `mcp-client.ts`, not WebLLM. WebLLM proposes tool JSON; th
 | Plane | Question | Trust |
 |-------|----------|-------|
 | **Agent attempts** (client `ToolGuard` log) | What did the agent try? Blocked before network? | Observability / debugging only |
+| **Agent trace** (browser UI) | How was the turn routed? Raw model output? Same `trace_id` | Observability / debugging only |
 | **Server enforcement** (`GET /audit`) | What reached MCP? JWT valid? Allow/deny? | **Authoritative** security record |
 
 Correlate with `trace_id` when both exist. **No server row after a client deny is expected** — the attempt still appears under Agent attempts.

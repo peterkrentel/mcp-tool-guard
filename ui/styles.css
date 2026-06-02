@@ -273,6 +273,132 @@ button:disabled {
   max-height: 18vh;
 }
 
+.audit-section-trace {
+  border-color: #8b5cf688;
+}
+
+.audit-section-summary {
+  padding: 0.5rem 0.65rem;
+  background: #121a24;
+  cursor: pointer;
+  list-style: none;
+}
+
+.audit-section-summary::-webkit-details-marker {
+  display: none;
+}
+
+.audit-summary-title {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.audit-summary-sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-family: inherit;
+  font-weight: normal;
+}
+
+.audit-section-body-trace {
+  max-height: 22vh;
+}
+
+.agent-trace-entry {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  font-family: inherit;
+}
+
+.agent-trace-entry.trace-focus,
+.log-entry.trace-focus {
+  background: #3b82f622;
+  outline: 1px solid var(--accent);
+}
+
+.agent-trace-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+}
+
+.trace-route {
+  color: var(--accent);
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+
+.trace-guard {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.trace-guard-allow {
+  color: var(--allow);
+}
+
+.trace-guard-deny {
+  color: var(--deny);
+}
+
+.trace-user {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+}
+
+.trace-outcome {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+}
+
+.trace-args,
+.trace-llm-pre {
+  margin: 0.35rem 0 0;
+  padding: 0.35rem;
+  background: #0d1117;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.trace-llm-details {
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+}
+
+.trace-llm-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.log-trace {
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.log-trace:hover {
+  color: var(--accent);
+}
+
 .audit-empty {
   margin: 0;
   padding: 0.65rem;
@@ -303,12 +429,6 @@ button:disabled {
 
 .audit-session-id code {
   color: var(--accent);
-  font-family: ui-monospace, monospace;
-}
-
-.log-trace {
-  font-size: 0.6rem;
-  color: var(--muted);
   font-family: ui-monospace, monospace;
 }
 

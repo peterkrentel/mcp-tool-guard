@@ -38,6 +38,7 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 ### On `main` ([Unreleased](../CHANGELOG.md#unreleased))
 
 - [x] **#8** UI policy from `gateway/config.yaml`; `check:demo-policy` for demo flight embedded guard
+- [x] **Agent trace** panel — collapsible audit section, correlated by `trace_id`
 
 ---
 
