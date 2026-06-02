@@ -5,23 +5,29 @@ alwaysApply: true
 
 # Release and PR workflow
 
-- Never commit directly to `main`. Use `feature/`, `fix/`, `docs/`, or `release/` branches and open a PR.
+## Always branch + PR — never direct `main`
+
+- **Every change** that lands on `main` goes through a **pull request**: branch → commit → push **branch** → user opens PR in GitHub UI (compare URL).
+- **Never** commit on `main`, **never** `git push origin main`, unless the user explicitly asks for a direct-main exception.
+- Applies to **all** work: features, fixes, docs, planning updates, release cuts (`release/<version>`), CHANGELOG-only edits.
+- When finishing requested work: push the **feature branch** and give the compare URL plus suggested PR title and body. Do not merge; the user merges in GitHub.
+- **Releases:** use `release/<version>` branch + PR; after merge, `git pull` on `main`, then optional `git tag` (see below).
+
+## CHANGELOG and roadmap
+
 - Every PR must update `CHANGELOG.md` under `[Unreleased]` (CI enforces this).
 - Planned work belongs in `docs/ROADMAP.md`; release steps in `docs/RELEASE.md`.
-- When implementing roadmap items, reference ROADMAP task numbers in the PR and check boxes when done.
-- Before suggesting a release tag, ensure the current milestone in ROADMAP is complete, version bumped in `package.json`, and CHANGELOG section dated.
-- Do not push to remote or create PRs unless the user explicitly asks.
+- Reference ROADMAP task numbers in the PR description; check boxes when done.
+- Before a release cut: milestone complete, version bumped in `package.json`, CHANGELOG section dated — all via **release/** PR.
 
 ## Releases — CHANGELOG + git tag only
 
-- **Source of truth:** [CHANGELOG.md](../CHANGELOG.md) (dated sections) and optional **annotated git tags** (`v0.3.1`, …) on `main`.
-- **Do not** ask the user to create a **GitHub Release** (Releases UI, `gh release create`, or paste notes on github.com/releases/new). We do not use that workflow.
-- After a release cut: update `immediate-nest-step.md`, [docs/RELEASE.md](../docs/RELEASE.md), and ROADMAP as needed; link to **CHANGELOG anchors**, not GitHub Release pages.
+- **Source of truth:** [CHANGELOG.md](../CHANGELOG.md) (dated sections) and optional **annotated git tags** (`v0.3.1`, …) on `main` **after** the release PR is merged.
+- **Do not** ask the user to create a **GitHub Release** (Releases UI, `gh release create`, or github.com/releases/new).
+- After a release PR merges: update `immediate-nest-step.md` and [docs/RELEASE.md](../docs/RELEASE.md); link to **CHANGELOG anchors**.
 
 ## Git only — never `gh`
 
-- **Do not run `gh`** (GitHub CLI) for any task: PRs, issues, checks, releases, or API queries.
-- Use **git** for branch, commit, push, and `git tag` / `git push origin vX.Y.Z`.
-- Give the user a **compare URL** or ask them to open the PR in the GitHub UI.
-- Example after push: `https://github.com/<owner>/<repo>/compare/main...<branch>`
-- Provide PR title and body in chat when helpful; the user creates the PR in the browser.
+- **Do not run `gh`** (GitHub CLI) for PRs, issues, checks, releases, or API queries.
+- Use **git** for branch, commit, `git push origin <branch>`, and post-merge `git tag` / `git push origin vX.Y.Z`.
+- Compare URL after push: `https://github.com/peterkrentel/mcp-tool-guard/compare/main...<branch>`

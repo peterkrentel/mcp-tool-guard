@@ -1,6 +1,6 @@
 # Release process
 
-All changes land via **pull request**; releases are recorded in **[CHANGELOG.md](../CHANGELOG.md)** and optionally tagged on `main`.
+All changes land via **pull request** — **never push directly to `main`**. Releases are recorded in **[CHANGELOG.md](../CHANGELOG.md)** and optionally tagged on `main` after the release PR merges.
 
 **We do not use GitHub Releases** (the Releases UI or `gh release create`). The repo changelog is the release record; git tags are optional pointers for `git checkout v0.3.1`.
 
@@ -12,7 +12,7 @@ All changes land via **pull request**; releases are recorded in **[CHANGELOG.md]
 4. If roadmap work: check off or note in **[ROADMAP.md](ROADMAP.md)**
 5. `npm run typecheck` (and test locally: `make flight` + `make ui`)
 6. Open PR → review → merge to `main`
-7. Do **not** push directly to `main` (enable branch protection on GitHub when ready)
+7. Do **not** push directly to `main` (branch protection recommended)
 
 CI requires **CHANGELOG.md** to be updated on PRs to `main` (see `.github/workflows/changelog.yml`).
 
