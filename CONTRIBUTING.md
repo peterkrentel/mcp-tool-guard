@@ -2,9 +2,11 @@
 
 Thanks for helping improve MCPToolGuard. We use a **branch → PR → main** workflow with a **CHANGELOG** on every merge.
 
+**No direct pushes to `main`** — including docs, releases, and agent-assisted edits. Always open a PR.
+
 ## Required workflow
 
-1. **Do not commit directly to `main`.** Use a branch and open a pull request.
+1. **Always use a PR.** Do not commit or push directly to `main`. Branch → push branch → open pull request in GitHub UI.
 2. **Branch names:** `feature/<name>`, `fix/<name>`, `docs/<name>`, or `release/<version>`
 3. **Update [CHANGELOG.md](CHANGELOG.md)** under `[Unreleased]` for every PR (Added / Changed / Fixed / Removed). CI enforces this (Dependabot PRs are exempt; add a `Changed` deps note when merging if needed).
 4. **Roadmap work:** If the PR implements [docs/ROADMAP.md](docs/ROADMAP.md), mention the task number in the PR description and check the box when done.
