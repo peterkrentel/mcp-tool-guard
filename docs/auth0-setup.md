@@ -268,6 +268,20 @@ Decode at [jwt.io](https://jwt.io). **Good access token payload:**
 
 After changing RBAC or user permissions: **Sign out → Sign in** (old tokens do not update).
 
+**Read-only persona** — same token row in Local Storage; payload should show only `flights:read`:
+
+![Read-only access token on jwt.io](images/demo/auth0-access-token-read-only-jwtio.png)
+
+```json
+{
+  "permissions": ["flights:read"]
+}
+```
+
+Search → allow; book/cancel → **deny** (client blocks before MCP when scopes are missing):
+
+![Read-only scope deny in prod UI](images/demo/prod-scope-deny-read-only.png)
+
 ---
 
 ## Part 4 — Vercel environment variables
@@ -319,8 +333,8 @@ Verify flight Auth0 config: `curl http://localhost:8000/health` → `"jwt_trust_
 
 - [ ] Guest: dropdown → Initialize → search allow, cancel deny
 - [ ] Auth0: Sign in → Initialize → search → book → **Cancel booking BK-…** (all allow with full permissions)
-- [ ] Auth0 read-only user: search allow, book/cancel **deny**
-- [ ] Access token has `permissions` array after RBAC enabled
+- [ ] Auth0 read-only user: search allow, book/cancel **deny** ([UI](images/demo/prod-scope-deny-read-only.png), [token](images/demo/auth0-access-token-read-only-jwtio.png))
+- [ ] Access token has `permissions` array after RBAC enabled (not only OIDC `scope`)
 - [ ] Client and server audit rows **match** (no mismatch banner)
 - [ ] `curl http://localhost:8000/health` → `jwt_trust_enabled: true` (local Auth0)
 - [ ] `curl /audit` without Bearer → 401 (when guard enabled)
