@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.0 shipped](#release-030--hardening--multi-server) — Auth0 + guest dual trust + Vercel KV (tag `v0.3.0`).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — WebLLM heuristics (#11), then #7–10.
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#8** policy drift (suggested), then #7, #9–10.
 
 ## Product shape (summary)
 
@@ -55,7 +55,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 8 | Single policy source + CI drift test | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts` |
 | 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client |
 | 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own |
-| 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — see [NEXT-STEPS #11](NEXT-STEPS.md#implementation-backlog-post-030) |
+| 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — **Done** (PR #22, on `main`) |
 
 ### Larger — Tier 2 (may follow 0.3)
 

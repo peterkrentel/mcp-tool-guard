@@ -14,6 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Stronger agent system prompt — never emit raw flight/booking JSON; only tool JSON or plain text
+- Planning docs: mark ROADMAP #11 done; suggest #8 policy drift next (`immediate-nest-step`, `NEXT-STEPS`, `ROADMAP`)
 
 ## [0.3.0] - 2026-06-02
 

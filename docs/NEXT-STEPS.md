@@ -29,6 +29,12 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] [auth0-setup.md](auth0-setup.md) testing learnings, README demo screenshots
 - [x] Tag **`v0.3.0`**
 
+### Post-0.3.0 tag (on `main`, [Unreleased](../CHANGELOG.md#unreleased))
+
+- [x] **#11** WebLLM heuristics + anti-hallucination ([PR #22](https://github.com/peterkrentel/mcp-tool-guard/pull/22))
+- [x] Read-only Auth0 scope demo on prod (`demo-read@…` — search ALLOW, book client DENY)
+- [x] Demo screenshots: [prod-scope-deny-read-only](images/demo/prod-scope-deny-read-only.png), [read-only jwt.io](images/demo/auth0-access-token-read-only-jwtio.png)
+
 ---
 
 ## Implementation backlog (post-0.3.0) {#implementation-backlog-post-030}
@@ -37,21 +43,11 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | # | Task | Touch | Acceptance |
 |---|------|-------|------------|
-| **11** | **WebLLM heuristics** | [`ui/src/tool-args.ts`](../ui/src/tool-args.ts), [`ui/src/agent.ts`](../ui/src/agent.ts) | **In progress** — branch `feature/webllm-heuristics` |
+| **8** | **Single policy source + CI drift** | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`, CI script | Drift fails CI |
 | 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
-| 8 | Single policy source + CI drift | `guard_config.yaml`, `gateway/config.yaml`, `ui/guard-config.ts`, CI script | Drift fails CI |
 | 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
 | 10 | Second mock MCP (`servers/notes/`) | New server + UI routing | Two servers in demo |
 | 12 | Guard HTTP proxy (Tier 2) | New gateway service | Unowned MCP URL behind proxy + audit |
-
-### WebLLM heuristics (#11) — detail
-
-| Change | File | Notes |
-|--------|------|--------|
-| `FL\s*(\d+)` → `FL505` | `tool-args.ts` | `FLIGHT_ID` regex + normalize before `create_booking_tool` |
-| `search all flights` / bare `search` | `tryHeuristicIntent` | `search_flights_tool` with no filters (all seed flights) |
-| Intercept invented booking JSON | `interceptNonToolReply` | `"booking_id"`, `"flight_details"` without `Tool \`…\` result` |
-| Stronger system prompt | `agent.ts` `systemPrompt()` | Never emit raw flight/booking JSON — only `{"tool":…}` or plain text |
 
 ### Not in 0.3.x
 
@@ -69,7 +65,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | Topic | Detail |
 |-------|--------|
-| WebLLM (1B) | May invent JSON; use heuristics (#11) or explicit `book FL505 for …` phrasing |
+| WebLLM (1B) | May still mis-route; heuristics shipped (#11) — prefer explicit `book FL505 for …` / `Cancel booking BK-…` |
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy in three files | Until #8 |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
