@@ -6,7 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-_No shipped changes yet. Implementation backlog: [NEXT-STEPS.md](docs/NEXT-STEPS.md#implementation-backlog-post-030)._
+### Added
+
+- WebLLM heuristics: `FL 505` → `FL505`, `search all flights` / bare `search`, intercept invented booking JSON ([ROADMAP #11](docs/ROADMAP.md))
+
+### Changed
+
+- Stronger agent system prompt — never emit raw flight/booking JSON; only tool JSON or plain text
 
 ## [0.3.0] - 2026-06-02
 

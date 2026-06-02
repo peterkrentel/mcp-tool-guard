@@ -6,7 +6,7 @@
 
 See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)** (ROADMAP #7–12).
 
-**Suggested first PR:** WebLLM heuristics (#11) — `ui/src/tool-args.ts`, `ui/src/agent.ts`.
+**Suggested first PR:** WebLLM heuristics (#11) — open/merge `feature/webllm-heuristics`.
 
 ## Reference
 
