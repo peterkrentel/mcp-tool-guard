@@ -1,0 +1,15 @@
+# DEMO ONLY — embedded guard on documents MCP (see gateway/config.yaml → servers.documents.tools).
+server: documents
+tools:
+  list_documents_tool:
+    required_scope: docs:read
+  get_document_tool:
+    required_scope: docs:read
+  search_documents_tool:
+    required_scope: docs:read
+  publish_document_tool:
+    required_scope: docs:write
+  archive_document_tool:
+    required_scope: docs:delete
+    alert: true
+    log_level: verbose

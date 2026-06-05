@@ -54,22 +54,24 @@ make setup
 
 Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys (private key stays in `keys/`, gitignored).
 
-**Every time — two terminals:**
+**Every time — three terminals:**
 
 ```bash
-make flight    # Terminal 1 → http://localhost:8000/mcp
-make ui        # Terminal 2 → http://localhost:5173
+make flight      # Terminal 1 → http://localhost:8000/mcp
+make documents   # Terminal 2 → http://localhost:8001/mcp
+make ui          # Terminal 3 → http://localhost:5173
 ```
 
-Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the flight server locally.
+Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` + `/audit` (flight) and `/documents/mcp` + `/documents/audit` (documents KB) locally.
 
 <details>
 <summary>Manual commands</summary>
 
 ```bash
-uv sync --directory servers/flight && npm install && npm run generate-keys
-uv run --directory servers/flight python server.py   # terminal 1
-npm run dev -w ui                                     # terminal 2
+uv sync --directory servers/flight && uv sync --directory servers/documents && npm install && npm run generate-keys
+uv run --directory servers/flight python server.py      # terminal 1
+uv run --directory servers/documents python server.py     # terminal 2
+npm run dev -w ui                                         # terminal 3
 ```
 
 </details>

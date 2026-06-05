@@ -186,7 +186,7 @@ Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md).
 |--|-------------------|----------------|
 | Enforcement on flight | Embedded in flight process | Optional; proxy becomes primary for vendors |
 | Agent | Browser WebLLM only | SDK agents + proxy ([#12](ROADMAP.md)) |
-| Multi-server | Stubs in yaml; UI = flight only | **Next:** [#9](ROADMAP.md) UI + [#10](ROADMAP.md) `servers/notes/` (prove routing on owned infra) |
+| Multi-server | Flight + documents MCP (owned) | UI routes `authorize(server, …)` per tool ([#9](ROADMAP.md) / [#10](ROADMAP.md)) |
 | Unowned / vendor MCP | Client pre-check only | **Capstone:** guard proxy [#12](ROADMAP.md) |
 | Observability export | Browser panels + `/audit` | Grafana/Loki sink (Tier 2) |
 

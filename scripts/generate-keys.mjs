@@ -36,9 +36,15 @@ async function mint(scopes, label) {
 }
 
 const tokens = {
-  read_only: await mint(["flights:read"], "read-only"),
-  booking: await mint(["flights:read", "flights:write"], "booking"),
-  admin: await mint(["flights:read", "flights:write", "flights:delete"], "admin"),
+  read_only: await mint(["flights:read", "docs:read"], "read-only"),
+  booking: await mint(
+    ["flights:read", "flights:write", "docs:read", "docs:write"],
+    "booking",
+  ),
+  admin: await mint(
+    ["flights:read", "flights:write", "flights:delete", "docs:read", "docs:write", "docs:delete"],
+    "admin",
+  ),
 };
 
 writeFileSync(join(uiPublic, "demo-tokens.json"), JSON.stringify(tokens, null, 2));

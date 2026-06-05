@@ -28,6 +28,22 @@ servers:
         alert: true
         log_level: verbose
 
+  documents:
+    url: http://localhost:8001/mcp
+    tools:
+      list_documents_tool:
+        required_scope: docs:read
+      get_document_tool:
+        required_scope: docs:read
+      search_documents_tool:
+        required_scope: docs:read
+      publish_document_tool:
+        required_scope: docs:write
+      archive_document_tool:
+        required_scope: docs:delete
+        alert: true
+        log_level: verbose
+
   slack:
     url: https://mcp.slack.com
     tools:

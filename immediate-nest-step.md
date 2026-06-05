@@ -10,7 +10,7 @@ See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-
 
 **Next PRs (agreed order):**
 
-1. **#9 + #10** — multi-server UI + `servers/notes/` — small PR on infra you control; proves routing before proxy complexity
+1. **#9 + #10** — multi-server UI + `servers/documents/` — flight + internal KB docs; proves routing before proxy
 2. **#12** — guard HTTP proxy — capstone for unowned/vendor MCP (authoritative enforce + audit)
 
 Optional anytime: **#7** max body (hardening). Policy **#8**, Agent trace, ARCHITECTURE — done on `main`.

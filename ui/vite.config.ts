@@ -20,6 +20,14 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
+      "/documents/mcp": {
+        target: "http://localhost:8001",
+        changeOrigin: true,
+      },
+      "/documents/audit": {
+        target: "http://localhost:8001",
+        changeOrigin: true,
+      },
     },
   },
   build: {

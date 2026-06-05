@@ -60,7 +60,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | 7 | Middleware max request body size | DoS: unbounded body in middleware |
 | 8 | Policy from `gateway/config.yaml` in UI + demo alignment CI | **Done** — `ui/guard-config.ts` imports yaml; `check:demo-policy` until #12 |
 | 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client — **next** (with #10) |
-| 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own — **next** (with #9) |
+| 10 | Second mock MCP (`servers/documents/`) | Internal KB on infra you own — **next** (with #9) |
 | 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — **Done** (PR #22, on `main`) |
 
 ### Larger — Tier 2 (may follow 0.3)

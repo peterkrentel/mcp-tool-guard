@@ -6,18 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Changed
-
-- Docs: agreed build order — **#9+#10** multi-server + notes, then **#12** guard proxy (capstone)
-
 ### Added
 
+- **#9 + #10** Multi-server demo — `servers/documents/` internal KB MCP (`docs:read` / `docs:write` / `docs:delete`); UI routes tools via `authorize(server, …)`; merged server audit from flight + documents
 - **Agent trace** panel in audit sidebar — per-turn routing (heuristic / LLM / pending), model preview, `trace_id` highlight across server + client rows
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system diagrams (mermaid), three observability planes, policy, today vs guard proxy
-- UI client guard loads policy from `gateway/config.yaml` (Vite yaml import); `npm run check:demo-policy` keeps demo flight `guard_config.yaml` aligned until guard proxy (#12)
+- UI client guard loads policy from `gateway/config.yaml` (Vite yaml import); `npm run check:demo-policy` keeps demo embedded guards aligned until guard proxy (#12)
 
 ### Changed
 
+- Docs: agreed build order — **#9+#10** multi-server + documents, then **#12** guard proxy (capstone)
+- Guest demo JWTs include `docs:*` scopes alongside `flights:*`
 - Release process: CHANGELOG + optional git tag only — no GitHub Releases UI ([RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md))
 - Workflow: always branch + PR to `main` — no direct pushes ([CONTRIBUTING.md](CONTRIBUTING.md), `.cursor/rules/release-and-pr-workflow.mdc`)
 - ROADMAP #8 done: canonical policy in `gateway/config.yaml`; `servers/flight/guard_config.yaml` documented as demo-only embedded guard ([CONCEPT.md](docs/CONCEPT.md))

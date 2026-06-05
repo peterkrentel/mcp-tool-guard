@@ -6,6 +6,12 @@ import { TurnRecorder } from "./agent-trace.js";
 import type { AgentTraceEntry } from "./agent-trace.js";
 import { GUARD_CONFIG, TOOL_DESCRIPTIONS } from "./guard-config.js";
 import { McpHttpClient } from "./mcp-client.js";
+import {
+  DEMO_SERVER_IDS,
+  resolveMcpUrlForServer,
+  resolveServerForTool,
+  type DemoServerId,
+} from "./servers.js";
 import { newSessionId, newTraceId } from "./trace.js";
 import {
   DEMO_DATES_HINT,
@@ -26,7 +32,6 @@ import {
 export type { ToolCallIntent } from "./tool-args.js";
 
 export interface AgentOptions {
-  mcpUrl: string;
   jwt: string;
   publicKeyPem: string;
   jwtIssuer?: string;
@@ -43,7 +48,7 @@ const MODEL_ID = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 export class FlightAgent {
   private engine: MLCEngineInterface | null = null;
   private guard: ToolGuard;
-  private mcp: McpHttpClient;
+  private mcpClients = new Map<DemoServerId, McpHttpClient>();
   private jwt: string;
   private messages: Array<{ role: string; content: string }> = [];
   private pending: PendingToolCall | null = null;
@@ -64,7 +69,15 @@ export class FlightAgent {
       jwtAudience: options.jwtAudience,
       jwksUrl: options.jwksUrl,
     });
-    this.mcp = new McpHttpClient({ url: options.mcpUrl, bearerToken: options.jwt });
+    for (const serverId of DEMO_SERVER_IDS) {
+      this.mcpClients.set(
+        serverId,
+        new McpHttpClient({
+          url: resolveMcpUrlForServer(serverId),
+          bearerToken: options.jwt,
+        }),
+      );
+    }
     this.onLog = options.onLog;
     this.onTrace = options.onTrace;
     this.onStatus = options.onStatus;
@@ -74,7 +87,9 @@ export class FlightAgent {
 
   setToken(jwt: string): void {
     this.jwt = jwt;
-    this.mcp.setBearerToken(jwt);
+    for (const client of this.mcpClients.values()) {
+      client.setBearerToken(jwt);
+    }
   }
 
   async init(): Promise<void> {
@@ -89,28 +104,37 @@ export class FlightAgent {
         this.onStatus?.(`Loading model: ${Math.round(report.progress * 100)}%`);
       },
     });
-    this.onStatus?.("Model ready. MCP client connecting...");
-    await this.mcp.listTools();
-    this.onStatus?.("Ready");
+    this.onStatus?.("Model ready. MCP clients connecting...");
+    for (const serverId of DEMO_SERVER_IDS) {
+      const client = this.mcpClients.get(serverId);
+      if (!client) continue;
+      await client.listTools();
+    }
+    this.onStatus?.("Ready (flight + documents MCP)");
   }
 
   private systemPrompt(): string {
     const tools = Object.entries(TOOL_DESCRIPTIONS)
       .map(([name, desc]) => `- ${name}: ${desc}`)
       .join("\n");
-    return `You are a flight booking assistant with access to MCP tools.
+    return `You are a demo assistant with flight booking and internal document MCP tools.
 When the user needs data or actions, respond with ONLY a JSON object (no markdown):
 {"tool":"<tool_name>","arguments":{...}}
 
-Rules:
+Flight rules:
 - Use 3-letter IATA airport codes (SFO, JFK) only if the user said them.
 - NEVER invent departure_date. Omit it unless the user wrote a YYYY-MM-DD date.
 - Demo available dates: ${DEMO_DATES_HINT}.
 - Use flight IDs like FL101 for search/details only.
 - For cancel/get/check-in use booking IDs like BK-XXXXXXXX only — never use FL... as booking_id.
-- NEVER invent booking IDs or success messages. If info is missing, ask in plain text.
-- NEVER output raw flight or booking JSON (no {"count":...}, {"booking_id":...}). Only {"tool":...} or plain text.
-- A real book result always comes from the server as Tool \`create_booking_tool\` result with booking_id like BK-A1B2C3D4.
+- NEVER invent booking IDs or success messages.
+
+Document rules:
+- Use document IDs like DOC-42 for get/archive/update.
+- publish_document_tool needs title and body; optional doc_id to update.
+- NEVER invent document JSON. Only {"tool":...} or plain text.
+
+NEVER output raw tool result JSON in chat. Only {"tool":...} or plain text.
 
 Available tools:
 ${tools}
@@ -169,7 +193,21 @@ If required information is missing, respond with plain text asking the user (do 
       session_id: this.sessionId,
       trace_id: turn.trace_id,
     };
-    const auth = await this.guard.authorize("flight", tool, this.jwt, audit);
+    const serverId = resolveServerForTool(tool);
+    if (!serverId) {
+      turn.setOutcome("unknown_tool");
+      this.finishTurn(turn);
+      return this.replyAssistant(`Unknown tool: ${tool}`);
+    }
+
+    const mcp = this.mcpClients.get(serverId as DemoServerId);
+    if (!mcp) {
+      turn.setOutcome("no_mcp_client");
+      this.finishTurn(turn);
+      return this.replyAssistant(`No MCP client for server: ${serverId}`);
+    }
+
+    const auth = await this.guard.authorize(serverId, tool, this.jwt, audit);
 
     if (!auth.allowed) {
       auth.entry.reached_server = false;
@@ -182,7 +220,7 @@ If required information is missing, respond with plain text asking the user (do 
 
     let toolResult: string;
     try {
-      toolResult = await this.mcp.callTool(tool, args, {
+      toolResult = await mcp.callTool(tool, args, {
         session_id: this.sessionId,
         trace_id: turn.trace_id,
       });

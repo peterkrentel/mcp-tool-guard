@@ -129,7 +129,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | Policy | One canonical yaml; flight `guard_config.yaml` is temporary demo scaffolding |
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
-| Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
+| Multi-server | UI wires **flight** + **documents**; yaml stubs for slack/github until proxy #12 |
 | Demo tokens | Guest JWTs in repo + Auth0 login — [identity.md](identity.md#guest-demo-existing-jwts--auth0) |
 
 ## Remote deployment

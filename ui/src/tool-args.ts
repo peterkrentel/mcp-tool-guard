@@ -36,7 +36,21 @@ const ISO_DATE = /\b(\d{4}-\d{2}-\d{2})\b/;
 /** Matches FL101 and "FL 505" (space optional). */
 const FLIGHT_ID_LOOSE = /\bFL\s*(\d+)\b/i;
 const BOOKING_ID = /\b(BK-[A-Z0-9]+)\b/i;
+const DOC_ID = /\b(DOC-\d+)\b/i;
 const EMAIL = /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/;
+
+export function extractDocIdFromUser(message: string): string | undefined {
+  const m = message.match(DOC_ID);
+  return m ? m[1].toUpperCase() : undefined;
+}
+
+function isDocumentIntent(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    DOC_ID.test(message) ||
+    /\b(documents?|runbook|policy|knowledge\s*base|kb)\b/.test(lower)
+  );
+}
 
 /** Normalize flight id from user text (FL 505 → FL505). */
 export function extractFlightIdFromUser(message: string): string | undefined {
@@ -82,11 +96,13 @@ export function isHelpQuestion(message: string): boolean {
 
 export function formatHelpText(): string {
   return (
-    "How to book in this demo:\n\n" +
-    "1. Search a route — e.g. \"Search flights from JFK to MIA\"\n" +
-    "2. Note the flight_id in the results (e.g. FL505)\n" +
-    "3. Book — e.g. \"Book FL505 for Peter Bird, p@p.com\"\n\n" +
-    "Use the Booking or Admin JWT scope (flights:write). Read-only cannot book."
+    "Flight booking:\n" +
+    "1. Search — e.g. \"Search flights from JFK to MIA\"\n" +
+    "2. Book — e.g. \"Book FL505 for Jane Doe, jane@example.com\" (needs flights:write)\n\n" +
+    "Documents (internal KB):\n" +
+    "• List — \"List documents\"\n" +
+    "• Read — \"Show document DOC-42\" (docs:read)\n" +
+    "• Publish — needs docs:write; archive DOC-99 needs docs:delete (Admin token)"
   );
 }
 
@@ -396,11 +412,58 @@ function sanitizeBookingIdArgs(
 }
 
 /** Detect common flight phrasing without calling the LLM. */
+function tryDocumentHeuristic(userMessage: string): ToolCallIntent | null {
+  if (!isDocumentIntent(userMessage)) return null;
+  const lower = userMessage.toLowerCase();
+  const docId = extractDocIdFromUser(userMessage);
+
+  if (/\b(archive|delete|remove)\b/.test(lower) && docId) {
+    return { tool: "archive_document_tool", arguments: { doc_id: docId } };
+  }
+
+  if (
+    /\b(list|show)\s+(all\s+)?documents?\b/.test(lower) ||
+    lower === "list documents" ||
+    lower === "list docs"
+  ) {
+    return { tool: "list_documents_tool", arguments: {} };
+  }
+
+  if (/\b(search|find)\b.*\b(documents?|policy|runbook)\b/.test(lower)) {
+    const query = userMessage
+      .replace(/^.*\b(?:search|find)\s+(?:documents?\s+)?(?:for\s+)?/i, "")
+      .trim();
+    return {
+      tool: "search_documents_tool",
+      arguments: { query: query || userMessage },
+    };
+  }
+
+  if (docId && /\b(get|show|open|read)\b/.test(lower)) {
+    return { tool: "get_document_tool", arguments: { doc_id: docId } };
+  }
+
+  if (docId && !/\b(publish|archive|delete|write)\b/.test(lower)) {
+    return { tool: "get_document_tool", arguments: { doc_id: docId } };
+  }
+
+  if (/\bpublish\b/.test(lower)) {
+    const args: Record<string, unknown> = {};
+    if (docId) args.doc_id = docId;
+    return { tool: "publish_document_tool", arguments: args };
+  }
+
+  return null;
+}
+
 export function tryHeuristicIntent(
   userMessage: string,
   session: SessionContext,
 ): ToolCallIntent | null {
   const lower = userMessage.toLowerCase();
+
+  const docIntent = tryDocumentHeuristic(userMessage);
+  if (docIntent) return docIntent;
 
   if (isCancelDeleteIntent(userMessage)) {
     const bk = extractBookingIdFromUser(userMessage);
@@ -643,6 +706,75 @@ export function prepareToolCall(
         arguments: { flight_id: String(args.flight_id).toUpperCase() },
         summary: formatSummary(tool, args),
       };
+    }
+
+    case "list_documents_tool":
+      return { ok: true, tool, arguments: {}, summary: "list_documents_tool()" };
+
+    case "get_document_tool":
+    case "archive_document_tool": {
+      const args = mergePending(base, userMessage);
+      const docFromUser = extractDocIdFromUser(userMessage);
+      if (docFromUser) args.doc_id = docFromUser;
+      if (!args.doc_id) {
+        return {
+          ok: false,
+          message: `I need a doc_id (e.g. DOC-42).`,
+          pending: { tool, partial: args, missing: ["doc_id"] },
+        };
+      }
+      return {
+        ok: true,
+        tool,
+        arguments: { doc_id: String(args.doc_id).toUpperCase() },
+        summary: formatSummary(tool, args),
+      };
+    }
+
+    case "search_documents_tool": {
+      const args = mergePending(base, userMessage);
+      if (!args.query) {
+        const q = userMessage
+          .replace(/^.*\b(?:search|find)\s+(?:documents?\s+)?(?:for\s+)?/i, "")
+          .trim();
+        if (q) args.query = q;
+      }
+      if (!args.query) {
+        return {
+          ok: false,
+          message: `To search documents I need a query keyword.\n\nExample: "Search documents for refund"`,
+          pending: { tool, partial: args, missing: ["query"] },
+        };
+      }
+      return {
+        ok: true,
+        tool,
+        arguments: { query: String(args.query) },
+        summary: formatSummary(tool, args),
+      };
+    }
+
+    case "publish_document_tool": {
+      const args = mergePending(base, userMessage);
+      const docFromUser = extractDocIdFromUser(userMessage);
+      if (docFromUser) args.doc_id = docFromUser;
+      const missing: string[] = [];
+      if (!args.title) missing.push("title");
+      if (!args.body) missing.push("body");
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          message: `To publish a document I need:\n${missing.map((m) => `• ${m}`).join("\n")}\n\nExample: Publish title "Q4 policy" body "All refunds require approval"`,
+          pending: { tool, partial: args, missing },
+        };
+      }
+      const out: Record<string, unknown> = {
+        title: String(args.title),
+        body: String(args.body),
+      };
+      if (args.doc_id) out.doc_id = String(args.doc_id).toUpperCase();
+      if (Array.isArray(args.tags)) out.tags = args.tags;
+      return { ok: true, tool, arguments: out, summary: formatSummary(tool, out) };
     }
 
     default:

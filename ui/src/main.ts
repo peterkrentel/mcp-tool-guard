@@ -13,7 +13,7 @@ import {
   loginWithAuth0,
   logoutAuth0,
 } from "./auth.js";
-import { resolveAuditUrl, resolveMcpUrl } from "./config.js";
+import { DEMO_SERVER_IDS, resolveAuditUrlForServer } from "./servers.js";
 
 const chatEl = document.getElementById("chat")!;
 const inputEl = document.getElementById("message") as HTMLInputElement;
@@ -67,8 +67,6 @@ async function resolveBearerToken(): Promise<string> {
 async function refreshAuditPanel(): Promise<void> {
   const sessionId = agent?.getSessionId() ?? "";
   const client: readonly AuditLogEntry[] = agent?.getAuditLog() ?? [];
-  const auditUrl = resolveAuditUrl(resolveMcpUrl());
-
   let bearer: string;
   try {
     bearer = await resolveBearerToken();
@@ -83,8 +81,29 @@ async function refreshAuditPanel(): Promise<void> {
     return;
   }
 
-  const server = await fetchServerAudit(auditUrl, bearer, sessionId || undefined);
+  const server = await fetchMergedServerAudit(bearer, sessionId || undefined);
   renderAuditPanel(logEl, server, client, agent?.getAgentTraces() ?? [], sessionId);
+}
+
+async function fetchMergedServerAudit(
+  bearer: string,
+  sessionId?: string,
+): Promise<import("./audit-view.js").ServerAuditResult> {
+  const results = await Promise.all(
+    DEMO_SERVER_IDS.map((id) =>
+      fetchServerAudit(resolveAuditUrlForServer(id), bearer, sessionId),
+    ),
+  );
+  const errors = results.filter((r) => !r.ok);
+  const entries = results.flatMap((r) => (r.ok ? r.entries : []));
+  if (entries.length > 0) {
+    return { ok: true, entries };
+  }
+  if (errors.length > 0) {
+    const first = errors[0];
+    return first.ok ? { ok: true, entries: [] } : first;
+  }
+  return { ok: true, entries: [] };
 }
 
 async function loadDemoAssets(): Promise<void> {
@@ -98,7 +117,6 @@ function buildAgent(jwt: string): FlightAgent {
   const auth0 = getAuth0Config();
   const jwtTrust = auth0 ? jwtTrustFromAuth0(auth0) : {};
   return new FlightAgent({
-    mcpUrl: resolveMcpUrl(),
     jwt,
     publicKeyPem: publicKey,
     ...jwtTrust,
@@ -169,8 +187,8 @@ async function initAgent(): Promise<void> {
     appendMessage(
       "system",
       authMode === "auth0"
-        ? "Agent initialized with Auth0 token. Try: 'Search flights from SFO to JFK'"
-        : "Agent initialized (guest). Try: 'Search flights from SFO to JFK'",
+        ? "Agent initialized with Auth0 token. Try: 'Search flights from SFO to JFK' or 'Show document DOC-42'"
+        : "Agent initialized (guest). Try: 'Search flights from SFO to JFK' or 'List documents'",
     );
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;

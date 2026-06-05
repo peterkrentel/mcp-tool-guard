@@ -50,7 +50,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | Step | # | Why |
 |------|---|-----|
-| **1** | **#9 + #10** (one PR) | Multi-server UI + `servers/notes/` on infra you control — proves `authorize(server, …)` and per-URL MCP routing; shakes out multi-server bugs before the proxy |
+| **1** | **#9 + #10** (one PR) | Multi-server UI + `servers/documents/` on infra you control — proves `authorize(server, …)` and per-URL MCP routing; shakes out multi-server bugs before the proxy |
 | **2** | **#12** | Guard HTTP proxy — **capstone** for vendor/unowned MCP ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp)); highest product value once routing is proven |
 | Anytime | **#7** | Max request body — hardening, not blocking |
 
@@ -62,7 +62,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 |---|------|-------|------------|
 | 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
-| 10 | Second mock MCP (`servers/notes/`) | New server + UI routing | Two servers in demo |
+| 10 | Second mock MCP (`servers/documents/`) | Internal KB docs + UI routing | Flight + documents in demo |
 | 12 | Guard HTTP proxy (Tier 2) | New gateway service | Unowned MCP URL behind proxy + audit |
 
 ### Not in 0.3.x

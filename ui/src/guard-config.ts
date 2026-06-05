@@ -2,25 +2,30 @@ import type { GuardConfig } from "@mcp-tool-guard/gateway";
 import { parse } from "yaml";
 
 import gatewayPolicyYaml from "../../gateway/config.yaml?raw";
+import { DEMO_SERVER_IDS, type DemoServerId } from "./servers.js";
+
+const BROWSER_MCP_PATHS: Record<DemoServerId, string> = {
+  flight: "/mcp",
+  documents: "/documents/mcp",
+};
 
 /** Client guard policy — loaded from [gateway/config.yaml](../../gateway/config.yaml). */
 function loadGuardConfig(): GuardConfig {
   const parsed = parse(gatewayPolicyYaml) as GuardConfig;
-  const flight = parsed.servers?.flight;
-  if (!flight?.tools) {
-    throw new Error("gateway/config.yaml: missing servers.flight.tools");
+  const servers = { ...parsed.servers };
+
+  for (const serverId of DEMO_SERVER_IDS) {
+    const server = servers[serverId];
+    if (!server?.tools) {
+      throw new Error(`gateway/config.yaml: missing servers.${serverId}.tools`);
+    }
+    servers[serverId] = {
+      ...server,
+      url: BROWSER_MCP_PATHS[serverId],
+    };
   }
-  return {
-    ...parsed,
-    servers: {
-      ...parsed.servers,
-      flight: {
-        ...flight,
-        // Browser uses Vite proxy / VITE_MCP_URL, not localhost:8000 from yaml.
-        url: "/mcp",
-      },
-    },
-  };
+
+  return { ...parsed, servers };
 }
 
 export const GUARD_CONFIG = loadGuardConfig();
@@ -41,4 +46,10 @@ export const TOOL_DESCRIPTIONS: Record<string, string> = {
   select_seats_tool: "Select seat — required: booking_id, seat",
   add_baggage_tool: "Add baggage — required: booking_id, baggage_kg",
   track_flight_tool: "Track — required: flight_id",
+  list_documents_tool: "List internal documents (policy, runbooks)",
+  get_document_tool: "Get document — required: doc_id (e.g. DOC-42)",
+  search_documents_tool: "Search documents — required: query keyword",
+  publish_document_tool:
+    "Publish or update — required: title, body; optional: doc_id to update",
+  archive_document_tool: "Archive document — required: doc_id (DOC-...)",
 };
