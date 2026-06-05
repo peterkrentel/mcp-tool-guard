@@ -6,12 +6,36 @@ MCPToolGuard’s product pitch: **bring your identity provider; we enforce JWT s
 
 ---
 
+## Scopes vs roles (how admins grant access)
+
+**At enforcement time:** users and agents present a token with **scope rights** (`flights:read`, `docs:write`, …). MCPToolGuard checks those strings against per-tool policy in `gateway/config.yaml` — not usernames, not group names, not MCP server URLs.
+
+**At admin time:** assign **roles or groups** in your IdP; each role grants a **bundle of scopes**. Token issuance flattens roles into the access token (`permissions` on Auth0, `scope` on many OIDC providers). MCPToolGuard does not need a separate “group” concept.
+
+```
+Admin:  Alice → role flight-readers → [flights:read, docs:read]
+Login:  access token carries permissions[]
+Call:   publish_document_tool requires docs:write → DENY (expected for read-only persona)
+```
+
+| Pattern | When to use |
+|---------|-------------|
+| **User → scope** (direct) | Demos, one-off test users |
+| **Role/group → scopes** | Production — onboarding, SoD, many users |
+| **Wildcard scopes** (`flights:*`, `*`) | Admin or break-glass bundles |
+
+One token works across **all MCP servers** the agent calls (flight, documents, future proxied vendors) as long as the token includes the scopes those tools require.
+
+Rationale and wildcards: [CONCEPT → Scopes, roles, and identity](CONCEPT.md#scopes-roles-and-identity).
+
+---
+
 ## Current state (0.3.0)
 
 | Piece | Today |
 |-------|--------|
 | MCP `tools/call` | `Authorization: Bearer` + dual trust: **JWKS** (`MCP_JWT_*`) or **demo PEM** |
-| Scopes | `flights:read`, `flights:write`, `flights:delete` in JWT `scope` claim |
+| Scopes | `flights:*`, `docs:*` (and stubs `slack:*`, `github:*` in policy) in JWT `scope` / Auth0 `permissions` |
 | UI tokens | **Guest:** `demo-tokens.json` dropdown · **Auth0:** SPA login (`VITE_AUTH0_*`) |
 | `GET /audit` | **Bearer JWT required** when guard enabled (guest or Auth0 token) |
 | `iss` / `aud` | Validated on IdP path only |
@@ -50,7 +74,7 @@ Use the **same access token** for MCP and `/audit` (optional `audit:read` permis
 
 ## Auth0 vs Keycloak (same gateway, different issuer)
 
-The **enforcement code is issuer-agnostic**. Configure issuer URL, audience, and JWKS; scopes stay `flights:*`.
+The **enforcement code is issuer-agnostic**. Configure issuer URL, audience, and JWKS; scope namespaces (`flights:*`, `docs:*`, …) come from your API permissions and policy yaml.
 
 | | **Auth0** (0.3 demo) | **Keycloak** (later / enterprise) |
 |--|----------------------|-------------------------------------|
@@ -101,7 +125,7 @@ User opens UI ──────┤
 
 1. Decode JWT header → try **JWKS** path if `iss` matches `MCP_JWT_ISSUER`.
 2. Else verify with **demo public PEM** (no `iss`/`aud` required for guest tokens, or fixed demo `iss` if you add one later).
-3. Same scope enforcement either way (`flights:read`, etc.).
+3. Same scope enforcement either way (`flights:read`, `docs:write`, etc.).
 
 **`/audit`:** Accept **either** token type in `Authorization: Bearer` — closes public unauthenticated scrape without forcing Auth0 for casual visitors.
 

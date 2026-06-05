@@ -66,13 +66,17 @@ Confirm under **Settings → Tenant Settings → General** (Tenant Name + Region
 | **Identifier** | `https://mcp-tool-guard` ← this is **`aud`** everywhere |
 | Signing algorithm | RS256 |
 
-**API → Permissions tab** — add:
+**API → Permissions tab** — add (scope rights MCPToolGuard enforces per tool):
 
-| Permission | Demo profile |
-|------------|--------------|
-| `flights:read` | read_only |
-| `flights:write` | booking |
-| `flights:delete` | admin cancel |
+| Permission | Domain | Demo profile |
+|------------|--------|--------------|
+| `flights:read` | Flight demo | read_only |
+| `flights:write` | Flight demo | booking |
+| `flights:delete` | Flight demo | admin cancel |
+
+Optional when policy adds more servers (proxy or multi-server): `docs:read`, `docs:write`, `docs:delete`, `slack:read`, … — same permission model per tool in `gateway/config.yaml`.
+
+These are **capabilities**, not “access to a server URL.” One access token can carry many scope namespaces.
 
 ![API permissions](images/auth0/02-api-permissions-tab.png)
 
@@ -110,12 +114,24 @@ Find **`mcp-tool-guard`** (Single Page Application). Set:
 
 | Column | Target |
 |--------|--------|
-| **User-delegated Access** | **Authorized** — **3 / 3 permissions granted** |
-| Client Access | Unauthorized (0/3) is fine |
+| **User-delegated Access** | **Authorized** — **3 / 3** `flights:*` for current demo (more if you add permissions) |
+| Client Access | Unauthorized is fine |
 
 ![Application Access on API](images/auth0/04-api-application-access.png)
 
-**Alternate path (same result):** **Applications → Applications → `mcp-tool-guard` → API Access** → authorize `api-for-mcp-tool-guard` with 3/3 user-delegated permissions.
+**Alternate path (same result):** **Applications → Applications → `mcp-tool-guard` → API Access** → authorize `api-for-mcp-tool-guard` with user-delegated permissions.
+
+### Roles vs direct user permissions (recommended at scale)
+
+For demos you can assign permissions **directly on a user** (Step 6). For production, use **Auth0 Roles** that bundle scopes, then assign users to roles:
+
+| Role (example) | Permissions |
+|----------------|-------------|
+| `mcp-read-only` | `flights:read` (+ `docs:read` when that server is in policy) |
+| `mcp-operator` | above + `flights:write` |
+| `mcp-admin` | + `flights:delete` (and other domains as needed) |
+
+MCPToolGuard only sees the flattened `permissions` array in the token — not role names. See [identity.md → Scopes vs roles](identity.md#scopes-vs-roles-how-admins-grant-access).
 
 ![SPA API Access](images/auth0/05-spa-api-access.png)
 
@@ -151,15 +167,15 @@ Copy **Client ID** → `VITE_AUTH0_CLIENT_ID`.
 Open the user → **Permissions** tab → **Assign Permissions**:
 
 - API: `https://mcp-tool-guard` (shown as `api-for-mcp-tool-guard`)
-- Permissions: e.g. all three `flights:*` for admin testing
+- Permissions: e.g. all three `flights:*` for admin testing, or a subset per persona below
 
-| Persona | Permissions |
-|---------|-------------|
-| Read-only | `flights:read` |
-| Booking | `flights:read`, `flights:write` |
-| Admin | `flights:read`, `flights:write`, `flights:delete` |
+| Persona | Permissions | Flight demo |
+|---------|-------------|-------------|
+| Read-only | `flights:read` | Search |
+| Booking | `flights:read`, `flights:write` | Book |
+| Admin | `flights:read`, `flights:write`, `flights:delete` | Cancel |
 
-Create **separate users** (or roles) for read-only and booking personas — a user with all three permissions will **allow** every demo action and will not show scope **deny** in the audit panel.
+Create **separate users** (or roles) for read-only and booking personas — a user with all permissions will **allow** every demo action and will not show scope **deny** in the audit panel.
 
 ![User permissions](images/auth0/06-user-permissions.png)
 

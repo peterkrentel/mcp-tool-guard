@@ -18,6 +18,41 @@ MCPToolGuard validates **JWT scopes** against per-tool policy on MCP `tools/call
 4. **Allow or deny** — server is authoritative; client SDK can pre-check first
 5. **Audit** — structured JSON per decision (`session_id`, `trace_id`)
 
+## Scopes, roles, and identity
+
+**Admins assign scope rights; MCPToolGuard enforces them per tool.** The guard does not manage users or groups — your IdP does. At `tools/call` the guard only asks: *does this Bearer token include the scope required for this tool?*
+
+### Two layers (do not mix them)
+
+| Layer | Owner | Question |
+|-------|--------|----------|
+| **Identity** | Auth0, Keycloak, Azure AD, … | Who is this principal? Which **roles/groups** do they have? What **scopes** go on the access token? |
+| **MCPToolGuard** | `gateway/config.yaml` + server/proxy guard | For **server + tool**, what **`required_scope`** applies? Does the token satisfy it? |
+
+Policy maps **tools** to **scope strings** (e.g. `publish_document_tool` → `docs:write`), not “access to MCP server X.” Namespace prefixes (`flights:`, `docs:`, `slack:`) usually align with MCP domains, but the enforceable unit is the **scope**, not the server URL.
+
+### One token, many MCP servers
+
+A single access token carries a flat list of scopes (`scope` claim and/or Auth0 `permissions`). The same token can call **flight**, **documents**, and (via proxy #12) vendor MCP — each tool still checks its own required scope.
+
+Wildcards: `flights:*`, `docs:*`, or `*` match any scope in that resource ([gateway/guard.ts](../gateway/guard.ts)).
+
+### Roles and groups (scale in the IdP)
+
+Direct **user → scope** assignments work for demos; production should use **roles or groups → scopes**:
+
+```
+Role: flight-readers   →  flights:read, docs:read
+Role: kb-editors       →  docs:read, docs:write
+Role: platform-admin   →  flights:*, docs:*
+```
+
+Assign users to roles in the IdP; token issuance **flattens** roles into `permissions` / `scope`. MCPToolGuard never needs a “group” claim — only the resulting scope list.
+
+The guest JWT dropdown (`read_only` / `booking` / `admin`) is a **toy role bundle** minted in [`generate-keys.mjs`](../scripts/generate-keys.mjs). Auth0 uses the same idea with API permissions and optional Roles.
+
+Details: [identity.md → Scopes vs roles](identity.md#scopes-vs-roles-how-admins-grant-access).
+
 ## Architecture
 
 **Diagrams and component map:** [ARCHITECTURE.md](ARCHITECTURE.md) (system context, sequence per turn, policy, IdP, today vs proxy).
@@ -209,14 +244,15 @@ Regenerate: `make keys` or `npm run generate-keys`. **Guest mode** keeps these J
 - **Claims:** `sub`, `iat`, `exp`, **`scope`** (space-separated)
 - Also accepts `scopes` or `scp` for IdP compatibility
 
-### Demo profiles
+### Demo profiles (guest dropdown = role bundles)
 
-| UI key | Scopes | Search | Book | Cancel |
-|--------|--------|--------|------|--------|
+| UI key | Scopes (guest JWT) | Search | Book | Cancel |
+|--------|-------------------|--------|------|--------|
 | `read_only` | `flights:read` | Yes | No | No |
-| `admin` | + `flights:write`, `flights:delete` | Yes | Yes | Yes |
+| `booking` | + `flights:write` | Yes | Yes | No |
+| `admin` | + `flights:delete` | Yes | Yes | Yes |
 
-(`booking` = read + write, no delete.)
+Additional domains (e.g. `docs:read`) use the same pattern when `gateway/config.yaml` adds servers — assign via IdP roles, not per MCP URL. See [auth0-setup.md](auth0-setup.md).
 
 ### Enforcement flow (demo)
 

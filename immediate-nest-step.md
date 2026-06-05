@@ -8,10 +8,9 @@ Prior: [CHANGELOG 0.3.0](CHANGELOG.md#030---2026-06-02) — Auth0 + guest dual t
 
 See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)**.
 
-**Next PRs (agreed order):**
+**Next PR:** **#12** guard HTTP proxy — enforce + audit in front of vendor/customer MCP (product path; we do not host MCP).
 
-1. **#9 + #10** — multi-server UI + `servers/notes/` — small PR on infra you control; proves routing before proxy complexity
-2. **#12** — guard HTTP proxy — capstone for unowned/vendor MCP (authoritative enforce + audit)
+**Deferred:** **#9/#10** multi-server + second mock MCP (branch `feature/documents-multi-server` closed without merge).
 
 Optional anytime: **#7** max body (hardening). Policy **#8**, Agent trace, ARCHITECTURE — done on `main`.
 
