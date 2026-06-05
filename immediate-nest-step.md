@@ -4,11 +4,16 @@
 
 Prior: [CHANGELOG 0.3.0](CHANGELOG.md#030---2026-06-02) — Auth0 + guest dual trust, Vercel KV audit/bookings.
 
-## Implementation backlog (pick one PR)
+## Implementation backlog (ordered)
 
-See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)** (ROADMAP #7–10, #12).
+See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)**.
 
-**Suggested first PR:** Max request body (**#7**) or multi-server UI (**#9**). Policy **#8** done — UI reads `gateway/config.yaml`.
+**Next PRs (agreed order):**
+
+1. **#9 + #10** — multi-server UI + `servers/notes/` — small PR on infra you control; proves routing before proxy complexity
+2. **#12** — guard HTTP proxy — capstone for unowned/vendor MCP (authoritative enforce + audit)
+
+Optional anytime: **#7** max body (hardening). Policy **#8**, Agent trace, ARCHITECTURE — done on `main`.
 
 ## Reference
 
