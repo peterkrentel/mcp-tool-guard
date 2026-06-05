@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — #7, #9–10 (policy #8 done on `main`).
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#9+#10** (multi-server + notes), then **#12** proxy (capstone). Optional: #7.
 
 ## Product shape (summary)
 
@@ -59,15 +59,15 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 |---|------|--------|
 | 7 | Middleware max request body size | DoS: unbounded body in middleware |
 | 8 | Policy from `gateway/config.yaml` in UI + demo alignment CI | **Done** — `ui/guard-config.ts` imports yaml; `check:demo-policy` until #12 |
-| 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client |
-| 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own |
+| 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client — **next** (with #10) |
+| 10 | Second mock MCP (`servers/notes/`) | Multi-server on infra you own — **next** (with #9) |
 | 11 | WebLLM heuristics + anti-hallucination | `tool-args.ts`, `agent.ts` — **Done** (PR #22, on `main`) |
 
 ### Larger — Tier 2 (may follow 0.3)
 
 | # | Task | Notes |
 |---|------|--------|
-| 12 | **Guard HTTP proxy** | Unowned upstream MCP — [CONCEPT](CONCEPT.md#third-party--unowned-mcp) |
+| 12 | **Guard HTTP proxy** | **Capstone** — unowned upstream MCP; authoritative enforce + audit — [CONCEPT](CONCEPT.md#third-party--unowned-mcp) |
 | 13 | Rate limiting | MCP + `/audit` |
 | 14 | Guard `initialize` / `tools/list` (optional auth) | Capability enumeration |
 

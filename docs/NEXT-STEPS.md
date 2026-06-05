@@ -46,6 +46,18 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 
 Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADMAP numbers in [ROADMAP.md](ROADMAP.md#release-030--hardening--multi-server).
 
+### Recommended build order
+
+| Step | # | Why |
+|------|---|-----|
+| **1** | **#9 + #10** (one PR) | Multi-server UI + `servers/notes/` on infra you control — proves `authorize(server, …)` and per-URL MCP routing; shakes out multi-server bugs before the proxy |
+| **2** | **#12** | Guard HTTP proxy — **capstone** for vendor/unowned MCP ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp)); highest product value once routing is proven |
+| Anytime | **#7** | Max request body — hardening, not blocking |
+
+Agent-vs-chat UI and external SDK agents are optional polish; they do not change the authoritative enforcement story.
+
+### Tasks
+
 | # | Task | Touch | Acceptance |
 |---|------|-------|------------|
 | 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
