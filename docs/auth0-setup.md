@@ -66,15 +66,22 @@ Confirm under **Settings → Tenant Settings → General** (Tenant Name + Region
 | **Identifier** | `https://mcp-tool-guard` ← this is **`aud`** everywhere |
 | Signing algorithm | RS256 |
 
-**API → Permissions tab** — add:
+**API → Permissions tab** — add (scope rights MCPToolGuard enforces per tool):
 
-| Permission | Demo profile |
-|------------|--------------|
-| `flights:read` | read_only |
-| `flights:write` | booking |
-| `flights:delete` | admin cancel |
+| Permission | Domain | Demo profile |
+|------------|--------|--------------|
+| `flights:read` | Flight MCP | read_only |
+| `flights:write` | Flight MCP | booking |
+| `flights:delete` | Flight MCP | admin cancel |
+| `docs:read` | Documents MCP | read_only |
+| `docs:write` | Documents MCP | booking |
+| `docs:delete` | Documents MCP | admin archive |
+
+These are **capabilities**, not “access to a server URL.” Policy in `gateway/config.yaml` maps each tool to one permission. One access token can carry flight + document scopes together.
 
 ![API permissions](images/auth0/02-api-permissions-tab.png)
+
+*Screenshots may show only `flights:*` — add `docs:*` the same way for multi-server demo.*
 
 ---
 
@@ -110,12 +117,24 @@ Find **`mcp-tool-guard`** (Single Page Application). Set:
 
 | Column | Target |
 |--------|--------|
-| **User-delegated Access** | **Authorized** — **3 / 3 permissions granted** |
-| Client Access | Unauthorized (0/3) is fine |
+| **User-delegated Access** | **Authorized** — **6 / 6 permissions granted** (or subset per test persona) |
+| Client Access | Unauthorized (0/6) is fine |
 
 ![Application Access on API](images/auth0/04-api-application-access.png)
 
-**Alternate path (same result):** **Applications → Applications → `mcp-tool-guard` → API Access** → authorize `api-for-mcp-tool-guard` with 3/3 user-delegated permissions.
+**Alternate path (same result):** **Applications → Applications → `mcp-tool-guard` → API Access** → authorize `api-for-mcp-tool-guard` with user-delegated permissions.
+
+### Roles vs direct user permissions (recommended at scale)
+
+For demos you can assign permissions **directly on a user** (Step 6). For production, use **Auth0 Roles** that bundle scopes, then assign users to roles:
+
+| Role (example) | Permissions |
+|----------------|-------------|
+| `mcp-read-only` | `flights:read`, `docs:read` |
+| `mcp-operator` | above + `flights:write`, `docs:write` |
+| `mcp-admin` | all six (or `flights:*` / `docs:*` if you define wildcards in Auth0) |
+
+MCPToolGuard only sees the flattened `permissions` array in the token — not role names. See [identity.md → Scopes vs roles](identity.md#scopes-vs-roles-how-admins-grant-access).
 
 ![SPA API Access](images/auth0/05-spa-api-access.png)
 
@@ -151,15 +170,15 @@ Copy **Client ID** → `VITE_AUTH0_CLIENT_ID`.
 Open the user → **Permissions** tab → **Assign Permissions**:
 
 - API: `https://mcp-tool-guard` (shown as `api-for-mcp-tool-guard`)
-- Permissions: e.g. all three `flights:*` for admin testing
+- Permissions: e.g. all six for admin testing, or a subset per persona below
 
-| Persona | Permissions |
-|---------|-------------|
-| Read-only | `flights:read` |
-| Booking | `flights:read`, `flights:write` |
-| Admin | `flights:read`, `flights:write`, `flights:delete` |
+| Persona | Permissions | Flight demo | Documents demo |
+|---------|-------------|-------------|----------------|
+| Read-only | `flights:read`, `docs:read` | Search | List/get DOC-42 |
+| Booking | + `flights:write`, `docs:write` | Book | Publish |
+| Admin | + `flights:delete`, `docs:delete` | Cancel | Archive |
 
-Create **separate users** (or roles) for read-only and booking personas — a user with all three permissions will **allow** every demo action and will not show scope **deny** in the audit panel.
+Create **separate users** (or roles) for read-only and booking personas — a user with all permissions will **allow** every demo action and will not show scope **deny** in the audit panel.
 
 ![User permissions](images/auth0/06-user-permissions.png)
 
@@ -256,7 +275,7 @@ Decode at [jwt.io](https://jwt.io). **Good access token payload:**
   "iss": "https://dev-p5fg6ldthdyeom16.us.auth0.com/",
   "aud": ["https://mcp-tool-guard", "https://…/userinfo"],
   "scope": "openid profile email",
-  "permissions": ["flights:delete", "flights:read", "flights:write"]
+  "permissions": ["docs:delete", "docs:read", "docs:write", "flights:delete", "flights:read", "flights:write"]
 }
 ```
 

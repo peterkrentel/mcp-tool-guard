@@ -38,10 +38,10 @@ Do **not** commit secrets (tokens, full `.env.local`).
 | File | What to capture |
 |------|-----------------|
 | `01-tenant-selector.png` | Auth0 top-left tenant menu (tenant name + region) |
-| `02-api-permissions-tab.png` | API → **Permissions**: `flights:read`, `flights:write`, `flights:delete` |
+| `02-api-permissions-tab.png` | API → **Permissions**: `flights:*` (+ `docs:*` for multi-server) |
 | `03-api-rbac-settings.png` | API → **Settings** → RBAC: both toggles **ON** |
-| `04-api-application-access.png` | API → **Application Access**: SPA **3/3** user-delegated |
-| `05-spa-api-access.png` | SPA → **API Access**: `api-for-mcp-tool-guard` **3/3** |
+| `04-api-application-access.png` | API → **Application Access**: SPA user-delegated (3/3 or 6/6 permissions) |
+| `05-spa-api-access.png` | SPA → **API Access**: `api-for-mcp-tool-guard` authorized |
 | `06-user-permissions.png` | User → **Permissions**: direct `flights:*` |
 | `07-spa-callback-urls.png` | SPA → **Settings**: Callback / Logout / Web Origins |
 | `08-localstorage-access-token.png` | DevTools → Local Storage row with `https://mcp-tool-guard` |

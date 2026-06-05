@@ -39,6 +39,8 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 
 - [x] **#8** UI policy from `gateway/config.yaml`; `check:demo-policy` for demo flight embedded guard
 - [x] **Agent trace** panel — collapsible audit section, correlated by `trace_id`
+- [x] **#9** Multi-server UI — `authorize(server, …)` + per-server MCP clients
+- [x] **#10** `servers/documents/` — internal KB mock MCP (`docs:read` / `docs:write` / `docs:delete`)
 
 ---
 
