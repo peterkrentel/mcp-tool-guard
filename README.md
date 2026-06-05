@@ -54,23 +54,25 @@ make setup
 
 Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys (private key stays in `keys/`, gitignored).
 
-**Every time — three terminals:**
+**Every time — one command:**
 
 ```bash
-make flight    # Terminal 1 → upstream MCP :8000
-make proxy     # Terminal 2 → guard proxy :8787 (enforces + audits)
-make ui        # Terminal 3 → http://localhost:5173
+make dev    # flight :8000 → proxy :8787 → ui :5173
 ```
 
-Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the **guard proxy** ([guard-proxy.md](docs/guard-proxy.md)), which forwards to flight.
+Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
+
+- **Auth0 on flight + proxy:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` (not `ui/.env.local` — servers don't read that).
+- **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).
+- **Stuck processes:** `make stop`
 
 <details>
-<summary>Manual commands</summary>
+<summary>Three terminals (debug one layer)</summary>
 
 ```bash
-uv sync --directory servers/flight && npm install && npm run generate-keys
-uv run --directory servers/flight python server.py   # terminal 1
-npm run dev -w ui                                     # terminal 2
+make flight    # upstream :8000
+make proxy     # guard proxy :8787
+make ui        # :5173
 ```
 
 </details>

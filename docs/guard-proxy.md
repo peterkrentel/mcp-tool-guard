@@ -10,15 +10,17 @@ Agent / UI  →  guard proxy (:8787)  →  upstream MCP (vendor or localhost:800
 
 ## Local dev
 
-Three terminals (order matters):
+**One terminal:**
 
 ```bash
-make flight   # upstream MCP on :8000
-make proxy    # guard proxy on :8787 → forwards to flight url in config.yaml
-make ui       # Vite proxies /mcp and /audit to :8787
+make dev      # flight → proxy → ui
 ```
 
-Health: `curl http://localhost:8787/health`
+Auth0 for flight + proxy: `cp scripts/dev.env.example scripts/dev.env` and export `MCP_JWT_*` there.
+
+**Or three terminals** (`make flight`, `make proxy`, `make ui`) when debugging one hop.
+
+Health: `curl http://localhost:8787/health` — `make stop` frees :8000, :8787, :5173
 
 ## Routes
 
