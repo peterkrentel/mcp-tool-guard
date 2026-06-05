@@ -54,14 +54,15 @@ make setup
 
 Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys (private key stays in `keys/`, gitignored).
 
-**Every time — two terminals:**
+**Every time — three terminals:**
 
 ```bash
-make flight    # Terminal 1 → http://localhost:8000/mcp
-make ui        # Terminal 2 → http://localhost:5173
+make flight    # Terminal 1 → upstream MCP :8000
+make proxy     # Terminal 2 → guard proxy :8787 (enforces + audits)
+make ui        # Terminal 3 → http://localhost:5173
 ```
 
-Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the flight server locally.
+Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the **guard proxy** ([guard-proxy.md](docs/guard-proxy.md)), which forwards to flight.
 
 <details>
 <summary>Manual commands</summary>
