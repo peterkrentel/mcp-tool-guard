@@ -10,7 +10,8 @@
     "rootDir": ".",
     "strict": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["node"]
   },
   "include": ["*.ts"],
   "exclude": ["dist"]

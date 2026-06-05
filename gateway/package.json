@@ -13,13 +13,16 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start:proxy": "node dist/proxy-server.js",
+    "dev:proxy": "npm run build && node dist/proxy-server.js"
   },
   "dependencies": {
     "jose": "^6.0.11",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.21",
     "typescript": "^6.0.3"
   }
 }
