@@ -50,20 +50,20 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 | Step | # | Why |
 |------|---|-----|
-| **1** | **#9 + #10** (one PR) | Multi-server UI + `servers/notes/` on infra you control — proves `authorize(server, …)` and per-URL MCP routing; shakes out multi-server bugs before the proxy |
-| **2** | **#12** | Guard HTTP proxy — **capstone** for vendor/unowned MCP ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp)); highest product value once routing is proven |
-| Anytime | **#7** | Max request body — hardening, not blocking |
+| **1** | **#12** | Guard HTTP proxy — **primary product path** for MCP you do not host ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp)); authoritative enforce + audit in front of vendor/customer URLs |
+| Anytime | **#7** | Max request body — hardening on flight demo server |
+| **Deferred** | **#9 + #10** | Multi-server UI + second owned mock MCP — optional; `gateway/config.yaml` stubs + flight demo suffice until proxy |
 
 Agent-vs-chat UI and external SDK agents are optional polish; they do not change the authoritative enforcement story.
 
 ### Tasks
 
-| # | Task | Touch | Acceptance |
-|---|------|-------|------------|
-| 7 | Max request body size | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
-| 9 | Multi-server UI | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
-| 10 | Second mock MCP (`servers/notes/`) | New server + UI routing | Two servers in demo |
-| 12 | Guard HTTP proxy (Tier 2) | New gateway service | Unowned MCP URL behind proxy + audit |
+| # | Task | Status | Touch | Acceptance |
+|---|------|--------|-------|------------|
+| 7 | Max request body size | Open | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
+| 9 | Multi-server UI | **Deferred** | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
+| 10 | Second mock MCP | **Deferred** | New server + UI routing | Two servers in demo (explored on branch; not merged) |
+| 12 | Guard HTTP proxy (Tier 2) | **Next** | New gateway service | Unowned MCP URL behind proxy + audit |
 
 ### Not in 0.3.x
 
