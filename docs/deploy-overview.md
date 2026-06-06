@@ -84,13 +84,13 @@ Branch per task; track in [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post
 
 1. **Pick a host** for the proxy (Railway or Fly recommended for a small always-on Node service).
 2. **Prod upstream URL** — `gateway/config.prod.yaml` already points at Vercel flight. Set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` on the host.
-3. **Deploy proxy** — build/start:
+3. **Deploy proxy** — [railway.toml](../railway.toml) sets build/start on Railway; locally:
    ```bash
    npm ci
    npm run build -w @mcp-tool-guard/gateway
    npm run start:proxy -w @mcp-tool-guard/gateway
    ```
-   Listen port: `MCP_PROXY_PORT` locally; `PORT` on Railway/Render when `MCP_PROXY_PORT` is unset. Do not set `MCP_PROXY_PORT` on Railway. See [railway-deploy.md](railway-deploy.md) for full steps.
+   Node **22+** (`engines` in root `package.json`). Listen port: `MCP_PROXY_PORT` locally; `PORT` on Railway when `MCP_PROXY_PORT` is unset. See [railway-deploy.md](railway-deploy.md) for full steps and troubleshooting.
 4. **Env on proxy** — mirror flight: `MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`; `MCP_CORS_ORIGINS` includes `https://mcp-tool-guard-ui.vercel.app`.
 5. **Smoke test** — `GET /health`, `GET /audit` with Bearer, one `POST /mcp` `tools/call`.
 6. **Rewire UI** — `VITE_MCP_URL=https://YOUR-PROXY-HOST/mcp` on the Vercel UI project; redeploy.

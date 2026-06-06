@@ -1,0 +1,10 @@
+# Guard proxy service — Railway deploy (see docs/railway-deploy.md)
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npm run build -w @mcp-tool-guard/gateway"
+
+[deploy]
+startCommand = "npm run start:proxy -w @mcp-tool-guard/gateway"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"

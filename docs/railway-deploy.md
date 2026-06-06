@@ -11,6 +11,15 @@ Deploy the guard proxy as an always-on Node service on Railway, then rewire the 
 - Proxy code merged to `main` (done — `gateway/proxy-server.ts`)
 - Flight MCP live on Vercel (`https://mcp-tool-guard-flight-server.vercel.app/mcp`)
 - Auth0 env vars ready (same values used on Vercel flight)
+- **Node 22+** — root `package.json` sets `"engines": { "node": ">=22" }` (matches CI). Repo includes `railway.toml` for build/start commands.
+
+---
+
+## Billing and idle behavior
+
+Railway bills by usage (hobby/trial plans have monthly limits). The proxy is a small always-on Node process — fine for a demo, but watch usage in the Railway dashboard.
+
+After idle time, the service may **cold-start** on the next request (first `curl` or UI chat after a gap can be slow). That is normal on constrained plans; not a sign the proxy is misconfigured.
 
 ---
 
@@ -25,6 +34,7 @@ Go to [railway.app](https://railway.app) and sign up with GitHub.
 1. **New Project** → **Deploy from GitHub repo**
 2. Select `peterkrentel/mcp-tool-guard`
 3. Railway detects the repo root — leave it there (monorepo, root is correct)
+4. **`railway.toml`** at the repo root sets build/start commands and `/health` check — you usually do not need to duplicate them in the dashboard.
 
 ---
 
@@ -36,14 +46,18 @@ Copy the `https://something.up.railway.app` URL — you need it for smoke tests 
 
 ---
 
-## 3. Set build and start commands
+## 3. Build and start commands
 
-In the Railway service settings → **Deploy**:
+**Default (from `railway.toml`):**
 
 | Setting | Value |
 |---------|-------|
 | **Build command** | `npm ci && npm run build -w @mcp-tool-guard/gateway` |
 | **Start command** | `npm run start:proxy -w @mcp-tool-guard/gateway` |
+
+Override in Railway → **Settings** → **Deploy** only if you are not using `railway.toml`.
+
+**Node version:** Nixpacks reads `engines.node` from root `package.json` (`>=22`). If the build log shows an older Node, set **Variables** → `NIXPACKS_NODE_VERSION` = `22` (or add it to the service env).
 
 ---
 
@@ -69,6 +83,8 @@ In the Railway service → **Variables**, add:
 
 `gateway/config.prod.yaml` is already in the repo — it mirrors `config.yaml` with `servers.flight.url` pointing at the Vercel flight deployment. `config.yaml` keeps `localhost:8000` for local dev.
 
+**Slack / GitHub entries are policy stubs only.** `config.prod.yaml` lists `slack` and `github` servers so the yaml stays aligned with `gateway/config.yaml`, but their URLs (`https://mcp.slack.com`, `https://mcp.github.com`) are placeholders — not real MCP endpoints. For this demo, use **`POST /mcp`** (default server `flight`) only. Do not expect `POST /slack/mcp` or `POST /github/mcp` to work.
+
 ---
 
 ## 6. Deploy and smoke test
@@ -76,13 +92,15 @@ In the Railway service → **Variables**, add:
 Railway auto-deploys on push to `main`. Once the build is green:
 
 ```bash
-# Health check — expect guard_enabled: true, servers: ["flight", ...]
+# Health — expect service: mcp-tool-guard-proxy, guard_enabled: true
+# servers includes flight + slack + github (stubs); only flight is routable
 curl https://YOUR-RAILWAY-DOMAIN/health
 
 # Audit — use a guest JWT from ui/public/demo-tokens.json or an Auth0 access token
 curl -H "Authorization: Bearer eyJ..." https://YOUR-RAILWAY-DOMAIN/audit
+# → JSON with "source": "guard-proxy"
 
-# Tool call — scope enforced
+# Tool call — scope enforced, forwarded to Vercel flight
 curl -X POST https://YOUR-RAILWAY-DOMAIN/mcp \
   -H "Authorization: Bearer eyJ..." \
   -H "Content-Type: application/json" \
@@ -109,16 +127,48 @@ In the Vercel UI project → **Environment Variables**, update:
 |----------|-----------|
 | `VITE_MCP_URL` | `https://YOUR-RAILWAY-DOMAIN/mcp` |
 
-Redeploy the UI project (rebuild required). The audit panel will show `source: guard-proxy` confirming traffic flows through the proxy.
+Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time).
 
-> **Note:** On `main` the audit panel header may still say "Server enforcement" until the proxy audit UI branch is merged. The data is correct; it's cosmetic.
+### What to expect in the browser after rewire
+
+| Check | Expected |
+|-------|----------|
+| **DevTools → Network** | `POST` to `https://YOUR-RAILWAY-DOMAIN/mcp` and `GET` to `…/audit` (not `mcp-tool-guard-flight-server.vercel.app`) |
+| **Chat** | *Search flights from SFO to JFK* with read scope → tool result in chat |
+| **Audit `GET /audit` body** | `"source": "guard-proxy"` in the JSON response |
+| **Audit panel header (main UI)** | May still say **Server enforcement** — cosmetic; data is from the proxy |
+| **Audit rows** | ALLOW/DENY for tools that reached the proxy; client-only denies still under **Agent attempts** only |
+| **Cancel without delete scope** | DENY under **Agent attempts**, no matching proxy row (blocked before network) |
+
+Optional later: merge the **proxy audit UI** branch for path banner + “Proxy enforcement” terminal styling.
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Build fails on `npm ci` / TypeScript | Check deploy log for Node version — need **22+** (`engines` in `package.json` or `NIXPACKS_NODE_VERSION=22`) |
+| Service crashes on start | `MCP_GUARD_PUBLIC_KEY_PEM` missing or malformed — paste full PEM from `ui/public/demo-public.pem` |
+| `ENOENT` / config error on start | `MCP_PROXY_CONFIG` must be `gateway/config.prod.yaml` (path from repo root) |
+| `403` / invalid token on `tools/call` | PEM must match `demo-tokens.json`; Auth0 tokens need same `MCP_JWT_*` as Vercel flight |
+| Scope deny when token should allow | Compare `permissions` / `scope` on jwt.io with `gateway/config.prod.yaml` `required_scope` |
+| CORS error in browser console | Set `MCP_CORS_ORIGINS` to include `https://mcp-tool-guard-ui.vercel.app`; redeploy proxy |
+| UI still hits Vercel flight | `VITE_MCP_URL` not updated or UI not **rebuilt** after env change |
+| `GET /audit` → 401 | Expected without Bearer — sign in or pick guest token, then **Initialize** |
+| Tool call succeeds but empty / error from upstream | Flight Vercel down or `servers.flight.url` wrong in `config.prod.yaml` |
+| `POST /slack/mcp` or `/github/mcp` fails | Stubs only — use `POST /mcp` for flight demo |
+| First request slow after idle | Railway cold start — retry; normal on hobby usage |
+| Health OK but proxy not listening | Do not set `MCP_PROXY_PORT` on Railway — use injected `PORT` only |
 
 ---
 
 ## Verification checklist
 
-- [ ] `GET /health` returns `guard_enabled: true` and `servers: ["flight", "slack", "github"]`
+- [ ] `GET /health` → `guard_enabled: true`, `service: mcp-tool-guard-proxy`
+- [ ] `servers` lists `flight` (plus `slack` / `github` stubs — **only flight is live**)
 - [ ] `POST /mcp` `tools/call` with valid JWT + correct scope → allowed, forwarded to flight
 - [ ] `POST /mcp` `tools/call` with missing/wrong scope → `error.code: -32001`
-- [ ] `GET /audit` returns entries with `source: guard-proxy`
-- [ ] UI chat works end-to-end via proxy
+- [ ] `GET /audit` → `"source": "guard-proxy"`
+- [ ] UI Network tab shows Railway host for `/mcp` and `/audit`
+- [ ] UI chat search/book works end-to-end via proxy
