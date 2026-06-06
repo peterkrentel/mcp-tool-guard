@@ -1,6 +1,6 @@
 # Deployment overview
 
-**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Guard proxy](guard-proxy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
+**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Guard proxy](guard-proxy.md) · [Railway deploy](railway-deploy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
 
 One page for **what runs where** — local dev, Vercel prod today, and the target three-service layout. Step-by-step Vercel setup stays in [vercel-deploy.md](vercel-deploy.md). Proxy routes and env vars: [guard-proxy.md](guard-proxy.md).
 
@@ -73,8 +73,8 @@ The proxy is implemented as a persistent Node service ([`gateway/proxy-server.ts
 |-------|----------------|------------------|
 | Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` `source: guard-proxy` | **No** — not hosted yet |
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
-| `make dev` (one terminal) | On branch `feature/make-dev` (optional) | N/A (local only) |
-| Proxy-focused audit UI | Stashed / not merged | N/A until proxy is prod + UI branch merged |
+| `make dev` (one terminal) | Yes | N/A (local only) |
+| Proxy-focused audit UI | Optional branch / stash | N/A until proxy is prod + UI PR merged |
 
 ---
 
@@ -83,14 +83,14 @@ The proxy is implemented as a persistent Node service ([`gateway/proxy-server.ts
 Branch per task; track in [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030).
 
 1. **Pick a host** for the proxy (Railway or Fly recommended for a small always-on Node service).
-2. **Prod upstream URL** — set `servers.flight.url` in `gateway/config.yaml` (or prod-specific `MCP_PROXY_CONFIG`) to `https://mcp-tool-guard-flight-server.vercel.app/mcp`.
-3. **Deploy proxy** — build/start:
+2. **Prod upstream URL** — `gateway/config.prod.yaml` already points at Vercel flight. Set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` on the host.
+3. **Deploy proxy** — [railway.toml](../railway.toml) sets build/start on Railway; locally:
    ```bash
    npm ci
    npm run build -w @mcp-tool-guard/gateway
    npm run start:proxy -w @mcp-tool-guard/gateway
    ```
-   Set `MCP_PROXY_PORT` to the platform listen port (today the proxy reads `MCP_PROXY_PORT`, not `PORT` — may need a one-line fix for some PaaS defaults).
+   Node **22+** (`engines` in root `package.json`). Listen port: `MCP_PROXY_PORT` locally; `PORT` on Railway when `MCP_PROXY_PORT` is unset. See [railway-deploy.md](railway-deploy.md) for full steps and troubleshooting.
 4. **Env on proxy** — mirror flight: `MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`; `MCP_CORS_ORIGINS` includes `https://mcp-tool-guard-ui.vercel.app`.
 5. **Smoke test** — `GET /health`, `GET /audit` with Bearer, one `POST /mcp` `tools/call`.
 6. **Rewire UI** — `VITE_MCP_URL=https://YOUR-PROXY-HOST/mcp` on the Vercel UI project; redeploy.
@@ -116,6 +116,7 @@ Client **Agent attempts** and **Agent trace** are always browser-side observabil
 |----------|------|
 | What runs where (this page) | **deploy-overview.md** |
 | Vercel flight + UI step-by-step | [vercel-deploy.md](vercel-deploy.md) |
+| Railway proxy step-by-step | [railway-deploy.md](railway-deploy.md) |
 | Proxy routes, local env, `make dev` | [guard-proxy.md](guard-proxy.md) |
 | Diagrams, policy, three audit planes | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Task backlog and status | [NEXT-STEPS.md](NEXT-STEPS.md) |

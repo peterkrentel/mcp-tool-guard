@@ -271,7 +271,7 @@ async function main(): Promise<void> {
   await guard.init();
 
   const defaultServer = process.env.MCP_PROXY_DEFAULT_SERVER?.trim() || "flight";
-  const port = Number(process.env.MCP_PROXY_PORT ?? DEFAULT_PORT);
+  const port = Number(process.env.MCP_PROXY_PORT ?? process.env.PORT ?? DEFAULT_PORT);
   const enabled = guardEnabled();
 
   if (!enabled) {

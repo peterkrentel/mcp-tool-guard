@@ -64,7 +64,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 
 | # | Task | Status | Touch | Acceptance |
 |---|------|--------|-------|------------|
-| — | **Deploy guard proxy to prod** | **Next** | Host + `gateway/config.yaml` upstream URL + UI `VITE_MCP_URL` | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
+| — | **Deploy guard proxy to prod** | **Next** | Railway: `gateway/config.prod.yaml`, env vars, `VITE_MCP_URL` flip — [railway-deploy.md](railway-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
 | 7 | Max request body size | Open | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | **Deferred** | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
 | 10 | Second mock MCP | **Deferred** | New server + UI routing | Two servers in demo (explored on branch; not merged) |
@@ -97,6 +97,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 ## Related
 
 - [deploy-overview.md](deploy-overview.md) — three services, traffic paths, prod checklist
+- [railway-deploy.md](railway-deploy.md) — deploy guard proxy on Railway
 - [vercel-deploy.md](vercel-deploy.md) — flight + UI on Vercel
 - [guard-proxy.md](guard-proxy.md) — proxy routes and env
 - [identity.md](identity.md) — Path A, dual trust

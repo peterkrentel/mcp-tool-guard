@@ -2,6 +2,9 @@
   "name": "mcp-tool-guard",
   "version": "0.3.1",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": ["gateway", "ui"],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
