@@ -27,14 +27,16 @@
 
 *Search → **Server** ALLOW; `book` → **Agent attempts** DENY (`flights:write`), blocked before MCP — no matching server row.*
 
-Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
+Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
 
 ## Documentation map
 
 | Doc | Read this for |
 |-----|----------------|
 | **README** (here) | Quick start, live demo links |
-| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
+| [docs/deploy-overview.md](docs/deploy-overview.md) | **Deploy map** — local proxy vs Vercel prod vs target; start here if confused |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Vercel** — flight + UI step-by-step, env vars, troubleshooting |
+| [docs/guard-proxy.md](docs/guard-proxy.md) | **Guard proxy** — routes, env, `make dev`, prod checklist link |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
@@ -103,12 +105,15 @@ mcp-tool-guard/
 
 ## Deploy
 
-**Full walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
+**Overview:** [docs/deploy-overview.md](docs/deploy-overview.md) — three services (UI, proxy, flight); prod today is **two** Vercel projects only (no proxy yet).
+
+**Vercel walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
 
 | Project | Key settings |
 |---------|----------------|
 | **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for Auth0 |
 | **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` |
+| **Guard proxy** (not on Vercel) | `npm run start:proxy -w @mcp-tool-guard/gateway` — see [guard-proxy.md](docs/guard-proxy.md) |
 
 Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md).
 

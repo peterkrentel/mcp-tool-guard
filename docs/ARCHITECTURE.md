@@ -1,8 +1,8 @@
 # Architecture
 
-**Navigation:** [CONCEPT](CONCEPT.md) (design rationale) · [Identity](identity.md) · [Quick start](../README.md) · [Vercel deploy](vercel-deploy.md) · [kv-design](kv-design.md) · [Roadmap](ROADMAP.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [CONCEPT](CONCEPT.md) (design rationale) · [Identity](identity.md) · [Quick start](../README.md) · [Vercel deploy](vercel-deploy.md) · [Guard proxy](guard-proxy.md) · [kv-design](kv-design.md) · [Roadmap](ROADMAP.md)
 
-One-page view of how the demo fits together today and where it is headed (guard proxy, multi-server). Task checklists stay in [ROADMAP.md](ROADMAP.md).
+One-page view of how the demo fits together: local proxy path, Vercel prod today, and vendor MCP target. Deploy paths: [deploy-overview.md](deploy-overview.md). Task checklists: [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -30,30 +30,39 @@ flowchart TB
     YAML -.->|demo copy| FlightYaml[servers/flight/guard_config.yaml]
   end
 
-  subgraph flight ["Flight MCP you own"]
-    MCPc -->|Bearer + X-Trace-Id| MW[JwtToolGuardMiddleware]
-    MW --> Tools[tools/call handlers]
-    MW --> AuditAPI[GET /audit]
+  subgraph proxy ["Guard HTTP proxy — local + prod target"]
+    Proxy[proxy-server.ts :8787]
+    ProxyAudit[GET /audit guard-proxy]
+    MCPc -->|Bearer + X-Trace-Id| Proxy
+    Proxy --> YAML
+    Proxy --> ProxyAudit
+  end
+
+  subgraph flight ["Flight MCP upstream"]
+    MW[JwtToolGuardMiddleware demo embed]
+    Tools[tools/call handlers]
+    FlightAudit[GET /audit flight]
+    Proxy --> MW
+    MW --> Tools
+    MW --> FlightAudit
     FlightYaml --> MW
   end
 
-  subgraph future ["Target — Tier 2"]
-    Proxy[Guard HTTP proxy #12]
+  subgraph vendor ["Target — vendor MCP"]
     Vendor[Vendor MCP e.g. Slack]
     ExtAgent[External agent SDK]
     ExtAgent --> Proxy
-    Proxy --> YAML
-    Proxy --> flight
     Proxy --> Vendor
   end
 
   IdP[Auth0 / guest PEM] -.-> TG
+  IdP -.-> Proxy
   IdP -.-> MW
 ```
 
 | Layer | Authoritative for security? |
 |-------|---------------------------|
-| **Server enforcement** (flight middleware or future proxy) | **Yes** — JWT + scopes on every `tools/call` |
+| **Proxy / server enforcement** (guard proxy or flight middleware) | **Yes** — JWT + scopes on every `tools/call` |
 | **Agent attempts** (client `ToolGuard`) | No — pre-check + intent log |
 | **Agent trace** (demo UI) | No — routing / model observability |
 
@@ -106,7 +115,7 @@ sequenceDiagram
 |-------|--------|---------------------|-------|
 | **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? What did the model return? Outcome before/after guard? | Debug only |
 | **Agent attempts** | `ToolGuard` logger in browser | Which tool, scopes, allow/deny on **client** pre-check? | Debug only |
-| **Server enforcement** | `GET /audit` on flight server | What **reached** MCP? JWT valid? Final allow/deny? | **Authoritative** |
+| **Proxy / server enforcement** | `GET /audit` on proxy (`guard-proxy`) or flight (Vercel today) | What **reached** MCP? JWT valid? Final allow/deny? | **Authoritative** |
 
 Click a **trace id** in the audit panel to highlight rows across all three sections.
 
@@ -118,7 +127,7 @@ Click a **trace id** in the audit panel to highlight rows across all three secti
 flowchart LR
   Canon[gateway/config.yaml]
   Canon --> UI[UI import at build]
-  Canon --> ProxyF[Future guard proxy]
+  Canon --> ProxyF[guard proxy gateway/proxy-server.ts]
   Canon --> Demo[servers/flight/guard_config.yaml]
   Demo --> Emb[Embedded guard on flight demo only]
   Note[Vendor MCP never reads this file]
@@ -129,7 +138,8 @@ flowchart LR
 |------|------|
 | [`gateway/config.yaml`](../gateway/config.yaml) | **Canonical** — per-server `url` + per-tool `required_scope` (flight, slack/github stubs) |
 | [`ui/src/guard-config.ts`](../ui/src/guard-config.ts) | Loads canonical yaml; `TOOL_DESCRIPTIONS` for LLM hints only |
-| [`servers/flight/guard_config.yaml`](../servers/flight/guard_config.yaml) | **Demo only** — embedded guard until [#12 proxy](CONCEPT.md#third-party--unowned-mcp); CI `npm run check:demo-policy` keeps flight slice aligned |
+| [`servers/flight/guard_config.yaml`](../servers/flight/guard_config.yaml) | **Demo only** — embedded guard on Vercel prod today; CI `npm run check:demo-policy` keeps flight slice aligned |
+| [`gateway/proxy-server.ts`](../gateway/proxy-server.ts) | **Product path** — enforce + forward + proxy `/audit`; local `make dev`, prod deploy [TBD](deploy-overview.md#prod-proxy-checklist-next-work) |
 
 ---
 
@@ -157,12 +167,17 @@ Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md).
 
 ---
 
-## Deployment (demo)
+## Deployment
 
-| Service | Repo path | Notes |
-|---------|-----------|--------|
-| **UI** | `ui/` → Vercel | Proxies `/mcp`, `/audit` to flight in dev; prod uses `VITE_MCP_URL` |
-| **Flight MCP** | `servers/flight/` → Vercel | KV optional for audit + bookings ([kv-design.md](kv-design.md)) |
+Full map: [deploy-overview.md](deploy-overview.md). Vercel steps: [vercel-deploy.md](vercel-deploy.md).
+
+| Service | Repo path | Local | Vercel prod today | Target prod |
+|---------|-----------|-------|-------------------|-------------|
+| **UI** | `ui/` | Vite :5173 | Static — `mcp-tool-guard-ui` | Same; `VITE_MCP_URL` → proxy |
+| **Guard proxy** | `gateway/proxy-server.ts` | `:8787` via `make dev` | **Not deployed** | Fly/Railway/etc. |
+| **Flight MCP** | `servers/flight/` | `:8000` | Serverless — `mcp-tool-guard-flight-server` | Upstream behind proxy |
+
+Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`](../ui/vite.config.ts)). Prod UI talks to whatever `VITE_MCP_URL` points at (flight direct today).
 
 ---
 
@@ -175,21 +190,24 @@ Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md).
 | Audit UI | `ui/src/audit-view.ts` | Server + client + trace panels |
 | Client guard | `gateway/guard.ts` | JWT verify + scope check |
 | MCP client | `ui/src/mcp-client.ts` | JSON-RPC `tools/call`, trace headers |
-| Server guard | `servers/flight/guard.py` | Authoritative enforce + audit store |
-| Middleware | `servers/flight/guard_middleware.py` | Intercept `tools/call` |
+| Guard proxy | `gateway/proxy-server.ts` | Authoritative enforce + forward + proxy audit |
+| Server guard | `servers/flight/guard.py` | Demo embedded enforce + audit store on flight |
+| Middleware | `servers/flight/guard_middleware.py` | Intercept `tools/call` on flight |
 
 ---
 
 ## Today vs next
 
-| | Today (0.3.x demo) | Next (roadmap) |
-|--|-------------------|----------------|
-| Enforcement on flight | Embedded in flight process | Optional; proxy becomes primary for vendors |
-| Agent | Browser WebLLM only | SDK agents + proxy ([#12](ROADMAP.md)) |
-| Multi-server | Stubs in yaml; UI = flight only | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) optional owned upstream |
-| Unowned / vendor MCP | Client pre-check only | **Next:** guard proxy [#12](ROADMAP.md) |
-| Observability export | Browser panels + `/audit` | Grafana/Loki sink (Tier 2) |
+| | Local `make dev` | Vercel prod today | Next |
+|--|------------------|-------------------|------|
+| MCP path | UI → proxy → flight | UI → flight direct | UI → proxy → flight (or vendor) |
+| Authoritative enforce | Guard proxy :8787 | Flight embedded guard | Deployed guard proxy |
+| `/audit` source | `guard-proxy` | Flight server | `guard-proxy` on proxy host |
+| Agent | Browser WebLLM | Same | SDK agents + proxy |
+| Multi-server | Stubs in yaml; UI = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
+| Vendor MCP | yaml stubs only | Not wired | Proxy → vendor URL in `gateway/config.yaml` |
+| Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Build order:** **#12** proxy next. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030).
+**Build order:** **Deploy proxy to prod** — implementation [#12](ROADMAP.md) is done on `main`. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030) and [deploy-overview.md](deploy-overview.md#prod-proxy-checklist-next-work).
 
 Design tradeoffs and limitations: [CONCEPT.md](CONCEPT.md).

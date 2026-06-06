@@ -1,6 +1,10 @@
 # Guard HTTP proxy (#12)
 
+**Navigation:** [Deploy overview](deploy-overview.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
+
 Authoritative JWT scope enforcement and audit **in front of** upstream MCP URLs you do not control (or your own flight server for local proof).
+
+> **Prod today:** proxy runs locally (`make dev` / `make proxy`) only. Vercel demo is UI → flight direct. See [deploy-overview.md](deploy-overview.md) for paths and the prod deploy checklist.
 
 ```
 Agent / UI  →  guard proxy (:8787)  →  upstream MCP (vendor or localhost:8000)
@@ -58,8 +62,15 @@ VITE_MCP_URL=http://localhost:8787/mcp
 
 Audit panel resolves `http://localhost:8787/audit` from that URL.
 
-## Production (vendor MCP)
+## Production
 
-Deploy the proxy as your MCP edge. Point `gateway/config.yaml` `servers.<id>.url` at the vendor MCP HTTP endpoint. Agents call **your** proxy URL, not the vendor directly.
+**Checklist:** [deploy-overview.md → Prod proxy](deploy-overview.md#prod-proxy-checklist-next-work)
 
-Flight embedded guard (`servers/flight/guard_config.yaml`) remains demo scaffolding; proxy + canonical yaml is the product path for unowned MCP.
+1. Host the proxy on a long-running Node platform (not Vercel serverless) — Fly, Railway, Render, Cloud Run, etc.
+2. Set `servers.<id>.url` in `gateway/config.yaml` (or `MCP_PROXY_CONFIG`) to the upstream MCP HTTP endpoint (Vercel flight `/mcp` for the demo, or a vendor URL).
+3. Mirror flight JWT env on the proxy (`MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`); set `MCP_CORS_ORIGINS` for the UI origin.
+4. Point UI `VITE_MCP_URL` at `https://YOUR-PROXY-HOST/mcp` and redeploy the Vercel UI project.
+
+Agents and the demo UI call **your** proxy URL, not the vendor or flight directly.
+
+Flight embedded guard (`servers/flight/guard_config.yaml`) remains demo scaffolding on Vercel until you optionally disable it; proxy + canonical yaml is the product path for unowned MCP.

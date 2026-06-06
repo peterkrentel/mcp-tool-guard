@@ -1,8 +1,10 @@
 # Deploy to Vercel (0.3.0)
 
-**Navigation:** [Quick start](../README.md) · [NEXT-STEPS](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Quick start](../README.md) · [Guard proxy](guard-proxy.md) · [NEXT-STEPS](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
 
 Step-by-step guide for hosting the **flight MCP server** and **demo UI** as two separate Vercel projects from this monorepo.
+
+> **Prod today:** the live demo uses **two** Vercel projects (UI → flight direct). The guard HTTP proxy runs locally (`make dev`) but is **not** on Vercel yet. See [deploy-overview.md](deploy-overview.md) for local vs prod paths and the target three-service layout.
 
 ## Live demo
 
@@ -135,7 +137,7 @@ Do **not** use `npm install --prefix=..` (that was for a misconfigured Python pr
 
 | Variable | Required | Value |
 |----------|----------|--------|
-| `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
+| `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` (today — direct to flight). After [proxy deploy](deploy-overview.md#prod-proxy-checklist-next-work): `https://YOUR-PROXY-HOST/mcp` |
 | `VITE_AUTH0_DOMAIN` | For Auth0 login | `YOUR_TENANT.us.auth0.com` |
 | `VITE_AUTH0_CLIENT_ID` | For Auth0 login | SPA client id from Auth0 dashboard |
 | `VITE_AUTH0_AUDIENCE` | For Auth0 login | `https://mcp-tool-guard` |
@@ -220,7 +222,9 @@ Optional flight env:
 
 ## Related
 
+- [deploy-overview.md](deploy-overview.md) — **start here** if local proxy vs Vercel prod is confusing
+- [guard-proxy.md](guard-proxy.md) — proxy routes, env, local `make dev`
 - [README → Deploy](../README.md#deploy)
-- [NEXT-STEPS](NEXT-STEPS.md) — redeploy, tag, 0.3 backlog
+- [NEXT-STEPS](NEXT-STEPS.md) — backlog (proxy deploy to prod is next)
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)
 - Local deps: `uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt`
