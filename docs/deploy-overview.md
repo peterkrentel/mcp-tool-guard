@@ -83,14 +83,14 @@ The proxy is implemented as a persistent Node service ([`gateway/proxy-server.ts
 Branch per task; track in [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030).
 
 1. **Pick a host** for the proxy (Railway or Fly recommended for a small always-on Node service).
-2. **Prod upstream URL** — set `servers.flight.url` in `gateway/config.yaml` (or prod-specific `MCP_PROXY_CONFIG`) to `https://mcp-tool-guard-flight-server.vercel.app/mcp`.
+2. **Prod upstream URL** — `gateway/config.prod.yaml` already points at Vercel flight. Set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` on the host.
 3. **Deploy proxy** — build/start:
    ```bash
    npm ci
    npm run build -w @mcp-tool-guard/gateway
    npm run start:proxy -w @mcp-tool-guard/gateway
    ```
-   Set `MCP_PROXY_PORT` to the platform listen port (today the proxy reads `MCP_PROXY_PORT`, not `PORT` — may need a one-line fix for some PaaS defaults).
+   The proxy reads `PORT` (Railway/Render default) with `MCP_PROXY_PORT` as an override. Do not set `MCP_PROXY_PORT` on Railway. See [railway-deploy.md](railway-deploy.md) for full steps.
 4. **Env on proxy** — mirror flight: `MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`; `MCP_CORS_ORIGINS` includes `https://mcp-tool-guard-ui.vercel.app`.
 5. **Smoke test** — `GET /health`, `GET /audit` with Bearer, one `POST /mcp` `tools/call`.
 6. **Rewire UI** — `VITE_MCP_URL=https://YOUR-PROXY-HOST/mcp` on the Vercel UI project; redeploy.

@@ -1,0 +1,46 @@
+# Production proxy config — upstream URLs point at deployed services.
+# Used on Railway via MCP_PROXY_CONFIG=gateway/config.prod.yaml.
+# Local dev uses config.yaml (localhost:8000).
+servers:
+  flight:
+    url: https://mcp-tool-guard-flight-server.vercel.app/mcp
+    tools:
+      search_flights_tool:
+        required_scope: flights:read
+      get_flight_details:
+        required_scope: flights:read
+      track_flight_tool:
+        required_scope: flights:read
+      create_booking_tool:
+        required_scope: flights:write
+      get_booking_tool:
+        required_scope: flights:read
+      modify_booking_tool:
+        required_scope: flights:write
+      check_in_tool:
+        required_scope: flights:write
+      select_seats_tool:
+        required_scope: flights:write
+      add_baggage_tool:
+        required_scope: flights:write
+      cancel_booking_tool:
+        required_scope: flights:delete
+        alert: true
+        log_level: verbose
+
+  slack:
+    url: https://mcp.slack.com
+    tools:
+      read_channel:
+        required_scope: slack:read
+      send_message:
+        required_scope: slack:write
+
+  github:
+    url: https://mcp.github.com
+    tools:
+      read_repo:
+        required_scope: github:read
+      push_code:
+        required_scope: github:write
+        alert: true
