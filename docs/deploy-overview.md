@@ -1,6 +1,6 @@
 # Deployment overview
 
-**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Guard proxy](guard-proxy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
+**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Guard proxy](guard-proxy.md) · [Railway deploy](railway-deploy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
 
 One page for **what runs where** — local dev, Vercel prod today, and the target three-service layout. Step-by-step Vercel setup stays in [vercel-deploy.md](vercel-deploy.md). Proxy routes and env vars: [guard-proxy.md](guard-proxy.md).
 
