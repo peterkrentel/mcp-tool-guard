@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- [docs/railway-deploy.md](docs/railway-deploy.md) — step-by-step Railway deploy guide for guard proxy (env vars, build/start commands, smoke tests, UI rewire)
+- `gateway/config.prod.yaml` — prod policy config with Vercel flight URL; set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` on Railway
+
+### Fixed
+
+- Guard proxy now reads `PORT` env var as fallback (Railway/Render default) before `MCP_PROXY_PORT`
+
 - [docs/deploy-overview.md](docs/deploy-overview.md) — single deploy map: local proxy path, Vercel prod today, target three-service layout, prod proxy checklist
 - `make dev` — one command starts flight → guard proxy → UI; `scripts/dev.env` for shared `MCP_JWT_*`; `make stop` frees :8000/:8787/:5173
 - **Guard HTTP proxy** (#12) — `gateway/proxy-server.ts`: JWT scope enforcement on `tools/call`, forward to upstream MCP from `gateway/config.yaml`, `GET /audit` + `GET /health`; `make proxy` ([guard-proxy.md](docs/guard-proxy.md))

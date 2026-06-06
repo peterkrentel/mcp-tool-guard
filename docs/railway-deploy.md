@@ -117,7 +117,7 @@ Redeploy the UI project (rebuild required). The audit panel will show `source: g
 
 ## Verification checklist
 
-- [ ] `GET /health` returns `guard_enabled: true` and `servers: ["flight"]`
+- [ ] `GET /health` returns `guard_enabled: true` and `servers: ["flight", "slack", "github"]`
 - [ ] `POST /mcp` `tools/call` with valid JWT + correct scope → allowed, forwarded to flight
 - [ ] `POST /mcp` `tools/call` with missing/wrong scope → `error.code: -32001`
 - [ ] `GET /audit` returns entries with `source: guard-proxy`

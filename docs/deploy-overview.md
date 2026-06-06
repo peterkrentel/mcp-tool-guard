@@ -116,6 +116,7 @@ Client **Agent attempts** and **Agent trace** are always browser-side observabil
 |----------|------|
 | What runs where (this page) | **deploy-overview.md** |
 | Vercel flight + UI step-by-step | [vercel-deploy.md](vercel-deploy.md) |
+| Railway proxy step-by-step | [railway-deploy.md](railway-deploy.md) |
 | Proxy routes, local env, `make dev` | [guard-proxy.md](guard-proxy.md) |
 | Diagrams, policy, three audit planes | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Task backlog and status | [NEXT-STEPS.md](NEXT-STEPS.md) |

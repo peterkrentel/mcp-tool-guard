@@ -64,10 +64,10 @@ Audit panel resolves `http://localhost:8787/audit` from that URL.
 
 ## Production
 
-**Checklist:** [deploy-overview.md → Prod proxy](deploy-overview.md#prod-proxy-checklist-next-work)
+**Checklist:** [deploy-overview.md → Prod proxy](deploy-overview.md#prod-proxy-checklist-next-work) · [Railway step-by-step](railway-deploy.md)
 
-1. Host the proxy on a long-running Node platform (not Vercel serverless) — Fly, Railway, Render, Cloud Run, etc.
-2. Set `servers.<id>.url` in `gateway/config.yaml` (or `MCP_PROXY_CONFIG`) to the upstream MCP HTTP endpoint (Vercel flight `/mcp` for the demo, or a vendor URL).
+1. Host the proxy on a long-running Node platform (not Vercel serverless) — Railway, Fly, Render, Cloud Run, etc.
+2. `gateway/config.prod.yaml` is in the repo — set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` so the proxy routes to Vercel flight.
 3. Mirror flight JWT env on the proxy (`MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`); set `MCP_CORS_ORIGINS` for the UI origin.
 4. Point UI `VITE_MCP_URL` at `https://YOUR-PROXY-HOST/mcp` and redeploy the Vercel UI project.
 
