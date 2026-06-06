@@ -11,13 +11,11 @@ VITE_MCP_URL=http://localhost:5173/mcp
 # Guest demo (default on). Set false to require Auth0 login when Auth0 is configured.
 # VITE_ENABLE_GUEST_DEMO=true
 
-# --- Guard proxy (local #12): export before `make proxy` ---
-# Same JWT env as flight — proxy is authoritative when UI routes through :8787
-# MCP_PROXY_PORT=8787
-# MCP_PROXY_DEFAULT_SERVER=flight
+# --- Flight + guard proxy (local): scripts/dev.env — NOT ui/.env.local ---
+# cp scripts/dev.env.example scripts/dev.env
+# Loaded by `make dev` (and use the same exports for `make flight` / `make proxy` separately)
 
-# --- Flight server: NOT ui/.env.local ---
-# Export in the shell before `make flight`, or set on Vercel flight project:
+# --- Flight server on Vercel ---
 # export MCP_JWT_ISSUER=https://YOUR_TENANT.us.auth0.com/
 # export MCP_JWT_AUDIENCE=https://mcp-tool-guard
 #

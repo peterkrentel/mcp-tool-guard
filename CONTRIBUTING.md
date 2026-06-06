@@ -28,8 +28,7 @@ git push -u origin feature/my-change
 make setup          # first time
 npm run typecheck
 npm run check:demo-policy
-make flight         # terminal 1
-make ui             # terminal 2 — smoke test UI + MCP
+make dev            # flight → proxy → ui (or make flight / make proxy / make ui separately)
 ```
 
 ## Docs

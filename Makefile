@@ -1,7 +1,8 @@
-.PHONY: setup flight proxy ui keys stop
+.PHONY: setup dev flight proxy ui keys stop
 
 FLIGHT_PORT ?= 8000
 PROXY_PORT ?= 8787
+UI_PORT ?= 5173
 
 # One-time setup
 setup:
@@ -9,11 +10,18 @@ setup:
 	npm install
 	npm run generate-keys
 
-# Stop the flight server (SIGTERM; no-op if port is free)
+# Stop dev servers (no-op if ports are free)
 stop:
 	-@lsof -ti :$(FLIGHT_PORT) | xargs kill 2>/dev/null || true
+	-@lsof -ti :$(PROXY_PORT) | xargs kill 2>/dev/null || true
+	-@lsof -ti :$(UI_PORT) | xargs kill 2>/dev/null || true
 
-# Daily dev — run each in its own terminal (flight → proxy → ui)
+# Daily dev — one terminal (flight → proxy → ui)
+dev:
+	@chmod +x scripts/dev.sh
+	@./scripts/dev.sh
+
+# Or run each in its own terminal
 flight:
 	uv run --directory servers/flight python server.py
 

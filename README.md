@@ -27,14 +27,16 @@
 
 *Search → **Server** ALLOW; `book` → **Agent attempts** DENY (`flights:write`), blocked before MCP — no matching server row.*
 
-Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy details: **[docs/vercel-deploy.md](docs/vercel-deploy.md)**.
+Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
 
 ## Documentation map
 
 | Doc | Read this for |
 |-----|----------------|
 | **README** (here) | Quick start, live demo links |
-| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Deploy** — Vercel (flight + UI), env vars, troubleshooting |
+| [docs/deploy-overview.md](docs/deploy-overview.md) | **Deploy map** — local proxy vs Vercel prod vs target; start here if confused |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Vercel** — flight + UI step-by-step, env vars, troubleshooting |
+| [docs/guard-proxy.md](docs/guard-proxy.md) | **Guard proxy** — routes, env, `make dev`, prod checklist link |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
@@ -54,23 +56,25 @@ make setup
 
 Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo JWT keys (private key stays in `keys/`, gitignored).
 
-**Every time — three terminals:**
+**Every time — one command:**
 
 ```bash
-make flight    # Terminal 1 → upstream MCP :8000
-make proxy     # Terminal 2 → guard proxy :8787 (enforces + audits)
-make ui        # Terminal 3 → http://localhost:5173
+make dev    # flight :8000 → proxy :8787 → ui :5173
 ```
 
-Open `http://localhost:5173`, pick a **guest JWT scope** or configure Auth0 in `ui/.env.local` (see [auth0-env.example](docs/auth0-env.example)), click **Initialize**, then chat. Vite proxies `/mcp` and `/audit` to the **guard proxy** ([guard-proxy.md](docs/guard-proxy.md)), which forwards to flight.
+Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
+
+- **Auth0 on flight + proxy:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` (not `ui/.env.local` — servers don't read that).
+- **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).
+- **Stuck processes:** `make stop`
 
 <details>
-<summary>Manual commands</summary>
+<summary>Three terminals (debug one layer)</summary>
 
 ```bash
-uv sync --directory servers/flight && npm install && npm run generate-keys
-uv run --directory servers/flight python server.py   # terminal 1
-npm run dev -w ui                                     # terminal 2
+make flight    # upstream :8000
+make proxy     # guard proxy :8787
+make ui        # :5173
 ```
 
 </details>
@@ -101,12 +105,15 @@ mcp-tool-guard/
 
 ## Deploy
 
-**Full walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
+**Overview:** [docs/deploy-overview.md](docs/deploy-overview.md) — three services (UI, proxy, flight); prod today is **two** Vercel projects only (no proxy yet).
+
+**Vercel walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
 
 | Project | Key settings |
 |---------|----------------|
 | **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for Auth0 |
 | **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` |
+| **Guard proxy** (not on Vercel) | `npm run start:proxy -w @mcp-tool-guard/gateway` — see [guard-proxy.md](docs/guard-proxy.md) |
 
 Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md).
 

@@ -1,12 +1,12 @@
 # Roadmap
 
-**Navigation:** [Quick start](../README.md) · [Architecture](ARCHITECTURE.md) · [Live demo](vercel-deploy.md#live-demo) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Next steps](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Quick start](../README.md) · [Architecture](ARCHITECTURE.md) · [Live demo](vercel-deploy.md#live-demo) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Next steps](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md) · [CONCEPT.md](CONCEPT.md).
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **#12** guard proxy. **Deferred:** #9/#10. Optional: #7.
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **deploy guard proxy to prod** (#12 implemented on `main`). **Deferred:** #9/#10. Optional: #7.
 
 ## Product shape (summary)
 
@@ -67,7 +67,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 | # | Task | Notes |
 |---|------|--------|
-| 12 | **Guard HTTP proxy** | **Next** — primary product path; unowned upstream MCP — [CONCEPT](CONCEPT.md#third-party--unowned-mcp) |
+| 12 | **Guard HTTP proxy** | **Done** (code on `main`) — **deploy to prod** next — [deploy-overview](deploy-overview.md), [CONCEPT](CONCEPT.md#third-party--unowned-mcp) |
 | 13 | Rate limiting | MCP + `/audit` |
 | 14 | Guard `initialize` / `tools/list` (optional auth) | Capability enumeration |
 
