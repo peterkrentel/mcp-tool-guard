@@ -8,14 +8,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- [docs/deploy-overview.md](docs/deploy-overview.md) — single deploy map: local proxy path, Vercel prod today, target three-service layout, prod proxy checklist
 - [docs/railway-deploy.md](docs/railway-deploy.md) — step-by-step Railway deploy guide for guard proxy (env vars, build/start commands, smoke tests, UI rewire)
 - `gateway/config.prod.yaml` — prod policy config with Vercel flight URL; set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` on Railway
-
-### Fixed
-
-- Guard proxy now reads `PORT` env var as fallback (Railway/Render default) before `MCP_PROXY_PORT`
-
-- [docs/deploy-overview.md](docs/deploy-overview.md) — single deploy map: local proxy path, Vercel prod today, target three-service layout, prod proxy checklist
 - `make dev` — one command starts flight → guard proxy → UI; `scripts/dev.env` for shared `MCP_JWT_*`; `make stop` frees :8000/:8787/:5173
 - **Guard HTTP proxy** (#12) — `gateway/proxy-server.ts`: JWT scope enforcement on `tools/call`, forward to upstream MCP from `gateway/config.yaml`, `GET /audit` + `GET /health`; `make proxy` ([guard-proxy.md](docs/guard-proxy.md))
 - Vite dev proxies `/mcp` and `/audit` to guard proxy (:8787) instead of flight directly
@@ -24,8 +19,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system diagrams (mermaid), three observability planes, policy, today vs guard proxy
 - UI client guard loads policy from `gateway/config.yaml` (Vite yaml import); `npm run check:demo-policy` keeps demo flight `guard_config.yaml` aligned until guard proxy (#12)
 
+### Fixed
+
+- Guard proxy listens on `PORT` when `MCP_PROXY_PORT` is unset (Railway/Render inject `PORT`; local dev uses `MCP_PROXY_PORT` / `make dev`)
+
 ### Changed
 
+- Docs: Railway deploy cross-links in README, CONTRIBUTING, guard-proxy, NEXT-STEPS, deploy-overview
 - Docs: **deploy-overview** cross-links; NEXT-STEPS/ARCHITECTURE/ROADMAP mark #12 proxy **implemented**, **deploy to prod** as next step; vercel-deploy notes prod bypasses proxy today
 - Docs: defer **#9/#10** multi-server mock MCP; **#12** guard proxy is primary product path ([NEXT-STEPS](docs/NEXT-STEPS.md#implementation-backlog-post-030))
 - Release process: CHANGELOG + optional git tag only — no GitHub Releases UI ([RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md))

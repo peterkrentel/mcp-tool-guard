@@ -97,6 +97,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 ## Related
 
 - [deploy-overview.md](deploy-overview.md) — three services, traffic paths, prod checklist
+- [railway-deploy.md](railway-deploy.md) — deploy guard proxy on Railway
 - [vercel-deploy.md](vercel-deploy.md) — flight + UI on Vercel
 - [guard-proxy.md](guard-proxy.md) — proxy routes and env
 - [identity.md](identity.md) — Path A, dual trust

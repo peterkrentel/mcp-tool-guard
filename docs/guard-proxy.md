@@ -43,7 +43,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 
 | Variable | Purpose |
 |----------|---------|
-| `MCP_PROXY_PORT` | Listen port (default `8787`) |
+| `MCP_PROXY_PORT` | Listen port (default `8787`; local `make dev`) |
+| `PORT` | PaaS listen port when `MCP_PROXY_PORT` unset (Railway/Render inject this — do not set `MCP_PROXY_PORT` there) |
 | `MCP_PROXY_DEFAULT_SERVER` | Server id for `POST /mcp` (default `flight`) |
 | `MCP_PROXY_CONFIG` | Optional path to policy yaml (default `gateway/config.yaml`) |
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Demo guest JWT verify |

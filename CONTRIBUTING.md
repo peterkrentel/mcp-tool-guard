@@ -36,13 +36,16 @@ make dev            # flight → proxy → ui (or make flight / make proxy / mak
 | Doc | Purpose |
 |-----|---------|
 | [README.md](README.md) | Quick start, live demo links |
-| [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy guide |
+| [docs/deploy-overview.md](docs/deploy-overview.md) | Deploy map — local vs Vercel prod vs target |
+| [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy guide (flight + UI) |
+| [docs/guard-proxy.md](docs/guard-proxy.md) | Guard proxy — local dev, routes, env |
+| [docs/railway-deploy.md](docs/railway-deploy.md) | Railway deploy guide for guard proxy |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture — diagrams, components, observability planes |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | Design — rationale, JWT, audit trust model, limitations |
 | [docs/identity.md](docs/identity.md) | IdP — Auth0 vs Keycloak, Path A vs audit secret |
 | [docs/auth0-setup.md](docs/auth0-setup.md) | Auth0 tenant setup + Vercel env |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Planned releases and tiers |
-| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | Post–0.2.0 build order |
+| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | Post–0.3.0 build order |
 | [docs/RELEASE.md](docs/RELEASE.md) | How to cut a release |
 | [CHANGELOG.md](CHANGELOG.md) | History and unreleased work |
 

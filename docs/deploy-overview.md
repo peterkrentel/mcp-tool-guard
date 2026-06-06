@@ -73,8 +73,8 @@ The proxy is implemented as a persistent Node service ([`gateway/proxy-server.ts
 |-------|----------------|------------------|
 | Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` `source: guard-proxy` | **No** — not hosted yet |
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
-| `make dev` (one terminal) | On branch `feature/make-dev` (optional) | N/A (local only) |
-| Proxy-focused audit UI | Stashed / not merged | N/A until proxy is prod + UI branch merged |
+| `make dev` (one terminal) | Yes | N/A (local only) |
+| Proxy-focused audit UI | Optional branch / stash | N/A until proxy is prod + UI PR merged |
 
 ---
 
@@ -90,7 +90,7 @@ Branch per task; track in [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post
    npm run build -w @mcp-tool-guard/gateway
    npm run start:proxy -w @mcp-tool-guard/gateway
    ```
-   The proxy reads `PORT` (Railway/Render default) with `MCP_PROXY_PORT` as an override. Do not set `MCP_PROXY_PORT` on Railway. See [railway-deploy.md](railway-deploy.md) for full steps.
+   Listen port: `MCP_PROXY_PORT` locally; `PORT` on Railway/Render when `MCP_PROXY_PORT` is unset. Do not set `MCP_PROXY_PORT` on Railway. See [railway-deploy.md](railway-deploy.md) for full steps.
 4. **Env on proxy** — mirror flight: `MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`; `MCP_CORS_ORIGINS` includes `https://mcp-tool-guard-ui.vercel.app`.
 5. **Smoke test** — `GET /health`, `GET /audit` with Bearer, one `POST /mcp` `tools/call`.
 6. **Rewire UI** — `VITE_MCP_URL=https://YOUR-PROXY-HOST/mcp` on the Vercel UI project; redeploy.
