@@ -81,6 +81,11 @@ export class ToolGuard {
     return cfg ? Object.keys(cfg.tools) : [];
   }
 
+  /** Replace in-memory policy (runtime registry updates). */
+  replaceConfig(config: GuardConfig): void {
+    this.config = config;
+  }
+
   extractScopes(payload: JwtPayload): string[] {
     const scopes: string[] = [];
     const raw = payload.scope ?? payload.scopes ?? payload.scp;
@@ -150,6 +155,7 @@ export class ToolGuard {
         token_scopes: tokenScopes,
         reason: `Tool '${tool}' not configured for server '${server}'`,
         ...audit,
+        source: audit?.source ?? "proxy",
       };
       this.logger.log(entry);
       return { allowed: false, reason: entry.reason, required_scope: "(unknown)", entry };
@@ -171,6 +177,7 @@ export class ToolGuard {
         ? undefined
         : `Missing required scope '${required}'`,
       ...audit,
+      source: audit?.source ?? "proxy",
     };
 
     this.logger.log(entry);
@@ -206,6 +213,7 @@ export class ToolGuard {
         reason: `JWT validation failed: ${message}`,
         duration_ms: Math.round(performance.now() - start),
         ...audit,
+        source: audit?.source ?? "proxy",
       };
       this.logger.log(entry);
       return {

@@ -481,8 +481,89 @@ button:disabled {
   font-style: italic;
 }
 
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a.nav-active,
+.site-nav a:hover {
+  color: var(--accent);
+}
+
+.agents-layout {
+  grid-template-columns: 280px 280px 1fr 360px;
+}
+
+.stack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.stack-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.card-active {
+  border-color: var(--accent);
+}
+
+.card-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.card-meta.mono {
+  font-family: ui-monospace, monospace;
+}
+
+.log-highlight {
+  outline: 1px solid var(--warn);
+}
+
+.log-trace-focus {
+  background: var(--warn);
+  color: #000;
+}
+
+@media (max-width: 1200px) {
+  .agents-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   main {
+    grid-template-columns: 1fr;
+  }
+
+  .agents-layout {
     grid-template-columns: 1fr;
   }
 }

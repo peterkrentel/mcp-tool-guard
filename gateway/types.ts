@@ -17,6 +17,9 @@ export interface GuardConfig {
 
 export type GuardDecision = "allow" | "deny";
 
+/** Three-layer telemetry source (agent gateway). */
+export type AuditSource = "agent" | "proxy" | "mcp";
+
 export interface AuditLogEntry {
   timestamp: string;
   decision: GuardDecision;
@@ -34,12 +37,22 @@ export interface AuditLogEntry {
   trace_id?: string;
   /** Client guard only: false when blocked before HTTP tools/call. */
   reached_server?: boolean;
+  /** Telemetry layer — agent intent, proxy enforce, upstream MCP response. */
+  source?: AuditSource;
+  /** MCP layer — HTTP status from upstream. */
+  upstream_status?: number;
+  /** MCP layer — truncated tool result or error text. */
+  response_preview?: string;
+  /** Agent layer — LLM intent description. */
+  intent?: string;
 }
 
 export interface AuditContext {
   session_id?: string;
   trace_id?: string;
   reached_server?: boolean;
+  source?: AuditSource;
+  intent?: string;
 }
 
 export interface JwtPayload {

@@ -1,12 +1,25 @@
 /**
- * Guard HTTP proxy (#12) — authoritative JWT scope enforcement + audit
- * in front of upstream MCP URLs from gateway/config.yaml.
+ * Guard HTTP proxy (#12) + agent gateway (stage 1, in-memory).
  *
- * Routes:
- *   POST /mcp              → default server (MCP_PROXY_DEFAULT_SERVER, default flight)
+ * MCP routes:
+ *   POST /mcp              → default server (MCP_PROXY_DEFAULT_SERVER)
  *   POST /:serverId/mcp    → configured upstream
- *   GET  /audit            → proxy enforcement log (Bearer when guard enabled)
- *   GET  /health           → status + configured servers
+ *
+ * Registry:
+ *   GET    /servers           — list registered MCP servers
+ *   POST   /servers           — add server (in-memory)
+ *   DELETE /servers/:id       — remove server
+ *   GET    /servers/:id/tools — discover tools/list from upstream
+ *
+ * Agents (Auth0 M2M):
+ *   POST   /agents            — create M2M client
+ *   DELETE /agents/:clientId  — revoke M2M client
+ *   POST   /token             — vend client_credentials JWT
+ *
+ * Audit:
+ *   GET    /audit             — all layers (agent, proxy, mcp)
+ *   POST   /audit/agent       — append agent-layer entries from browser
+ *   GET    /health            — status
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -15,14 +28,22 @@ import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 
-import { ToolGuard } from "./guard.js";
+import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import {
   corsAllowOrigins,
   guardEnabled,
   jwtTrustFromEnv,
   readPublicKeyPem,
 } from "./env.js";
-import type { GuardConfig } from "./types.js";
+import { ToolGuard } from "./guard.js";
+import { forwardMcpPost, discoverMcpTools } from "./mcp-upstream.js";
+import { clientIp, SlidingWindowRateLimiter } from "./rate-limit.js";
+import { ServerRegistry } from "./server-registry.js";
+import {
+  auth0AudienceFromEnv,
+  tokenVendorFromEnv,
+} from "./token-vendor.js";
+import type { AuditLogEntry, GuardConfig } from "./types.js";
 
 function gatewayRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -31,18 +52,9 @@ function gatewayRoot(): string {
 
 const gatewayDir = gatewayRoot();
 const DEFAULT_PORT = 8787;
-const HOP_BY_HOP = new Set([
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailers",
-  "transfer-encoding",
-  "upgrade",
-]);
+const RATE_LIMIT = new SlidingWindowRateLimiter(60, 60_000);
 
-function loadConfig(): GuardConfig {
+function loadYamlConfig(): GuardConfig {
   const configPath =
     process.env.MCP_PROXY_CONFIG?.trim() ||
     resolve(gatewayDir, "config.yaml");
@@ -72,7 +84,7 @@ function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
       "Access-Control-Allow-Headers",
       "Authorization, Content-Type, Accept, X-Trace-Id, X-Session-Id",
     );
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   }
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
@@ -94,6 +106,11 @@ async function readBody(req: IncomingMessage, maxBytes = 1_048_576): Promise<Buf
     chunks.push(buf);
   }
   return Buffer.concat(chunks);
+}
+
+async function readJson<T>(req: IncomingMessage): Promise<T> {
+  const body = await readBody(req);
+  return JSON.parse(body.toString("utf8")) as T;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -133,51 +150,8 @@ function matchMcpRoute(
   return null;
 }
 
-async function forwardPost(
-  upstreamUrl: string,
-  req: IncomingMessage,
-  body: Buffer,
-  res: ServerResponse,
-): Promise<void> {
-  const forwardHeaders: Record<string, string> = {
-    "Content-Type": header(req, "content-type") ?? "application/json",
-    Accept: header(req, "accept") ?? "application/json, text/event-stream",
-  };
-  const auth = header(req, "authorization");
-  if (auth) forwardHeaders.Authorization = auth;
-  const traceId = header(req, "x-trace-id");
-  if (traceId) forwardHeaders["X-Trace-Id"] = traceId;
-  const sessionId = header(req, "x-session-id");
-  if (sessionId) forwardHeaders["X-Session-Id"] = sessionId;
-
-  const upstream = await fetch(upstreamUrl, {
-    method: "POST",
-    headers: forwardHeaders,
-    body: new Uint8Array(body),
-  });
-
-  res.statusCode = upstream.status;
-  upstream.headers.forEach((value, key) => {
-    if (!HOP_BY_HOP.has(key.toLowerCase())) {
-      res.setHeader(key, value);
-    }
-  });
-
-  if (!upstream.body) {
-    res.end();
-    return;
-  }
-
-  const reader = upstream.body.getReader();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
-    }
-  } finally {
-    res.end();
-  }
+function syncGuardConfig(guard: ToolGuard, registry: ServerRegistry): void {
+  guard.replaceConfig(registry.toGuardConfig());
 }
 
 async function handleAudit(
@@ -185,6 +159,7 @@ async function handleAudit(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  /** GET /audit — returns agent, proxy, and mcp entries. Auth: Bearer when guard enabled. */
   if (guardEnabled()) {
     const bearer = extractBearer(header(req, "authorization"));
     if (!bearer) {
@@ -206,18 +181,45 @@ async function handleAudit(
   if (sessionId) {
     entries = entries.filter((e) => e.session_id === sessionId);
   }
-  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? "100"), 500));
-  sendJson(res, 200, { entries: entries.slice(-limit), source: "guard-proxy" });
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? "200"), 500));
+  sendJson(res, 200, {
+    entries: entries.slice(-limit),
+    sources: ["agent", "proxy", "mcp"],
+  });
+}
+
+async function handleAuditAgentPost(
+  guard: ToolGuard,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  /** POST /audit/agent — append agent-layer intent entries. Auth: no (demo). */
+  const body = await readJson<{ entries?: AuditLogEntry[]; entry?: AuditLogEntry }>(req);
+  const items = body.entries ?? (body.entry ? [body.entry] : []);
+  for (const raw of items) {
+    const entry: AuditLogEntry = {
+      ...raw,
+      source: "agent",
+      timestamp: raw.timestamp ?? new Date().toISOString(),
+      decision: raw.decision ?? "allow",
+      server: raw.server ?? "",
+      tool: raw.tool ?? "",
+      required_scope: raw.required_scope ?? "",
+      token_scopes: raw.token_scopes ?? [],
+    };
+    guard.logger.log(entry);
+  }
+  sendJson(res, 200, { ok: true, count: items.length });
 }
 
 async function handleMcp(
   guard: ToolGuard,
-  config: GuardConfig,
+  registry: ServerRegistry,
   serverId: string,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  const serverCfg = config.servers[serverId];
+  const serverCfg = registry.getServer(serverId);
   if (!serverCfg) {
     sendJson(res, 404, { error: `Unknown server '${serverId}'` });
     return;
@@ -236,19 +238,26 @@ async function handleMcp(
   try {
     payload = JSON.parse(body.toString("utf8")) as typeof payload;
   } catch {
-    await forwardPost(serverCfg.url, req, body, res);
+    await forwardMcpPost({
+      upstreamUrl: serverCfg.url,
+      reqHeaders: req.headers,
+      body,
+      res,
+    });
     return;
   }
 
+  const toolName = payload.params?.name ?? "";
+  const traceId = header(req, "x-trace-id");
+  const sessionId = header(req, "x-session-id");
+
   if (payload.method === "tools/call" && guardEnabled()) {
-    const toolName = payload.params?.name ?? "";
     const bearer = extractBearer(header(req, "authorization"));
-    const traceId = header(req, "x-trace-id");
-    const sessionId = header(req, "x-session-id");
 
     const result = await guard.authorize(serverId, toolName, bearer ?? "", {
       trace_id: traceId,
       session_id: sessionId,
+      source: "proxy",
     });
 
     if (!result.allowed) {
@@ -257,18 +266,39 @@ async function handleMcp(
     }
   }
 
-  await forwardPost(serverCfg.url, req, body, res);
+  const auditMcp =
+    payload.method === "tools/call"
+      ? {
+          logger: guard.logger,
+          serverId,
+          toolName,
+          traceId,
+          sessionId,
+        }
+      : undefined;
+
+  await forwardMcpPost({
+    upstreamUrl: serverCfg.url,
+    reqHeaders: req.headers,
+    body,
+    res,
+    audit: auditMcp,
+  });
 }
 
 async function main(): Promise<void> {
-  const config = loadConfig();
+  const seedConfig = loadYamlConfig();
+  const registry = new ServerRegistry(seedConfig);
   const jwtTrust = jwtTrustFromEnv();
   const guard = new ToolGuard({
-    config,
+    config: registry.toGuardConfig(),
     publicKey: readPublicKeyPem(),
     ...jwtTrust,
   });
   await guard.init();
+
+  const tokenVendor = tokenVendorFromEnv();
+  const apiAudience = auth0AudienceFromEnv();
 
   const defaultServer = process.env.MCP_PROXY_DEFAULT_SERVER?.trim() || "flight";
   const port = Number(process.env.MCP_PROXY_PORT ?? process.env.PORT ?? DEFAULT_PORT);
@@ -292,13 +322,24 @@ async function main(): Promise<void> {
       const url = new URL(req.url ?? "/", "http://localhost");
       const { pathname } = url;
 
+      if (pathname !== "/health" && req.method !== "OPTIONS") {
+        const rl = RATE_LIMIT.check(clientIp(req));
+        if (!rl.allowed) {
+          res.statusCode = 429;
+          res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+          sendJson(res, 429, { error: "Rate limit exceeded" });
+          return;
+        }
+      }
+
       if (req.method === "GET" && pathname === "/health") {
         sendJson(res, 200, {
           service: "mcp-tool-guard-proxy",
           guard_enabled: enabled,
           jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
+          auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           default_server: defaultServer,
-          servers: Object.keys(config.servers),
+          servers: registry.serverIds(),
         });
         return;
       }
@@ -308,10 +349,116 @@ async function main(): Promise<void> {
         return;
       }
 
+      if (req.method === "POST" && pathname === "/audit/agent") {
+        await handleAuditAgentPost(guard, req, res);
+        return;
+      }
+
+      /** GET /servers — list registry. Auth: no. */
+      if (req.method === "GET" && pathname === "/servers") {
+        sendJson(res, 200, { servers: registry.list() });
+        return;
+      }
+
+      /** POST /servers — add MCP server. Auth: no (demo). */
+      if (req.method === "POST" && pathname === "/servers") {
+        const body = await readJson<{ id: string; url: string; scopes: Record<string, string[]> }>(
+          req,
+        );
+        const result = registry.add(body);
+        if (!result.ok) {
+          sendJson(res, 400, { error: result.error });
+          return;
+        }
+        syncGuardConfig(guard, registry);
+        sendJson(res, 201, result);
+        return;
+      }
+
+      const deleteServerMatch = pathname.match(/^\/servers\/([^/]+)\/?$/);
+      if (req.method === "DELETE" && deleteServerMatch) {
+        /** DELETE /servers/:id — remove server. Auth: no (demo). */
+        const removed = registry.remove(deleteServerMatch[1]);
+        if (!removed) {
+          sendJson(res, 404, { error: "Server not found" });
+          return;
+        }
+        syncGuardConfig(guard, registry);
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+
+      const toolsMatch = pathname.match(/^\/servers\/([^/]+)\/tools\/?$/);
+      if (req.method === "GET" && toolsMatch) {
+        /** GET /servers/:id/tools — tools/list via proxy. Auth: no; Bearer optional. */
+        const serverCfg = registry.getServer(toolsMatch[1]);
+        if (!serverCfg) {
+          sendJson(res, 404, { error: "Server not found" });
+          return;
+        }
+        const bearer = extractBearer(header(req, "authorization")) ?? undefined;
+        try {
+          const tools = await discoverMcpTools(serverCfg.url, bearer);
+          sendJson(res, 200, { tools });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(res, 502, { error: message });
+        }
+        return;
+      }
+
+      /** POST /agents — create Auth0 M2M client. Auth: no (demo). */
+      if (req.method === "POST" && pathname === "/agents") {
+        const body = await readJson<{ name: string; scopes: string[] }>(req);
+        try {
+          const created = await createM2mAgent(body.name, body.scopes ?? []);
+          sendJson(res, 201, created);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(res, 503, { error: message });
+        }
+        return;
+      }
+
+      const deleteAgentMatch = pathname.match(/^\/agents\/([^/]+)\/?$/);
+      if (req.method === "DELETE" && deleteAgentMatch) {
+        /** DELETE /agents/:clientId — revoke M2M client. Auth: no (demo). */
+        try {
+          await deleteM2mAgent(deleteAgentMatch[1]);
+          tokenVendor?.invalidate(deleteAgentMatch[1]);
+          sendJson(res, 200, { ok: true });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(res, 503, { error: message });
+        }
+        return;
+      }
+
+      /** POST /token — vend client_credentials JWT. Auth: no; body has credentials. */
+      if (req.method === "POST" && pathname === "/token") {
+        if (!tokenVendor || !apiAudience) {
+          sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
+          return;
+        }
+        const body = await readJson<{ clientId: string; clientSecret: string }>(req);
+        try {
+          const vended = await tokenVendor.vend(
+            body.clientId,
+            body.clientSecret,
+            apiAudience,
+          );
+          sendJson(res, 200, vended);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(res, 401, { error: message });
+        }
+        return;
+      }
+
       if (req.method === "POST") {
         const route = matchMcpRoute(pathname, defaultServer);
         if (route) {
-          await handleMcp(guard, config, route.serverId, req, res);
+          await handleMcp(guard, registry, route.serverId, req, res);
           return;
         }
       }
@@ -329,7 +476,7 @@ async function main(): Promise<void> {
 
   server.listen(port, () => {
     console.info(
-      `[MCPToolGuard proxy] listening on :${port} — POST /mcp (→ ${defaultServer}), POST /:server/mcp, GET /audit`,
+      `[MCPToolGuard proxy] listening on :${port} — agent gateway + guard proxy (in-memory)`,
     );
   });
 }
