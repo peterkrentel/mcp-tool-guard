@@ -4,7 +4,7 @@
 
 Authoritative JWT scope enforcement and audit **in front of** upstream MCP URLs you do not control (or your own flight server for local proof).
 
-> **Prod today:** proxy runs locally (`make dev` / `make proxy`) only. Vercel demo is UI → flight direct. See [deploy-overview.md](deploy-overview.md) for paths and the prod deploy checklist.
+> **Prod today:** guard proxy on Render — UI → `mcp-tool-guard-proxy.onrender.com` → Vercel flight. Local: `make dev`. See [deploy-overview.md](deploy-overview.md) and [demo-proxy.md](demo-proxy.md).
 
 ```
 Agent / UI  →  guard proxy (:8787)  →  upstream MCP (vendor or localhost:8000)
@@ -44,7 +44,7 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | Variable | Purpose |
 |----------|---------|
 | `MCP_PROXY_PORT` | Listen port (default `8787`; local `make dev`) |
-| `PORT` | PaaS listen port when `MCP_PROXY_PORT` unset (Railway/Render inject this — do not set `MCP_PROXY_PORT` there) |
+| `PORT` | PaaS listen port when `MCP_PROXY_PORT` unset (Render injects this — do not set `MCP_PROXY_PORT` there) |
 | `MCP_PROXY_DEFAULT_SERVER` | Server id for `POST /mcp` (default `flight`) |
 | `MCP_PROXY_CONFIG` | Optional path to policy yaml (default `gateway/config.yaml`) |
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Demo guest JWT verify |
@@ -65,10 +65,10 @@ Audit panel resolves `http://localhost:8787/audit` from that URL.
 
 ## Production
 
-**Checklist:** [deploy-overview.md → Prod proxy](deploy-overview.md#prod-proxy-checklist-next-work) · [Railway step-by-step](railway-deploy.md)
+**Deployed:** [render-deploy.md](render-deploy.md) · [demo-proxy.md](demo-proxy.md)
 
-1. Host the proxy on a long-running Node platform (not Vercel serverless) — Railway, Fly, Render, Cloud Run, etc.
-2. `gateway/config.prod.yaml` is in the repo — set `MCP_PROXY_CONFIG=gateway/config.prod.yaml` so the proxy routes to Vercel flight.
+1. Host the proxy on a long-running Node platform (not Vercel serverless) — **Render** (live), or Fly, Cloud Run, etc.
+2. `gateway/config.prod.yaml` is in the repo — set `MCP_PROXY_CONFIG=config.prod.yaml` on Render so the proxy routes to Vercel flight.
 3. Mirror flight JWT env on the proxy (`MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`); set `MCP_CORS_ORIGINS` for the UI origin.
 4. Point UI `VITE_MCP_URL` at `https://YOUR-PROXY-HOST/mcp` and redeploy the Vercel UI project.
 

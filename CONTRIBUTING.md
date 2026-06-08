@@ -36,10 +36,11 @@ make dev            # flight → proxy → ui (or make flight / make proxy / mak
 | Doc | Purpose |
 |-----|---------|
 | [README.md](README.md) | Quick start, live demo links |
-| [docs/deploy-overview.md](docs/deploy-overview.md) | Deploy map — local vs Vercel prod vs target |
+| [docs/deploy-overview.md](docs/deploy-overview.md) | Deploy map — local vs prod (UI + Render proxy + flight) |
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | Vercel deploy guide (flight + UI) |
 | [docs/guard-proxy.md](docs/guard-proxy.md) | Guard proxy — local dev, routes, env |
-| [docs/railway-deploy.md](docs/railway-deploy.md) | Railway deploy guide for guard proxy |
+| [docs/render-deploy.md](docs/render-deploy.md) | Render deploy guide for guard proxy |
+| [docs/demo-proxy.md](docs/demo-proxy.md) | Live demo script — proxy proof points |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture — diagrams, components, observability planes |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | Design — rationale, JWT, audit trust model, limitations |
 | [docs/identity.md](docs/identity.md) | IdP — Auth0 vs Keycloak, Path A vs audit secret |

@@ -9,7 +9,10 @@
 | | Link |
 |---|------|
 | **Try the UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
+| **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
+
+Prod path: **UI → Render guard proxy → Vercel flight**. Network tab shows `onrender.com` for `/mcp` and `/audit`. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
 
 ![MCPToolGuard on Vercel — Auth0 sign-in, chat, server audit ALLOW](docs/images/demo/prod-ui-audit-success.png)
 
@@ -37,7 +40,8 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/deploy-overview.md](docs/deploy-overview.md) | **Deploy map** — local proxy vs Vercel prod vs target; start here if confused |
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Vercel** — flight + UI step-by-step, env vars, troubleshooting |
 | [docs/guard-proxy.md](docs/guard-proxy.md) | **Guard proxy** — routes, env, `make dev`, prod checklist link |
-| [docs/railway-deploy.md](docs/railway-deploy.md) | **Railway** — deploy guard proxy to prod, smoke tests, UI rewire |
+| [docs/render-deploy.md](docs/render-deploy.md) | **Render** — deploy guard proxy to prod, smoke tests, UI rewire |
+| [docs/demo-proxy.md](docs/demo-proxy.md) | **Live demo script** — Network tab, read-only deny, Render logs, curl deny |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
@@ -106,7 +110,7 @@ mcp-tool-guard/
 
 ## Deploy
 
-**Overview:** [docs/deploy-overview.md](docs/deploy-overview.md) — three services (UI, proxy, flight); prod today is **two** Vercel projects only (no proxy yet).
+**Overview:** [docs/deploy-overview.md](docs/deploy-overview.md) — three services (UI on Vercel, proxy on Render, flight on Vercel).
 
 **Vercel walkthrough:** [docs/vercel-deploy.md](docs/vercel-deploy.md)
 
@@ -114,7 +118,7 @@ mcp-tool-guard/
 |---------|----------------|
 | **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for Auth0 |
 | **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` |
-| **Guard proxy** (not on Vercel) | `npm run start:proxy -w @mcp-tool-guard/gateway` — [railway-deploy.md](docs/railway-deploy.md) · [guard-proxy.md](docs/guard-proxy.md) |
+| **Guard proxy** (Render, not Vercel) | `npm run start:proxy -w @mcp-tool-guard/gateway` — [render-deploy.md](docs/render-deploy.md) · [guard-proxy.md](docs/guard-proxy.md) |
 
 Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md).
 

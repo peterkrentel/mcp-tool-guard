@@ -138,8 +138,8 @@ flowchart LR
 |------|------|
 | [`gateway/config.yaml`](../gateway/config.yaml) | **Canonical** — per-server `url` + per-tool `required_scope` (flight, slack/github stubs) |
 | [`ui/src/guard-config.ts`](../ui/src/guard-config.ts) | Loads canonical yaml; `TOOL_DESCRIPTIONS` for LLM hints only |
-| [`servers/flight/guard_config.yaml`](../servers/flight/guard_config.yaml) | **Demo only** — embedded guard on Vercel prod today; CI `npm run check:demo-policy` keeps flight slice aligned |
-| [`gateway/proxy-server.ts`](../gateway/proxy-server.ts) | **Product path** — enforce + forward + proxy `/audit`; local `make dev`, prod deploy [TBD](deploy-overview.md#prod-proxy-checklist-next-work) |
+| [`servers/flight/guard_config.yaml`](../servers/flight/guard_config.yaml) | **Demo only** — embedded guard on flight; CI `npm run check:demo-policy` keeps flight slice aligned |
+| [`gateway/proxy-server.ts`](../gateway/proxy-server.ts) | **Product path** — enforce + forward + proxy `/audit`; local `make dev`, prod on [Render](render-deploy.md) |
 
 ---
 
@@ -171,13 +171,13 @@ Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md).
 
 Full map: [deploy-overview.md](deploy-overview.md). Vercel steps: [vercel-deploy.md](vercel-deploy.md).
 
-| Service | Repo path | Local | Vercel prod today | Target prod |
-|---------|-----------|-------|-------------------|-------------|
-| **UI** | `ui/` | Vite :5173 | Static — `mcp-tool-guard-ui` | Same; `VITE_MCP_URL` → proxy |
-| **Guard proxy** | `gateway/proxy-server.ts` | `:8787` via `make dev` | **Not deployed** | Fly/Railway/etc. |
-| **Flight MCP** | `servers/flight/` | `:8000` | Serverless — `mcp-tool-guard-flight-server` | Upstream behind proxy |
+| Service | Repo path | Local | Prod |
+|---------|-----------|-------|------|
+| **UI** | `ui/` | Vite :5173 | Vercel — `mcp-tool-guard-ui`; `VITE_MCP_URL` → Render proxy |
+| **Guard proxy** | `gateway/proxy-server.ts` | `:8787` via `make dev` | Render — `mcp-tool-guard-proxy.onrender.com` |
+| **Flight MCP** | `servers/flight/` | `:8000` | Vercel — `mcp-tool-guard-flight-server`; upstream behind proxy |
 
-Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`](../ui/vite.config.ts)). Prod UI talks to whatever `VITE_MCP_URL` points at (flight direct today).
+Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`](../ui/vite.config.ts)). Prod UI talks to Render proxy (`VITE_MCP_URL`).
 
 ---
 
@@ -198,16 +198,16 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 
 ## Today vs next
 
-| | Local `make dev` | Vercel prod today | Next |
-|--|------------------|-------------------|------|
-| MCP path | UI → proxy → flight | UI → flight direct | UI → proxy → flight (or vendor) |
-| Authoritative enforce | Guard proxy :8787 | Flight embedded guard | Deployed guard proxy |
-| `/audit` source | `guard-proxy` | Flight server | `guard-proxy` on proxy host |
+| | Local `make dev` | Prod (Render + Vercel) | Next |
+|--|------------------|------------------------|------|
+| MCP path | UI → proxy → flight | UI → Render proxy → flight | Proxy → external vendor MCP |
+| Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
+| `/audit` source | `guard-proxy` | `guard-proxy` on Render | Durable proxy audit (KV) optional |
 | Agent | Browser WebLLM | Same | SDK agents + proxy |
 | Multi-server | Stubs in yaml; UI = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
-| Vendor MCP | yaml stubs only | Not wired | Proxy → vendor URL in `gateway/config.yaml` |
+| Vendor MCP | yaml stubs only | Not wired yet | Wire real URL in `config.prod.yaml` |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Build order:** **Deploy proxy to prod** — implementation [#12](ROADMAP.md) is done on `main`. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030) and [deploy-overview.md](deploy-overview.md#prod-proxy-checklist-next-work).
+**Build order:** **Wire external MCP** — proxy [#12](ROADMAP.md) deployed on Render. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030) and [demo-proxy.md](demo-proxy.md).
 
 Design tradeoffs and limitations: [CONCEPT.md](CONCEPT.md).
