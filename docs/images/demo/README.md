@@ -9,4 +9,6 @@ Production UI captures referenced from the repo docs (not Auth0 dashboard walkth
 | `auth0-access-token-read-only-jwtio.png` | [README Live demo](../../README.md#live-demo), [auth0-setup](../auth0-setup.md) | Read-only user — `permissions`: `["flights:read"]` only |
 | `prod-scope-deny-read-only.png` | [README Live demo](../../README.md#live-demo), [auth0-setup](../auth0-setup.md) | Read-only user — book blocked, **Agent attempts** DENY (no server row) |
 
+**Proxy demo (no screenshot yet):** [demo-proxy.md](../../demo-proxy.md) — Network tab → `onrender.com`, Render logs, curl deny with `Accept: application/json, text/event-stream`.
+
 Do **not** commit secrets (tokens, full `.env.local`).

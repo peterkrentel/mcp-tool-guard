@@ -4,16 +4,17 @@
 
 Step-by-step guide for hosting the **flight MCP server** and **demo UI** as two separate Vercel projects from this monorepo.
 
-> **Prod today:** the live demo uses **two** Vercel projects (UI → flight direct). The guard HTTP proxy runs locally (`make dev`) but is **not** on Vercel yet. See [deploy-overview.md](deploy-overview.md) for local vs prod paths and the target three-service layout.
+> **Prod today:** **three services** — UI on Vercel, guard proxy on Render, flight on Vercel. UI → `mcp-tool-guard-proxy.onrender.com` → flight. See [deploy-overview.md](deploy-overview.md) and [demo-proxy.md](demo-proxy.md).
 
 ## Live demo
 
 | | URL |
 |---|-----|
 | **UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
+| **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
-| **MCP endpoint** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
-| **Server audit** | `GET /audit` with `Authorization: Bearer` (same JWT as MCP) |
+| **MCP endpoint (UI)** | `https://mcp-tool-guard-proxy.onrender.com/mcp` |
+| **Server audit (UI)** | `GET https://mcp-tool-guard-proxy.onrender.com/audit` with `Authorization: Bearer` |
 
 Open the UI → **Sign in** (Auth0) or pick a **guest JWT scope** → **Initialize** (WebLLM may take ~1 min first load) → chat.
 
@@ -26,7 +27,7 @@ Open the UI → **Sign in** (Auth0) or pick a **guest JWT scope** → **Initiali
 | **`mcp-tool-guard-flight-server`** | `servers/flight` | Python MCP + JWT guard |
 | **`mcp-tool-guard-ui`** | Repository root | Static UI (`ui/dist`) |
 
-Deploy **flight first**, then **UI** with `VITE_MCP_URL` pointing at flight `/mcp`.
+Deploy **flight first**, then **proxy** ([render-deploy.md](render-deploy.md)), then **UI** with `VITE_MCP_URL` pointing at the proxy `/mcp`.
 
 ---
 
@@ -137,7 +138,7 @@ Do **not** use `npm install --prefix=..` (that was for a misconfigured Python pr
 
 | Variable | Required | Value |
 |----------|----------|--------|
-| `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-flight-server.vercel.app/mcp` (today — direct to flight). After [proxy deploy](deploy-overview.md#prod-proxy-checklist-next-work): `https://YOUR-PROXY-HOST/mcp` |
+| `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-proxy.onrender.com/mcp` (prod — via guard proxy). Flight direct (legacy): `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
 | `VITE_AUTH0_DOMAIN` | For Auth0 login | `YOUR_TENANT.us.auth0.com` |
 | `VITE_AUTH0_CLIENT_ID` | For Auth0 login | SPA client id from Auth0 dashboard |
 | `VITE_AUTH0_AUDIENCE` | For Auth0 login | `https://mcp-tool-guard` |

@@ -1,5 +1,5 @@
 # Production proxy config — upstream URLs point at deployed services.
-# Used on Railway via MCP_PROXY_CONFIG=gateway/config.prod.yaml.
+# Used on Render via MCP_PROXY_CONFIG=config.prod.yaml (cwd is gateway/ at start).
 # Local dev uses config.yaml (localhost:8000).
 servers:
   flight:

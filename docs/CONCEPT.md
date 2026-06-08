@@ -126,7 +126,7 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 
 | File | Used by |
 |------|---------|
-| `gateway/config.yaml` | Client `ToolGuard` (UI imports at build), future **guard proxy** (#12) |
+| `gateway/config.yaml` | Client `ToolGuard` (UI imports at build), **guard proxy** (#12) on Render |
 | `servers/flight/guard_config.yaml` | **Demo only** — embedded guard on flight MCP until proxy; must match `servers.flight` in gateway yaml (CI: `npm run check:demo-policy`) |
 | `ui/src/guard-config.ts` | Imports gateway yaml + demo `TOOL_DESCRIPTIONS` (LLM hints, not policy) |
 
@@ -187,7 +187,7 @@ Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub).
 | Kind | Example | Who runs MCP |
 |------|---------|--------------|
 | **Remote, yours** | Flight on Vercel | You — server guard + `/audit` |
-| **Remote, unowned** | Vendor MCP URL | Vendor — client SDK only until **guard proxy** (Tier 2) |
+| **Remote, unowned** | Vendor MCP URL | Vendor — **guard proxy** on Render enforces; wire vendor URL in `config.prod.yaml` |
 
 ### Capability by deployment
 
