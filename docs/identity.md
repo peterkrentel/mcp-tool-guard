@@ -52,6 +52,8 @@ The [`/agents.html`](../ui/agents.html) page uses **two different identities** �
 
 Implementation backlog: [NEXT-STEPS → Agent gateway admin auth](NEXT-STEPS.md#agent-gateway-admin-auth-sketch).
 
+**Registry sync:** Stage 1 creates one Auth0 Application per **Create agent** (`mcp-agent-${name}`) with no server-side agent list — see [Agent registry + Auth0 sync](NEXT-STEPS.md#agent-registry-auth0-sync-sketch) for KV source-of-truth, unique Auth0 names, and reuse/templates to avoid tenant client limits.
+
 ---
 
 ## Current state (0.3.0)
