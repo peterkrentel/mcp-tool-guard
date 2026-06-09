@@ -16,6 +16,7 @@ import {
   type RegisteredServer,
 } from "./proxy-api.js";
 import { renderThreeLayerAudit } from "./agents-audit-view.js";
+import { getAuth0Config, jwtTrustFromAuth0 } from "./auth.js";
 
 interface ActiveAgent {
   name: string;
@@ -231,16 +232,15 @@ initBtn.addEventListener("click", () => {
     if (!serverMeta) throw new Error("Selected MCP server not found");
     const tools = await discoverTools(selectedAgent.serverId, selectedAgent.token);
     const { GatewayAgent } = await import("./gateway-agent.js");
+    const auth0 = getAuth0Config();
+    const jwtTrust = auth0 ? jwtTrustFromAuth0(auth0) : {};
     gatewayAgent = new GatewayAgent({
       serverId: selectedAgent.serverId,
       guardConfig: guardConfigForServer(serverMeta),
       mcpUrl: mcpUrlForServer(selectedAgent.serverId),
       jwt: selectedAgent.token,
       publicKeyPem,
-      jwtIssuer: import.meta.env.VITE_AUTH0_DOMAIN
-        ? `https://${import.meta.env.VITE_AUTH0_DOMAIN}/`
-        : undefined,
-      jwtAudience: import.meta.env.VITE_AUTH0_AUDIENCE as string | undefined,
+      ...jwtTrust,
       tools: tools.map((t) => ({ name: t.name, description: t.description })),
       llmId,
       onStatus: (s) => {

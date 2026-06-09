@@ -29,6 +29,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Agents page lazy-loads `gateway-agent` on Initialize so Add MCP / Create agent work without loading `mcp-client` at page load
 - Vite proxy regex for `/:serverId/mcp` anchored with `$` so `/src/mcp-client.ts` is not forwarded to guard proxy
 - `GatewayAgent` reuses the same LLM runner after Initialize (fixes WebLLM “not initialized” on Send)
+- Agents page passes Auth0 JWKS trust (`jwtTrustFromAuth0`) so M2M tokens verify in the browser guard
 - Guard proxy listens on `PORT` when `MCP_PROXY_PORT` is unset (Render injects `PORT`; local dev uses `MCP_PROXY_PORT` / `make dev`)
 
 ### Changed
