@@ -42,12 +42,12 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/servers` | List registered MCP servers (yaml seed + UI-added, in-memory) |
-| `POST` | `/servers` | Register MCP (`id`, `url`, `scopes` map) |
-| `DELETE` | `/servers/:id` | Remove server from registry |
+| `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on) |
+| `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`** |
 | `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
-| `POST` | `/agents` | Create Auth0 M2M client + client grant (`name`, `scopes[]`) — requires `AUTH0_MGMT_*` |
-| `DELETE` | `/agents/:clientId` | Revoke M2M client in Auth0 |
-| `POST` | `/token` | Vend `client_credentials` access token (`client_id`, `client_secret`) |
+| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*` |
+| `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`** |
+| `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
 
 ### Audit + health
 
@@ -55,7 +55,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 |--------|------|---------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
 | `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check |
-| `GET` | `/health` | Status, `servers[]`, `auth0_mgmt_configured` |
+| `GET` | `/health` | Status, `servers[]`, `control_plane_auth`, `auth0_mgmt_configured` |
 
 ## Environment
 
@@ -69,7 +69,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `MCP_PROXY_CONFIG` | Optional path to policy yaml (default `gateway/config.yaml`) |
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Demo guest JWT verify |
 | `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` | Auth0 / IdP dual trust |
-| `MCP_GUARD_ENABLED` | `false` bypasses enforcement (dev only) |
+| `MCP_GUARD_ENABLED` | `false` bypasses enforcement and control-plane auth (dev only) |
+| `MCP_GATEWAY_ADMIN_AUTH` | `false` disables `gateway:admin` on mutating routes even when guard + IdP trust are on (local override) |
 | `MCP_CORS_ORIGINS` | Comma-separated origins or `*` |
 | `AUTH0_DOMAIN` | Auth0 tenant (agent gateway — M2M create + token vending) |
 | `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |

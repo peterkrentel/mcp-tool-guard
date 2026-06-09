@@ -17,6 +17,20 @@
     </header>
 
     <main class="agents-layout">
+      <section class="panel admin-panel">
+        <h2>Operator sign-in</h2>
+        <p class="admin-hint">
+          Register MCPs and create agents require your Auth0 user token with
+          <code>gateway:admin</code>. Chat uses the selected M2M agent token — not your login.
+        </p>
+        <div id="auth-controls" class="auth-controls" hidden>
+          <button id="auth-login" type="button">Sign in</button>
+          <button id="auth-logout" type="button" hidden>Sign out</button>
+          <span id="auth-status" class="auth-status"></span>
+        </div>
+        <p id="admin-gate-hint" class="admin-hint"></p>
+      </section>
+
       <section class="panel">
         <h2>External MCPs</h2>
         <form id="add-mcp-form" class="stack-form" method="post" action="#">

@@ -43,6 +43,27 @@ function parseSsePreview(body: string): string {
   }
 }
 
+export interface UpstreamErrorBody {
+  error: "upstream_unavailable";
+  server: string;
+  upstream_status?: number;
+  detail: string;
+}
+
+export function upstreamErrorBody(
+  serverId: string,
+  cause: unknown,
+  upstreamStatus?: number,
+): UpstreamErrorBody {
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  return {
+    error: "upstream_unavailable",
+    server: serverId,
+    ...(upstreamStatus !== undefined ? { upstream_status: upstreamStatus } : {}),
+    detail,
+  };
+}
+
 export interface ForwardMcpOptions {
   upstreamUrl: string;
   reqHeaders: Record<string, string | string[] | undefined>;
@@ -73,11 +94,20 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
   if (sessionId) forwardHeaders["X-Session-Id"] = sessionId;
 
   const start = performance.now();
-  const upstream = await fetch(upstreamUrl, {
-    method: "POST",
-    headers: forwardHeaders,
-    body: new Uint8Array(body),
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: "POST",
+      headers: forwardHeaders,
+      body: new Uint8Array(body),
+    });
+  } catch (err) {
+    if (audit) {
+      const message = err instanceof Error ? err.message : String(err);
+      logMcpAudit(audit, 0, message, performance.now() - start, "deny");
+    }
+    throw err;
+  }
 
   res.statusCode = upstream.status;
   upstream.headers.forEach((value, key) => {
