@@ -2,7 +2,7 @@ import type { GuardConfig } from "@mcp-tool-guard/gateway";
 
 import type { LlmProviderId } from "./llm/types.js";
 import { listLlmProviders } from "./llm/providers.js";
-import { GatewayAgent } from "./gateway-agent.js";
+import type { GatewayAgent } from "./gateway-agent.js";
 import {
   addServer,
   createAgent,
@@ -169,9 +169,11 @@ document.getElementById("add-mcp-form")?.addEventListener("submit", (e) => {
     if (!tool || !scopePart) continue;
     scopes[tool] = scopePart.split(",").map((s) => s.trim()).filter(Boolean);
   }
-  void addServer({ id: slugify(name) || slugify(url), url, scopes })
+  const serverId = slugify(name) || slugify(url);
+  void addServer({ id: serverId, url, scopes })
     .then(() => {
       form.reset();
+      statusEl.textContent = `MCP registered: ${serverId}`;
       return refreshServers();
     })
     .catch((err) => {
@@ -228,6 +230,7 @@ initBtn.addEventListener("click", () => {
     const serverMeta = servers.find((s) => s.id === selectedAgent!.serverId);
     if (!serverMeta) throw new Error("Selected MCP server not found");
     const tools = await discoverTools(selectedAgent.serverId, selectedAgent.token);
+    const { GatewayAgent } = await import("./gateway-agent.js");
     gatewayAgent = new GatewayAgent({
       serverId: selectedAgent.serverId,
       guardConfig: guardConfigForServer(serverMeta),
