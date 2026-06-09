@@ -19,7 +19,7 @@
     <main class="agents-layout">
       <section class="panel">
         <h2>External MCPs</h2>
-        <form id="add-mcp-form" class="stack-form">
+        <form id="add-mcp-form" class="stack-form" method="post" action="#">
           <label>Display name <input name="mcp-name" required placeholder="my-github" /></label>
           <label>MCP URL <input name="mcp-url" required placeholder="https://…/mcp" /></label>
           <label>Tool scopes (one per line: tool=scope)
@@ -32,7 +32,7 @@
 
       <section class="panel">
         <h2>Agents</h2>
-        <form id="create-agent-form" class="stack-form">
+        <form id="create-agent-form" class="stack-form" method="post" action="#">
           <label>Agent name <input name="agent-name" required /></label>
           <label>MCP server
             <select name="agent-mcp" id="agent-mcp"></select>
