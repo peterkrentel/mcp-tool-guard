@@ -12,18 +12,33 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Guard proxy (#12) → flight upstream on :8000 (see `make proxy` + `make flight`)
-      "/mcp": {
+      // Guard proxy (#12) + agent gateway admin API
+      "/mcp": { target: "http://localhost:8787", changeOrigin: true },
+      // $ anchor — do not match /src/mcp-client.ts (only /:serverId/mcp)
+      "^/([a-zA-Z0-9_-]+)/mcp/?$": { target: "http://localhost:8787", changeOrigin: true },
+      "/audit": { target: "http://localhost:8787", changeOrigin: true },
+      "/servers": { target: "http://localhost:8787", changeOrigin: true },
+      "/agents": {
         target: "http://localhost:8787",
         changeOrigin: true,
+        bypass(req) {
+          // Let Vite serve agents.html (ignore query string); API: POST/DELETE /agents/...
+          const path = req.url?.split("?")[0] ?? "";
+          if (path.endsWith(".html")) return req.url;
+        },
       },
-      "/audit": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
+      "/token": { target: "http://localhost:8787", changeOrigin: true },
+      "/health": { target: "http://localhost:8787", changeOrigin: true },
+      "/flight": { target: "http://localhost:8787", changeOrigin: true },
     },
   },
   build: {
     outDir: "dist",
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        agents: resolve(__dirname, "agents.html"),
+      },
+    },
   },
 });

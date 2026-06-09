@@ -1,3 +1,12 @@
+/** Guard proxy API base — agents page and gateway admin endpoints. */
+export function resolveProxyBase(): string {
+  const fromEnv = import.meta.env.VITE_PROXY_BASE_URL;
+  if (fromEnv && String(fromEnv).trim()) {
+    return String(fromEnv).trim().replace(/\/$/, "");
+  }
+  return "";
+}
+
 /** Resolved MCP endpoint — local Vite proxy or remote flight server. */
 export function resolveMcpUrl(): string {
   const fromEnv = import.meta.env.VITE_MCP_URL;

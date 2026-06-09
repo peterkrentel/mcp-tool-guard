@@ -37,8 +37,10 @@ servers:
         required_scope: slack:write
 
   github:
-    url: https://mcp.github.com
+    url: TBD
     tools:
+      list_repositories:
+        required_scope: github:read
       read_repo:
         required_scope: github:read
       push_code:

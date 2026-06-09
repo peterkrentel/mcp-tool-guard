@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Gateway — MCPToolGuard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="site-nav">
+        <a href="/">Flight demo</a>
+        <a href="/agents.html" class="nav-active">Agent gateway</a>
+      </nav>
+      <h1>Agent gateway</h1>
+      <p class="tagline">Register MCPs · create scoped M2M agents · chat with any LLM · three-layer telemetry</p>
+    </header>
+
+    <main class="agents-layout">
+      <section class="panel">
+        <h2>External MCPs</h2>
+        <form id="add-mcp-form" class="stack-form" method="post" action="#">
+          <label>Display name <input name="mcp-name" required placeholder="my-github" /></label>
+          <label>MCP URL <input name="mcp-url" required placeholder="https://…/mcp" /></label>
+          <label>Tool scopes (one per line: tool=scope)
+            <textarea name="mcp-tools" rows="4" placeholder="list_repos=github:read"></textarea>
+          </label>
+          <button type="submit">Add MCP</button>
+        </form>
+        <div id="mcp-list" class="card-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Agents</h2>
+        <form id="create-agent-form" class="stack-form" method="post" action="#">
+          <label>Agent name <input name="agent-name" required /></label>
+          <label>MCP server
+            <select name="agent-mcp" id="agent-mcp"></select>
+          </label>
+          <label>Scopes (comma-separated) <input name="agent-scopes" placeholder="flights:read" required /></label>
+          <button type="submit">Create agent</button>
+        </form>
+        <div id="agent-list" class="card-list"></div>
+      </section>
+
+      <section class="panel chat-panel agents-chat-panel">
+        <div class="controls">
+          <label>LLM
+            <select id="llm-select"></select>
+          </label>
+          <button id="agents-init" type="button">Initialize</button>
+          <span id="agents-status" class="status">Select an agent</span>
+        </div>
+        <div id="agents-chat" class="chat"></div>
+        <div class="input-row">
+          <input id="agents-message" type="text" placeholder="Ask the agent…" />
+          <button id="agents-send" type="button" disabled>Send</button>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <h2>Three-layer audit</h2>
+        <p class="log-panel-sub">Agent · Proxy · MCP — click trace id to correlate</p>
+        <div id="agents-audit" class="audit-log"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/agents-main.ts"></script>
+  </body>
+</html>

@@ -50,11 +50,16 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
+### In progress — `feature/agent-gateway`
+
+- [ ] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, `/agents` UI, LLM selector (WebLLM + Gemini/Groq/Mistral). KV persistence = follow-on PR.
+
 ### Recommended build order
 
 | Step | # | Why |
 |------|---|-----|
-| **1** | **External MCP** | Proxy is prod; wire one real vendor URL in `config.prod.yaml`, smoke `POST /{serverId}/mcp` |
+| **1** | **Agent gateway stage 1** | Generic proxy + UI for external MCPs and scoped M2M agents |
+| **2** | **External MCP** | Wire real vendor URL; smoke `POST /{serverId}/mcp` |
 | Anytime | **#7** | Max request body — hardening on flight demo server |
 | Optional | **Proxy audit UI** | Path banner + terminal view (stashed locally) |
 | **Deferred** | **#9 + #10** | Multi-server UI + second owned mock MCP — optional |
