@@ -60,7 +60,7 @@ exceptiongroup==1.3.1
     #   fastmcp-slim
 fastmcp==3.4.1
     # via flight-mcp
-fastmcp-slim==3.4.1
+fastmcp-slim==3.4.2
     # via fastmcp
 griffelib==2.0.2
     # via fastmcp-slim
