@@ -41,6 +41,7 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] **Agent trace** panel — collapsible audit section, correlated by `trace_id`
 - [x] **#12** Guard HTTP proxy — `gateway/proxy-server.ts`, local `make proxy`, Vite dev proxy to `:8787` ([guard-proxy.md](guard-proxy.md))
 - [x] **Deploy guard proxy to prod** — Render ([render-deploy.md](render-deploy.md)); UI `VITE_MCP_URL` → proxy; curl deny proof ([demo-proxy.md](demo-proxy.md))
+- [x] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, [`/agents.html`](../ui/agents.html) UI, LLM selector (WebLLM + Gemini/Groq/Mistral). Prod env: [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel)
 
 ---
 
@@ -50,15 +51,11 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
-### In progress — `feature/agent-gateway`
-
-- [ ] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, `/agents` UI, LLM selector (WebLLM + Gemini/Groq/Mistral). KV persistence = follow-on PR.
-
 ### Recommended build order
 
 | Step | # | Why |
 |------|---|-----|
-| **1** | **Agent gateway stage 1** | Generic proxy + UI for external MCPs and scoped M2M agents |
+| **1** | **Agent gateway stage 1** | **Done** — generic proxy + UI for external MCPs and scoped M2M agents |
 | **2** | **External MCP** | Wire real vendor URL; smoke `POST /{serverId}/mcp` |
 | Anytime | **#7** | Max request body — hardening on flight demo server |
 | Optional | **Proxy audit UI** | Path banner + terminal view (stashed locally) |
@@ -71,6 +68,8 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | # | Task | Status | Touch | Acceptance |
 |---|------|--------|-------|------------|
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
+| — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
+| — | **Agent gateway KV persistence** | **Next** | Registry + audit durability — [kv-design.md](kv-design.md) | UI-added MCPs survive proxy restart |
 | — | **Wire external MCP** | **Next** | `gateway/config.prod.yaml`, smoke curl | Real upstream behind `POST /{serverId}/mcp`; scope enforced |
 | 7 | Max request body size | Open | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | **Deferred** | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
@@ -97,6 +96,8 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | In-memory on Render process; resets on redeploy / spin-down |
+| Agent gateway registry | In-memory on proxy — UI-added MCPs lost on restart; seeded yaml entries survive |
+| Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
 
 ---

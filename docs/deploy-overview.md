@@ -10,7 +10,7 @@ One page for **what runs where** — local dev and prod (three services). Step-b
 
 | Service | Repo path | Host (prod) | Role |
 |---------|-----------|-------------|------|
-| **Demo UI** | `ui/` | Vercel (static) | WebLLM agent, audit panel, client `ToolGuard` pre-check |
+| **Demo UI** | `ui/` | Vercel (static) | Flight demo (`index.html`) + agent gateway (`agents.html`); client `ToolGuard` pre-check |
 | **Guard HTTP proxy** | `gateway/proxy-server.ts` | **Render** (Web Service) | Authoritative enforce + audit on `tools/call`; forwards to upstream MCP |
 | **Flight MCP** | `servers/flight/` | Vercel (serverless Python) | Demo upstream MCP; embedded guard is **demo scaffolding** |
 
@@ -27,8 +27,9 @@ Browser → Vite :5173 → Guard proxy :8787 → Flight :8000
               ↑ dev-only proxy        ↑ enforcement + /audit (source: guard-proxy)
 ```
 
-- Vite dev server proxies `/mcp` and `/audit` to `:8787` ([`ui/vite.config.ts`](../ui/vite.config.ts)).
-- JWT env for flight **and** proxy: `scripts/dev.env` (`MCP_JWT_*`), not `ui/.env.local`.
+- Vite dev server proxies `/mcp`, `/audit`, `/servers`, `/agents`, `/token` to `:8787` ([`ui/vite.config.ts`](../ui/vite.config.ts)).
+- JWT + Auth0 mgmt env for flight **and** proxy: `scripts/dev.env` (`MCP_JWT_*`, `AUTH0_MGMT_*`), not `ui/.env.local`.
+- Agents page: `ui/.env.local` with `VITE_AUTH0_*` (browser JWKS for M2M tokens).
 - Details: [README → Quick start](../README.md#quick-start), [guard-proxy.md](guard-proxy.md).
 
 ### Vercel prod **today**
@@ -44,7 +45,9 @@ Browser → Render guard proxy → Flight Vercel
 | Proxy | [mcp-tool-guard-proxy.onrender.com](https://mcp-tool-guard-proxy.onrender.com/health) |
 | Flight | [mcp-tool-guard-flight-server.vercel.app](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
-- UI `VITE_MCP_URL` → `https://mcp-tool-guard-proxy.onrender.com/mcp`.
+- Flight demo: `VITE_MCP_URL` → `https://mcp-tool-guard-proxy.onrender.com/mcp`.
+- Agent gateway: `VITE_PROXY_BASE_URL` → `https://mcp-tool-guard-proxy.onrender.com` (admin API + `/{serverId}/mcp`).
+- Render: `AUTH0_MGMT_*` for M2M create + token vending on `/agents.html`.
 - Audit panel fetches proxy `/audit` (`source: guard-proxy`). Header may still say **Server enforcement** — cosmetic.
 - Deploy steps: [render-deploy.md](render-deploy.md). Live demo script: [demo-proxy.md](demo-proxy.md).
 
@@ -67,9 +70,11 @@ The proxy is a persistent Node service ([`gateway/proxy-server.ts`](../gateway/p
 | Piece | Code on `main` | Deployed to prod |
 |-------|----------------|------------------|
 | Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` `source: guard-proxy` | **Yes** — Render |
+| Agent gateway stage 1 | Yes — `/agents.html`, registry, M2M, three-layer audit | **Needs env** — `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel |
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
 | `make dev` (one terminal) | Yes | N/A (local only) |
 | Proxy-focused audit UI | Optional branch / stash | N/A until UI PR merged |
+| Agent gateway KV persistence | Planned | **Next** — UI-added MCPs lost on proxy restart today |
 | External vendor MCP | yaml stubs (`slack`, `github`) | **Next** — wire real URL in `config.prod.yaml` |
 
 ---

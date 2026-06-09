@@ -39,6 +39,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Docs: prod architecture updated — guard proxy **deployed on Render**; next step is external MCP wiring
 - Docs: **deploy-overview** — prod today is UI → Render proxy → Vercel flight (not UI → flight direct)
 - Docs: defer **#9/#10** multi-server mock MCP; **#12** guard proxy is primary product path ([NEXT-STEPS](docs/NEXT-STEPS.md#implementation-backlog-post-030))
+- Docs: agent gateway prod env — `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel; routes in [guard-proxy.md](docs/guard-proxy.md); smoke tests in [render-deploy.md](docs/render-deploy.md), [vercel-deploy.md](docs/vercel-deploy.md)
 - Release process: CHANGELOG + optional git tag only — no GitHub Releases UI ([RELEASE.md](docs/RELEASE.md), [CONTRIBUTING.md](CONTRIBUTING.md))
 - Workflow: always branch + PR to `main` — no direct pushes ([CONTRIBUTING.md](CONTRIBUTING.md), `.cursor/rules/release-and-pr-workflow.mdc`)
 - ROADMAP #8 done: canonical policy in `gateway/config.yaml`; `servers/flight/guard_config.yaml` documented as demo-only embedded guard ([CONCEPT.md](docs/CONCEPT.md))
