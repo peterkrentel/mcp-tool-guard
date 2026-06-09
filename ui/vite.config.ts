@@ -17,7 +17,14 @@ export default defineConfig({
       "^/([a-zA-Z0-9_-]+)/mcp": { target: "http://localhost:8787", changeOrigin: true },
       "/audit": { target: "http://localhost:8787", changeOrigin: true },
       "/servers": { target: "http://localhost:8787", changeOrigin: true },
-      "/agents": { target: "http://localhost:8787", changeOrigin: true },
+      "/agents": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+        bypass(req) {
+          // Let Vite serve agents.html; only proxy API paths (POST/DELETE /agents/...)
+          if (req.url?.endsWith(".html")) return req.url;
+        },
+      },
       "/token": { target: "http://localhost:8787", changeOrigin: true },
       "/health": { target: "http://localhost:8787", changeOrigin: true },
       "/flight": { target: "http://localhost:8787", changeOrigin: true },
