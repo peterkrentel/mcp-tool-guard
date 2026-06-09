@@ -58,7 +58,40 @@ Without `KV_REST_API_URL` / `KV_REST_API_TOKEN`, flight uses **in-memory** store
 
 Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
+## Guard proxy KV (agent gateway) {#guard-proxy-kv-agent-gateway}
+
+**Status:** planned — [NEXT-STEPS → Agent gateway KV](NEXT-STEPS.md#implementation-backlog-post-030). Render proxy is long-running but registry and audit are **in-memory** today (lost on redeploy). Use **Upstash Redis REST** on the proxy (same env vars as flight, or a dedicated store).
+
+| Key pattern | Value | Purpose |
+|-------------|-------|---------|
+| `{prefix}gateway:servers:{id}` | JSON `{ url, scopes }` | MCP registry (extends yaml seed) |
+| `{prefix}gateway:agents:{id}` | JSON agent record | Source of truth for [Auth0 sync](NEXT-STEPS.md#agent-registry-auth0-sync-sketch) |
+| `{prefix}gateway:audit:recent` | Redis list | Proxy + agent + mcp audit rows |
+| `{prefix}gateway:audit:session:{session_id}` | Redis list | Session-filtered audit |
+
+**Agent record shape (sketch):**
+
+```json
+{
+  "id": "ag_…",
+  "name": "test-flight",
+  "serverId": "flight",
+  "scopes": ["flights:read"],
+  "auth0ClientId": "…",
+  "auth0AppName": "mcp-agent-test-flight-flight-a1b2c3d4",
+  "status": "active",
+  "createdAt": "2026-06-09T…"
+}
+```
+
+`clientSecret` — encrypt at rest if stored; prefer vend-on-create and template reuse to limit secret retention.
+
+**Startup:** load `gateway:servers:*` into `ServerRegistry` → `syncGuardConfig(guard)`. Load agents for `GET /agents`.
+
+**Local dev:** in-memory fallback when KV env unset (same as flight).
+
 ## Related
 
 - [vercel-deploy.md → KV](vercel-deploy.md#vercel-kv-phase-b)
+- [NEXT-STEPS → Agent registry + Auth0 sync](NEXT-STEPS.md#agent-registry-auth0-sync-sketch)
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)

@@ -57,6 +57,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 |------|---|-----|
 | **1** | **Agent gateway stage 1** | **Done** — generic proxy + UI for external MCPs and scoped M2M agents |
 | **1b** | **Agent gateway admin auth** | Gate control plane — human `gateway:admin` vs M2M runtime tokens ([sketch](#agent-gateway-admin-auth-sketch)) |
+| **1c** | **Agent registry + Auth0 sync** | KV agent list, unique Auth0 names, reuse/templates — [sketch](#agent-registry-auth0-sync-sketch) |
 | **2** | **External MCP** | Wire real vendor URL; smoke `POST /{serverId}/mcp` |
 | Anytime | **#7** | Max request body — hardening on flight demo server |
 | Optional | **Proxy audit UI** | Path banner + terminal view (stashed locally) |
@@ -71,7 +72,8 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
 | — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
 | — | **Agent gateway admin auth** | **Open** | `gateway/proxy-server.ts`, `ui/agents-main.ts`, Auth0 API permissions — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD; M2M agents unchanged on `tools/call` |
-| — | **Agent gateway KV persistence** | **Next** | Registry + audit durability — [kv-design.md](kv-design.md) | UI-added MCPs survive proxy restart |
+| — | **Agent gateway KV persistence** | **Next** | Registry + audit durability — [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs survive proxy restart; proxy audit survives redeploy |
+| — | **Agent registry + Auth0 sync** | **Open** | `gateway/auth0-mgmt.ts`, KV store, `GET /agents`, `ui/agents-main.ts` — [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse; UI loads agents from server |
 | — | **Wire external MCP** | **Next** | `gateway/config.prod.yaml`, smoke curl | Real upstream behind `POST /{serverId}/mcp`; scope enforced |
 | 7 | Max request body size | Open | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | **Deferred** | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
@@ -109,10 +111,58 @@ Optional finer split later: `gateway:mcp:write`, `gateway:agents:write`. M2M age
 
 Details: [identity.md → Admin vs agent tokens](identity.md#admin-vs-agent-tokens-agent-gateway).
 
+### Agent registry + Auth0 sync (sketch) {#agent-registry-auth0-sync-sketch}
+
+Stage 1 creates a **new Auth0 Application** on every **Create agent** click (`mcp-agent-${name}`), stores credentials only in browser memory, and never lists agents from the server. Problems: Auth0 **`too_many_entities`** on free tenants, duplicate names like `mcp-agent-test-flight` in the dashboard, orphans after refresh, no reconciliation.
+
+**Principle:** **App registry (KV) is source of truth**; Auth0 is the credential backend. Auth0 Application = OAuth client — not “sub-clients of one app.” Different scope bundles → different clients (or grant updates), not unlimited duplicate apps.
+
+**Proposed Auth0 application naming** (replace bare `mcp-agent-${name}`):
+
+```text
+mcp-agent-{displayName}-{serverId}-{shortId}
+```
+
+Example: `mcp-agent-test-flight-flight-a1b2c3d4`. Optional `app_metadata`: `agent_name`, `server_id`, `gateway_version`. Display name stays `test-flight` in KV/UI.
+
+**KV keys** (Render / Upstash — see [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway)):
+
+| Key | Value |
+|-----|--------|
+| `gateway:servers:{id}` | MCP registry entry (url, tool scopes) |
+| `gateway:agents:{id}` | `{ name, serverId, scopes[], auth0ClientId, auth0AppName, status, createdAt }` |
+| `gateway:audit:…` | Proxy three-layer audit (same pattern as flight) |
+
+Store `clientSecret` encrypted at create time only (Auth0 shows it once); never expose mgmt credentials.
+
+**Create agent flow (target):**
+
+1. Admin auth (future `gateway:admin`).
+2. **Idempotent reuse** — same `(name, serverId, scopes)` → return existing KV record (no new Auth0 app).
+3. Or **template pool** — map to pre-created clients (`mcp-agent-flight-read`, `mcp-agent-flight-write`) to avoid sprawl.
+4. Else allocate unique Auth0 `name` → `POST /clients` + client grant → write KV → vend token.
+5. On grant failure, compensate (delete Auth0 client — already done today).
+
+**Revoke:** KV tombstone/delete + `DELETE` Auth0 client + `TokenVendor.invalidate`.
+
+**Sync / API:**
+
+- `GET /agents` — list from KV (UI on load, not browser-only memory).
+- Reconciliation job (optional): Auth0 `mcp-agent-*` clients not in KV → delete or import; KV rows with missing Auth0 client → mark orphaned.
+
+**Acceptance:**
+
+- [ ] Unique Auth0 application names; no pile of identical `mcp-agent-test-flight` labels.
+- [ ] Page refresh still shows agents (`GET /agents`).
+- [ ] Revoke removes both KV row and Auth0 client.
+- [ ] Second create with same logical agent + scopes reuses credential (no new Auth0 app) — or documents template-only path.
+- [ ] Document Auth0 tenant client limits; cleanup via Revoke + dashboard.
+
 ### Not in 0.3.x
 
 - Real vendor MCP without **deployed guard proxy** — proxy is live; wire vendor URL next ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp))
 - **Agent gateway admin auth** — control plane gated by human login ([sketch](#agent-gateway-admin-auth-sketch))
+- **Agent registry + Auth0 sync** — KV agent list, naming, reuse ([sketch](#agent-registry-auth0-sync-sketch))
 
 ### Tier 2 (later)
 
@@ -133,6 +183,9 @@ Details: [identity.md → Admin vs agent tokens](identity.md#admin-vs-agent-toke
 | Agent gateway registry | In-memory on proxy — UI-added MCPs lost on restart; seeded yaml entries survive |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Agent gateway control plane | `POST /servers`, `POST /agents` unauthenticated (demo) — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
+| Agent list | Browser memory only — refresh loses cards; Auth0 clients may remain ([registry sketch](#agent-registry-auth0-sync-sketch)) |
+| Auth0 client quota | Each **Create agent** = new Application; free tenant `too_many_entities` — reuse/revoke ([registry sketch](#agent-registry-auth0-sync-sketch)) |
+| Auth0 app names | Duplicate `mcp-agent-${name}` per click — use suffixed names ([registry sketch](#agent-registry-auth0-sync-sketch)) |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
 
 ---
