@@ -15,8 +15,9 @@ Step-by-step guide for hosting the **flight MCP server** and **demo UI** as two 
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 | **MCP endpoint (UI)** | `https://mcp-tool-guard-proxy.onrender.com/mcp` |
 | **Server audit (UI)** | `GET https://mcp-tool-guard-proxy.onrender.com/audit` with `Authorization: Bearer` |
+| **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — needs `VITE_PROXY_BASE_URL` + Render `AUTH0_MGMT_*` |
 
-Open the UI → **Sign in** (Auth0) or pick a **guest JWT scope** → **Initialize** (WebLLM may take ~1 min first load) → chat.
+Open the UI → **Sign in** (Auth0) or pick a **guest JWT scope** → **Initialize** (WebLLM may take ~1 min first load) → chat. Agent gateway: register MCPs, create scoped M2M agents — [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel).
 
 ---
 
@@ -141,10 +142,16 @@ Do **not** use `npm install --prefix=..` (that was for a misconfigured Python pr
 | `VITE_MCP_URL` | **Yes** | `https://mcp-tool-guard-proxy.onrender.com/mcp` (prod — via guard proxy). Flight direct (legacy): `https://mcp-tool-guard-flight-server.vercel.app/mcp` |
 | `VITE_AUTH0_DOMAIN` | For Auth0 login | `YOUR_TENANT.us.auth0.com` |
 | `VITE_AUTH0_CLIENT_ID` | For Auth0 login | SPA client id from Auth0 dashboard |
-| `VITE_AUTH0_AUDIENCE` | For Auth0 login | `https://mcp-tool-guard` |
+| `VITE_AUTH0_AUDIENCE` | For Auth0 login + agents page JWKS | `https://mcp-tool-guard` |
+| `VITE_PROXY_BASE_URL` | **Agent gateway** | `https://mcp-tool-guard-proxy.onrender.com` (no path suffix) |
 | `VITE_ENABLE_GUEST_DEMO` | No | `true` (default) — show guest JWT dropdown alongside Auth0 |
+| `VITE_GEMINI_API_KEY` | No | Cloud LLM on agents page (more reliable tool JSON than WebLLM 1B) |
+| `VITE_GROQ_API_KEY` | No | Same |
+| `VITE_MISTRAL_API_KEY` | No | Same |
 
 Set **before** build — Vite bakes `VITE_*` in. Redeploy UI after env changes.
+
+`VITE_MCP_URL` alone is enough for the **flight demo**. **`/agents.html` also requires `VITE_PROXY_BASE_URL`** — without it, admin API calls hit the static Vercel host and fail.
 
 Copy full template: [auth0-env.example](auth0-env.example). Dashboard steps: [auth0-setup.md](auth0-setup.md).
 
@@ -159,12 +166,23 @@ Copy full template: [auth0-env.example](auth0-env.example). Dashboard steps: [au
 
 Flight must trust **both** paths: `MCP_GUARD_PUBLIC_KEY_PEM` (guest) + `MCP_JWT_*` (Auth0).
 
-### Browser smoke test
+### Browser smoke test — flight demo
 
 1. [Open the UI](https://mcp-tool-guard-ui.vercel.app/)
 2. **Initialize** → wait for WebLLM
 3. *Search flights from SFO to JFK* (read-only)
 4. *Cancel booking BK-…* with same token → deny in audit panels
+
+### Browser smoke test — agent gateway
+
+Requires Render `AUTH0_MGMT_*` and UI `VITE_PROXY_BASE_URL` + `VITE_AUTH0_*` — see [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel).
+
+1. [Open `/agents.html`](https://mcp-tool-guard-ui.vercel.app/agents.html)
+2. Confirm **flight** MCP appears in the list (seeded from `config.prod.yaml`)
+3. **Create agent** — MCP `flight`, scopes `flights:read`
+4. **Use** → **Initialize** → wait for **Ready**
+5. *Search flights from JFK to MIA* → three-layer audit ALLOW
+6. *book FL101 …* → agent DENY (`flights:write`)
 
 ---
 
@@ -205,6 +223,7 @@ Optional flight env:
 
 - [x] Flight: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` (Auth0)
 - [x] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
+- [ ] UI: `VITE_PROXY_BASE_URL` + Render `AUTH0_MGMT_*` for `/agents.html` prod smoke
 - [x] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
 - [x] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
 - [x] Flight: Vercel KV linked → `/health` → `kv_enabled: true`
@@ -226,6 +245,6 @@ Optional flight env:
 - [deploy-overview.md](deploy-overview.md) — **start here** if local proxy vs Vercel prod is confusing
 - [guard-proxy.md](guard-proxy.md) — proxy routes, env, local `make dev`
 - [README → Deploy](../README.md#deploy)
-- [NEXT-STEPS](NEXT-STEPS.md) — backlog (proxy deploy to prod is next)
+- [NEXT-STEPS](NEXT-STEPS.md) — backlog (agent gateway KV + external MCP next)
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)
 - Local deps: `uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt`

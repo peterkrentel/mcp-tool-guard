@@ -30,6 +30,30 @@ Rationale and wildcards: [CONCEPT → Scopes, roles, and identity](CONCEPT.md#sc
 
 ---
 
+## Admin vs agent tokens (agent gateway) {#admin-vs-agent-tokens-agent-gateway}
+
+The [`/agents.html`](../ui/agents.html) page uses **two different identities** — do not conflate them.
+
+| Who | Token | Used for |
+|-----|-------|----------|
+| **Human admin** (target) | Auth0 SPA **user** access token with `gateway:admin` | Register MCPs, create/revoke M2M agents (control plane) |
+| **M2M agent** (today) | `client_credentials` token with **tool scopes** (`flights:read`, …) | `tools/call` + client `ToolGuard` pre-check (runtime) |
+
+**Today (stage 1):** There is no admin login on `/agents.html`. Mutating proxy routes (`POST /servers`, `POST /agents`) are open; the browser drives Auth0 Management API **via server-side** `AUTH0_MGMT_*` on Render. Chat uses the **agent’s** vended M2M token — not your personal login.
+
+**Target:** Sign in as **you** to provision agents; each agent runs with **its own** narrow credential. Tool scope enforcement on `tools/call` stays the same.
+
+**Auth0 setup (sketch):**
+
+1. On API `https://mcp-tool-guard`, add permission `gateway:admin`.
+2. Role `platform-admin` → `gateway:admin` (+ `audit:read` if needed).
+3. Assign operator users to that role — **not** the M2M agents you create for workloads.
+4. M2M client grants only include tool scopes from the create form (e.g. `flights:read`).
+
+Implementation backlog: [NEXT-STEPS → Agent gateway admin auth](NEXT-STEPS.md#agent-gateway-admin-auth-sketch).
+
+---
+
 ## Current state (0.3.0)
 
 | Piece | Today |

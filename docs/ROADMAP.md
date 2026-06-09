@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — **wire external MCP** (#12 deployed on Render). **Deferred:** #9/#10. Optional: #7.
+**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — agent gateway KV persistence + **wire external MCP**. **Shipped on `main`:** agent gateway stage 1 (`/agents.html`). **Deferred:** #9/#10. Optional: #7.
 
 ## Product shape (summary)
 

@@ -8,7 +8,8 @@
 
 | | Link |
 |---|------|
-| **Try the UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
+| **Flight demo** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
+| **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — register MCPs, scoped M2M agents, three-layer audit |
 | **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
@@ -69,8 +70,9 @@ make dev    # flight :8000 → proxy :8787 → ui :5173
 
 Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
 
-- **Auth0 on flight + proxy:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` (not `ui/.env.local` — servers don't read that).
+- **Auth0 on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` + `AUTH0_MGMT_*` (servers don't read `ui/.env.local`).
 - **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).
+- **Agent gateway:** open [http://localhost:5173/agents.html](http://localhost:5173/agents.html) after `make dev`. Prod: `VITE_PROXY_BASE_URL` on Vercel — [render-deploy.md § Agent gateway](docs/render-deploy.md#agent-gateway-env-render--vercel).
 - **Stuck processes:** `make stop`
 
 <details>

@@ -77,6 +77,29 @@ In the Render service → **Environment**, add:
 
 **`MCP_PROXY_CONFIG` path:** The start command runs from the `gateway/` workspace package directory. Use `config.prod.yaml` (file lives in `gateway/`). If you see `ENOENT` on start, verify the path relative to the process cwd — do not use `gateway/config.prod.yaml` unless cwd is the repo root.
 
+### Agent gateway env (Render + Vercel) {#agent-gateway-env-render--vercel}
+
+Required for **[`/agents.html`](../ui/agents.html)** — M2M agent create/revoke and token vending. Add on **Render** (same service as guard proxy):
+
+| Variable | Value |
+|----------|-------|
+| `AUTH0_DOMAIN` | Your tenant, e.g. `dev-p5fg6ldthdyeom16.us.auth0.com` (no `https://`) |
+| `AUTH0_MGMT_CLIENT_ID` | M2M app with Management API access (`create:clients`, `delete:clients`, `create:client_grants`, `delete:client_grants`, `read:clients`) |
+| `AUTH0_MGMT_CLIENT_SECRET` | That app's secret |
+| `AUTH0_AUDIENCE` | API identifier, e.g. `https://mcp-tool-guard` (same as `MCP_JWT_AUDIENCE`) |
+
+Verify: `curl https://mcp-tool-guard-proxy.onrender.com/health` → `"auth0_mgmt_configured": true`.
+
+On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*`):
+
+| Variable | Value |
+|----------|-------|
+| `VITE_PROXY_BASE_URL` | `https://mcp-tool-guard-proxy.onrender.com` (proxy origin only — no `/mcp`) |
+
+Optional cloud LLM keys for reliable tool JSON on the agents page (see [auth0-env.example](auth0-env.example)): `VITE_GEMINI_API_KEY`, `VITE_GROQ_API_KEY`, `VITE_MISTRAL_API_KEY`.
+
+Redeploy **both** Render and Vercel after env changes.
+
 ---
 
 ## 6. `config.prod.yaml`
@@ -131,13 +154,19 @@ Full demo walkthrough: [demo-proxy.md](demo-proxy.md).
 
 In the Vercel UI project → **Environment Variables**, set:
 
-| Variable | Value |
-|----------|-------|
-| `VITE_MCP_URL` | `https://mcp-tool-guard-proxy.onrender.com/mcp` |
+| Variable | Value | Used by |
+|----------|-------|---------|
+| `VITE_MCP_URL` | `https://mcp-tool-guard-proxy.onrender.com/mcp` | Flight demo (`index.html`) |
+| `VITE_PROXY_BASE_URL` | `https://mcp-tool-guard-proxy.onrender.com` | Agent gateway (`/agents.html`) — `/servers`, `/agents`, `/token`, `/{id}/mcp` |
+| `VITE_AUTH0_DOMAIN` | Your Auth0 tenant | Both pages — JWKS verify for Auth0 tokens |
+| `VITE_AUTH0_CLIENT_ID` | SPA client id | Flight demo sign-in |
+| `VITE_AUTH0_AUDIENCE` | `https://mcp-tool-guard` | Both pages |
 
 Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time).
 
 ### What to expect in the browser after rewire
+
+**Flight demo** ([mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/)):
 
 | Check | Expected |
 |-------|----------|
@@ -147,6 +176,16 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | **Audit panel header (main UI)** | May still say **Server enforcement** — cosmetic; data is from the proxy |
 | **Read-only Auth0 user** | Search → SERVER ALLOW; book → CLIENT DENY (no proxy row) |
 | **Admin book + cancel** | Render logs `[MCPToolGuard] allow …`; cancel may log `[MCPToolGuard ALERT]` |
+
+**Agent gateway** (`/agents.html`):
+
+| Check | Expected |
+|-------|----------|
+| **Network** | `GET /servers`, `POST /agents`, `POST /token` hit `onrender.com` (via `VITE_PROXY_BASE_URL`) |
+| **Create agent** | `flights:read` scope → M2M client created in Auth0 |
+| **Initialize → chat** | *Search flights from JFK to MIA* → agent ALLOW + proxy ALLOW + MCP response |
+| **Book attempt** | `book FL101 …` with read-only agent → agent DENY (`Missing required scope 'flights:write'`) |
+| **Three-layer audit** | Agent / Proxy / MCP rows correlated by `trace_id` |
 
 ---
 
@@ -164,6 +203,9 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | `GET /audit` → 401 | Expected without Bearer — sign in or pick guest token, then **Initialize** |
 | Tool call succeeds but empty / error from upstream | Flight Vercel down or `servers.flight.url` wrong in `config.prod.yaml` |
 | `POST /slack/mcp` or `/github/mcp` fails | Stubs only — use `POST /mcp` for flight demo |
+| `/agents.html` → failed to fetch `/servers` | Set `VITE_PROXY_BASE_URL` on Vercel UI and redeploy |
+| Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `auth0_mgmt_configured: false` |
+| M2M token → signature verification failed in browser | `VITE_AUTH0_DOMAIN` + `VITE_AUTH0_AUDIENCE` must be set on Vercel UI (JWKS path) |
 | First request slow after idle | Render free tier spin-down — retry; normal |
 | Health OK but proxy not listening | Do not set `MCP_PROXY_PORT` on Render — use injected `PORT` only |
 | curl tool call fails / empty SSE | Add `Accept: application/json, text/event-stream` |
@@ -179,3 +221,5 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 - [ ] `GET /audit` → `"source": "guard-proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`
 - [ ] UI chat search/book works end-to-end via proxy
+- [ ] `/health` → `auth0_mgmt_configured: true` (agent gateway)
+- [ ] `/agents.html` — create agent, search ALLOW, book DENY with three-layer audit

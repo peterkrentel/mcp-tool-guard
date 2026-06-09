@@ -20,7 +20,7 @@ Agent / UI  →  guard proxy (:8787)  →  upstream MCP (vendor or localhost:800
 make dev      # flight → proxy → ui
 ```
 
-Auth0 for flight + proxy: `cp scripts/dev.env.example scripts/dev.env` and export `MCP_JWT_*` there.
+Auth0 for flight + proxy + agent gateway: `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` plus `AUTH0_MGMT_*` (see [auth0-env.example](auth0-env.example)). UI still uses `ui/.env.local` for `VITE_AUTH0_*`.
 
 **Or three terminals** (`make flight`, `make proxy`, `make ui`) when debugging one hop.
 
@@ -28,14 +28,34 @@ Health: `curl http://localhost:8787/health` — `make stop` frees :8000, :8787, 
 
 ## Routes
 
+### MCP forwarding
+
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/mcp` | Default server (`MCP_PROXY_DEFAULT_SERVER`, default `flight`) |
-| `POST` | `/{serverId}/mcp` | Server from `gateway/config.yaml` |
-| `GET` | `/audit` | Proxy enforcement log (`Authorization: Bearer` when guard enabled) |
-| `GET` | `/health` | Status + configured server ids |
+| `POST` | `/{serverId}/mcp` | Server from registry / `gateway/config.yaml` |
 
 Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without scope checks (same as flight embedded guard).
+
+### Agent gateway (stage 1)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/servers` | List registered MCP servers (yaml seed + UI-added, in-memory) |
+| `POST` | `/servers` | Register MCP (`id`, `url`, `scopes` map) |
+| `DELETE` | `/servers/:id` | Remove server from registry |
+| `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
+| `POST` | `/agents` | Create Auth0 M2M client + client grant (`name`, `scopes[]`) — requires `AUTH0_MGMT_*` |
+| `DELETE` | `/agents/:clientId` | Revoke M2M client in Auth0 |
+| `POST` | `/token` | Vend `client_credentials` access token (`client_id`, `client_secret`) |
+
+### Audit + health
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
+| `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check |
+| `GET` | `/health` | Status, `servers[]`, `auth0_mgmt_configured` |
 
 ## Environment
 
@@ -51,8 +71,12 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` | Auth0 / IdP dual trust |
 | `MCP_GUARD_ENABLED` | `false` bypasses enforcement (dev only) |
 | `MCP_CORS_ORIGINS` | Comma-separated origins or `*` |
+| `AUTH0_DOMAIN` | Auth0 tenant (agent gateway — M2M create + token vending) |
+| `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |
+| `AUTH0_MGMT_CLIENT_SECRET` | Mgmt app secret |
+| `AUTH0_AUDIENCE` | API identifier for client grants (same as `MCP_JWT_AUDIENCE`) |
 
-See [auth0-env.example](auth0-env.example).
+See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
 
 ## UI without Vite proxy
 
@@ -71,6 +95,7 @@ Audit panel resolves `http://localhost:8787/audit` from that URL.
 2. `gateway/config.prod.yaml` is in the repo — set `MCP_PROXY_CONFIG=config.prod.yaml` on Render so the proxy routes to Vercel flight.
 3. Mirror flight JWT env on the proxy (`MCP_GUARD_PUBLIC_KEY_PEM`, `MCP_JWT_*`); set `MCP_CORS_ORIGINS` for the UI origin.
 4. Point UI `VITE_MCP_URL` at `https://YOUR-PROXY-HOST/mcp` and redeploy the Vercel UI project.
+5. For **[`/agents.html`](../ui/agents.html)** (agent gateway UI): set `VITE_PROXY_BASE_URL` to the proxy origin (no `/mcp` suffix) and redeploy. Flight demo only needs `VITE_MCP_URL`; agents page admin API + per-server MCP paths use `VITE_PROXY_BASE_URL`.
 
 Agents and the demo UI call **your** proxy URL, not the vendor or flight directly.
 

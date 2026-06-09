@@ -41,6 +41,7 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] **Agent trace** panel — collapsible audit section, correlated by `trace_id`
 - [x] **#12** Guard HTTP proxy — `gateway/proxy-server.ts`, local `make proxy`, Vite dev proxy to `:8787` ([guard-proxy.md](guard-proxy.md))
 - [x] **Deploy guard proxy to prod** — Render ([render-deploy.md](render-deploy.md)); UI `VITE_MCP_URL` → proxy; curl deny proof ([demo-proxy.md](demo-proxy.md))
+- [x] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, [`/agents.html`](../ui/agents.html) UI, LLM selector (WebLLM + Gemini/Groq/Mistral). Prod env: [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel)
 
 ---
 
@@ -50,15 +51,12 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
-### In progress — `feature/agent-gateway`
-
-- [ ] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, `/agents` UI, LLM selector (WebLLM + Gemini/Groq/Mistral). KV persistence = follow-on PR.
-
 ### Recommended build order
 
 | Step | # | Why |
 |------|---|-----|
-| **1** | **Agent gateway stage 1** | Generic proxy + UI for external MCPs and scoped M2M agents |
+| **1** | **Agent gateway stage 1** | **Done** — generic proxy + UI for external MCPs and scoped M2M agents |
+| **1b** | **Agent gateway admin auth** | Gate control plane — human `gateway:admin` vs M2M runtime tokens ([sketch](#agent-gateway-admin-auth-sketch)) |
 | **2** | **External MCP** | Wire real vendor URL; smoke `POST /{serverId}/mcp` |
 | Anytime | **#7** | Max request body — hardening on flight demo server |
 | Optional | **Proxy audit UI** | Path banner + terminal view (stashed locally) |
@@ -71,15 +69,50 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | # | Task | Status | Touch | Acceptance |
 |---|------|--------|-------|------------|
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
+| — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
+| — | **Agent gateway admin auth** | **Open** | `gateway/proxy-server.ts`, `ui/agents-main.ts`, Auth0 API permissions — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD; M2M agents unchanged on `tools/call` |
+| — | **Agent gateway KV persistence** | **Next** | Registry + audit durability — [kv-design.md](kv-design.md) | UI-added MCPs survive proxy restart |
 | — | **Wire external MCP** | **Next** | `gateway/config.prod.yaml`, smoke curl | Real upstream behind `POST /{serverId}/mcp`; scope enforced |
 | 7 | Max request body size | Open | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse |
 | 9 | Multi-server UI | **Deferred** | [`ui/src/agent.ts`](../ui/src/agent.ts), [`gateway/config.yaml`](../gateway/config.yaml) | Second server id in `authorize(server, …)` |
 | 10 | Second mock MCP | **Deferred** | New server + UI routing | Two servers in demo (explored on branch; not merged) |
 | 12 | Guard HTTP proxy (implementation + prod) | **Done** | [`gateway/proxy-server.ts`](../gateway/proxy-server.ts), Render | Local + prod; [demo-proxy.md](demo-proxy.md) |
 
+### Agent gateway admin auth (sketch) {#agent-gateway-admin-auth-sketch}
+
+Stage 1 leaves the **control plane** open: `POST /servers`, `POST /agents`, `DELETE /…` require no Bearer token. Render’s `AUTH0_MGMT_*` creds are god-mode server-side; the public UI is an unauthenticated front door. **Runtime** tool enforcement (M2M `flights:read` → search ALLOW, book DENY) is correct; **who may provision** agents is not.
+
+**Target — two planes:**
+
+| Plane | Identity | Today | Target |
+|-------|----------|-------|--------|
+| **Control** | Human operator | No auth on admin routes | Auth0 SPA login + `gateway:admin` (or finer permissions) |
+| **Runtime** | M2M agent | Scoped JWT on `tools/call` | Unchanged |
+
+**Proposed API permissions** (same audience `https://mcp-tool-guard`, separate from tool scopes like `flights:read`):
+
+| Permission | Routes (v1) |
+|------------|----------------|
+| `gateway:admin` | `POST/DELETE /servers`, `POST/DELETE /agents` |
+| `audit:read` | `GET /audit` (optional; may overlap flight demo) |
+
+Optional finer split later: `gateway:mcp:write`, `gateway:agents:write`. M2M agents created via mgmt API must **not** receive `gateway:admin` — only tool scopes granted in the create form.
+
+**`POST /token`:** Lock down or fold into authenticated `POST /agents` (vend server-side; do not leave open client_credentials exchange on a public URL).
+
+**Acceptance:**
+
+- [ ] `/agents.html` — Sign in required before Add MCP / Create agent / Revoke (reuse `ui/src/auth.ts` SPA flow).
+- [ ] Proxy — verify admin Bearer on mutating registry + agent routes; 403 without `gateway:admin`.
+- [ ] Chat / Initialize — still uses **selected M2M agent token**, not the human admin token.
+- [ ] Deny proof — user without `gateway:admin` cannot `POST /agents`; user with `gateway:admin` can; agent token still denied on book without `flights:write`.
+
+Details: [identity.md → Admin vs agent tokens](identity.md#admin-vs-agent-tokens-agent-gateway).
+
 ### Not in 0.3.x
 
 - Real vendor MCP without **deployed guard proxy** — proxy is live; wire vendor URL next ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp))
+- **Agent gateway admin auth** — control plane gated by human login ([sketch](#agent-gateway-admin-auth-sketch))
 
 ### Tier 2 (later)
 
@@ -97,6 +130,9 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | In-memory on Render process; resets on redeploy / spin-down |
+| Agent gateway registry | In-memory on proxy — UI-added MCPs lost on restart; seeded yaml entries survive |
+| Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
+| Agent gateway control plane | `POST /servers`, `POST /agents` unauthenticated (demo) — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
 
 ---
