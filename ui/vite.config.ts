@@ -14,7 +14,8 @@ export default defineConfig({
     proxy: {
       // Guard proxy (#12) + agent gateway admin API
       "/mcp": { target: "http://localhost:8787", changeOrigin: true },
-      "^/([a-zA-Z0-9_-]+)/mcp": { target: "http://localhost:8787", changeOrigin: true },
+      // $ anchor — do not match /src/mcp-client.ts (only /:serverId/mcp)
+      "^/([a-zA-Z0-9_-]+)/mcp/?$": { target: "http://localhost:8787", changeOrigin: true },
       "/audit": { target: "http://localhost:8787", changeOrigin: true },
       "/servers": { target: "http://localhost:8787", changeOrigin: true },
       "/agents": {

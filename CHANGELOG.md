@@ -27,6 +27,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Vite dev proxy `/agents` no longer intercepts `/agents.html` (including `?query` URLs); agent forms use `method="post"` to avoid GET navigation
 - Agents page lazy-loads `gateway-agent` on Initialize so Add MCP / Create agent work without loading `mcp-client` at page load
+- Vite proxy regex for `/:serverId/mcp` anchored with `$` so `/src/mcp-client.ts` is not forwarded to guard proxy
 - Guard proxy listens on `PORT` when `MCP_PROXY_PORT` is unset (Render injects `PORT`; local dev uses `MCP_PROXY_PORT` / `make dev`)
 
 ### Changed
