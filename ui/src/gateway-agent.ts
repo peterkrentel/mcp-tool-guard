@@ -2,7 +2,7 @@ import { ToolGuard } from "@mcp-tool-guard/gateway";
 import type { AuditLogEntry, GuardConfig } from "@mcp-tool-guard/gateway";
 
 import { createLlmRunner } from "./llm/providers.js";
-import type { ChatMessage, LlmProviderId, LlmToolSchema } from "./llm/types.js";
+import type { ChatMessage, LlmProviderId, LlmRunner, LlmToolSchema } from "./llm/types.js";
 import { McpHttpClient } from "./mcp-client.js";
 import { postAgentAudit } from "./proxy-api.js";
 import { newSessionId, newTraceId } from "./trace.js";
@@ -32,6 +32,7 @@ export class GatewayAgent {
   private readonly serverId: string;
   private readonly tools: LlmToolSchema[];
   private llmId: LlmProviderId;
+  private llmRunner: LlmRunner | null = null;
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
   private onAudit?: () => void;
@@ -61,7 +62,22 @@ export class GatewayAgent {
   }
 
   setLlmId(id: LlmProviderId): void {
-    this.llmId = id;
+    if (id !== this.llmId) {
+      this.llmId = id;
+      this.llmRunner = null;
+    }
+  }
+
+  private async ensureLlmRunner(): Promise<LlmRunner> {
+    if (this.llmRunner) return this.llmRunner;
+    const runner = createLlmRunner(this.llmId);
+    if (!runner.configured) {
+      throw new Error(`${runner.label} is not configured`);
+    }
+    this.onStatus?.(`Loading ${runner.label}…`);
+    await runner.init();
+    this.llmRunner = runner;
+    return runner;
   }
 
   getSessionId(): string {
@@ -70,12 +86,7 @@ export class GatewayAgent {
 
   async init(): Promise<void> {
     await this.guard.init();
-    const runner = createLlmRunner(this.llmId);
-    if (!runner.configured) {
-      throw new Error(`${runner.label} is not configured`);
-    }
-    this.onStatus?.(`Loading ${runner.label}…`);
-    await runner.init();
+    await this.ensureLlmRunner();
     await this.mcp.initialize();
     this.sessionId = newSessionId();
     this.onStatus?.("Ready");
@@ -127,8 +138,7 @@ export class GatewayAgent {
   }
 
   async chat(userMessage: string): Promise<string> {
-    const runner = createLlmRunner(this.llmId);
-    if (!runner.configured) throw new Error(`${runner.label} is not configured`);
+    const runner = await this.ensureLlmRunner();
 
     this.onMessage?.("user", userMessage);
     this.messages.push({ role: "user", content: userMessage });
