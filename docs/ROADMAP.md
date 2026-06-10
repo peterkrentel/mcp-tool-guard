@@ -10,9 +10,33 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 ## Product shape (summary)
 
+**One-liner:** Policy-enforced MCP gateway with verifiable scoped agent execution.
+
 - **0.x** — Enforce + audit at MCP `tools/call` (`session_id`, `trace_id`).
 - **Pitch** — Bring your IdP; we enforce scopes at the AI tool layer.
 - **Production (Tier 2+)** — Keycloak/Azure AD (same JWKS path), observability sink, guard proxy for unowned MCP.
+
+### Differentiators
+
+| Moat | What it means |
+|------|----------------|
+| **Authoritative enforcement** | Proxy/server denies before upstream MCP runs — not prompt promises |
+| **Auditable execution** | Every `tools/call` → structured allow/deny + `trace_id` replay via `GET /audit` |
+| **BYO IdP, scope-per-tool policy** | `gateway/config.yaml` maps tools → scopes; issuer-agnostic JWKS path |
+| **Control vs runtime identity** | Operators provision with `gateway:admin`; agents run with narrow M2M tool scopes |
+| **MCP-native gateway** | One enforcement layer in front of any upstream MCP URL |
+
+Canonical proof: [demo-proxy.md](demo-proxy.md) (curl deny + `/audit`), not chat quality.
+
+### Build filter {#build-filter}
+
+Before adding scope, ask: **does this strengthen enforcement + audit credibility, or only demo UX?**
+
+| Ship | Defer |
+|------|-------|
+| Admin auth, KV persistence, one real external MCP | Extra mock MCP servers (#9/#10) |
+| Structured upstream errors, registry hygiene | Proxy audit UI chrome, path banners |
+| Demo script that replays allow/deny + audit | Another LLM integration unless needed for reliable tool JSON |
 
 ---
 

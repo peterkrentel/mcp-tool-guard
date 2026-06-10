@@ -3,6 +3,8 @@
 > A browser-native firewall for AI agent tool calls.
 > JWT scope enforcement, audit logging, and telemetry —
 > no cloud required, no data leaves your perimeter.
+>
+> Prove it with one scoped JWT, one denied tool call, and one `/audit` query — not chat quality. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
 
 ## Live demo
 

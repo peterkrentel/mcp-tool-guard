@@ -51,6 +51,8 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
+**Build filter:** Before adding a task, ask whether it improves **enforcement + audit credibility** or only **demo UX**. Credibility wins (KV, registry, external MCP, admin auth). UX-only items stay deferred (#9/#10, proxy audit UI, extra LLMs unless needed for reliable tool JSON). Full rule: [ROADMAP → Build filter](ROADMAP.md#build-filter).
+
 ### Production hardening priorities (review)
 
 Highest leverage before more prod exposure or external MCP demos:
@@ -65,15 +67,15 @@ Highest leverage before more prod exposure or external MCP demos:
 | 🟢 | **External MCP** (GitHub read-only) | ~2 hrs | Needs PAT/credential forwarding in proxy; policy alignment in `config.prod.yaml` |
 | 🟢 | **Gemini on `/agents`** | config | Code exists; set `VITE_GEMINI_API_KEY` local + Vercel for reliable tool JSON |
 
-**Do not ship more public control-plane surface until admin auth + `POST /token` gating land.**
+**Control-plane auth** (`gateway:admin` + gated `POST /token`) is implemented on this branch — merge before exposing more public registry surface in prod.
 
 ### Recommended build order
 
 | Step | # | Why |
 |------|---|-----|
 | **1** | **Agent gateway stage 1** | **Done** — generic proxy + UI for external MCPs and scoped M2M agents |
-| **1b** | **Agent gateway admin auth** | Gate control plane — human `gateway:admin` vs M2M runtime tokens ([sketch](#agent-gateway-admin-auth-sketch)) |
-| **1b′** | **Gate `POST /token`** | Same sprint as **1b** — highest-risk open endpoint after unauthenticated registry |
+| **1b** | **Agent gateway admin auth** | **Done** on this branch — human `gateway:admin` vs M2M runtime tokens ([sketch](#agent-gateway-admin-auth-sketch)) |
+| **1b′** | **Gate `POST /token`** | **Done** — same `gateway:admin` Bearer as other control-plane routes |
 | **1c** | **Agent registry + Auth0 sync** | KV agent list, unique Auth0 names, reuse/templates — [sketch](#agent-registry-auth0-sync-sketch) |
 | **1d** | **Upstash KV persistence** | Registry + proxy audit survive redeploy — [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) |
 | **2** | **External MCP** | Wire real vendor URL + credentials; smoke `POST /{serverId}/mcp` |
