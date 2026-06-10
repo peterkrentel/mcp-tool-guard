@@ -182,7 +182,8 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | Check | Expected |
 |-------|----------|
 | **Network** | `GET /servers`, `POST /agents`, `POST /token` hit `onrender.com` (via `VITE_PROXY_BASE_URL`) |
-| **Create agent** | `flights:read` scope → M2M client created in Auth0 |
+| **Operator sign-in** | Sign in on `/agents.html` with Auth0 user that has **`gateway:admin`** (see [auth0-setup](auth0-setup.md)) |
+| **Create agent** | `flights:read` scope → M2M client created in Auth0 (admin Bearer on mutating routes) |
 | **Initialize → chat** | *Search flights from JFK to MIA* → agent ALLOW + proxy ALLOW + MCP response |
 | **Book attempt** | `book FL101 …` with read-only agent → agent DENY (`Missing required scope 'flights:write'`) |
 | **Three-layer audit** | Agent / Proxy / MCP rows correlated by `trace_id` |
@@ -205,6 +206,7 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | `POST /slack/mcp` or `/github/mcp` fails | Stubs only — use `POST /mcp` for flight demo |
 | `/agents.html` → failed to fetch `/servers` | Set `VITE_PROXY_BASE_URL` on Vercel UI and redeploy |
 | Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `auth0_mgmt_configured: false` |
+| `401` / `403` on Add MCP or Create agent | `/health` → `control_plane_auth: true` — sign in on `/agents.html`; token needs `gateway:admin` in `permissions` |
 | M2M token → signature verification failed in browser | `VITE_AUTH0_DOMAIN` + `VITE_AUTH0_AUDIENCE` must be set on Vercel UI (JWKS path) |
 | First request slow after idle | Render free tier spin-down — retry; normal |
 | Health OK but proxy not listening | Do not set `MCP_PROXY_PORT` on Render — use injected `PORT` only |

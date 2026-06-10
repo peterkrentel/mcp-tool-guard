@@ -19,6 +19,26 @@ export interface VendedToken {
   expiresIn: number;
 }
 
+type AdminTokenProvider = () => Promise<string | null>;
+
+let adminTokenProvider: AdminTokenProvider | null = null;
+
+/** SPA user token for control-plane routes (gateway:admin). */
+export function setAdminTokenProvider(provider: AdminTokenProvider): void {
+  adminTokenProvider = provider;
+}
+
+async function adminAuthHeaders(
+  extra?: Record<string, string>,
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { ...extra };
+  if (adminTokenProvider) {
+    const token = await adminTokenProvider();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function proxyFetch(path: string, init?: RequestInit): Promise<Response> {
   const base = resolveProxyBase().replace(/\/$/, "");
   return fetch(`${base}${path}`, init);
@@ -38,7 +58,7 @@ export async function addServer(input: {
 }): Promise<void> {
   const res = await proxyFetch("/servers", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(input),
   });
   if (!res.ok) {
@@ -48,7 +68,10 @@ export async function addServer(input: {
 }
 
 export async function removeServer(id: string): Promise<void> {
-  const res = await proxyFetch(`/servers/${encodeURIComponent(id)}`, { method: "DELETE" });
+  const res = await proxyFetch(`/servers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: await adminAuthHeaders(),
+  });
   if (!res.ok) throw new Error(await res.text());
 }
 
@@ -70,7 +93,7 @@ export async function discoverTools(
 export async function createAgent(name: string, scopes: string[]): Promise<CreatedAgent> {
   const res = await proxyFetch("/agents", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, scopes }),
   });
   if (!res.ok) {
@@ -81,7 +104,10 @@ export async function createAgent(name: string, scopes: string[]): Promise<Creat
 }
 
 export async function revokeAgent(clientId: string): Promise<void> {
-  const res = await proxyFetch(`/agents/${encodeURIComponent(clientId)}`, { method: "DELETE" });
+  const res = await proxyFetch(`/agents/${encodeURIComponent(clientId)}`, {
+    method: "DELETE",
+    headers: await adminAuthHeaders(),
+  });
   if (!res.ok) {
     const body = (await res.json()) as { error?: string };
     throw new Error(body.error ?? res.statusText);
@@ -91,7 +117,7 @@ export async function revokeAgent(clientId: string): Promise<void> {
 export async function vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
   const res = await proxyFetch("/token", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ clientId, clientSecret }),
   });
   if (!res.ok) {

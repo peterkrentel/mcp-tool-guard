@@ -12,11 +12,24 @@ import {
   mcpUrlForServer,
   removeServer,
   revokeAgent,
+  setAdminTokenProvider,
   vendToken,
   type RegisteredServer,
 } from "./proxy-api.js";
 import { renderThreeLayerAudit } from "./agents-audit-view.js";
-import { getAuth0Config, jwtTrustFromAuth0 } from "./auth.js";
+import {
+  GATEWAY_ADMIN_PERMISSION,
+  getAuth0AccessToken,
+  getAuth0Config,
+  getAuth0UserLabel,
+  handleAuthRedirect,
+  hasGatewayAdminPermission,
+  isAuth0Authenticated,
+  jwtTrustFromAuth0,
+  loginWithAuth0,
+  logoutAuth0,
+} from "./auth.js";
+import { resolveProxyBase } from "./config.js";
 
 interface ActiveAgent {
   name: string;
@@ -26,6 +39,14 @@ interface ActiveAgent {
   scopes: string[];
   serverId: string;
 }
+
+const authControls = document.getElementById("auth-controls")!;
+const authLoginBtn = document.getElementById("auth-login") as HTMLButtonElement;
+const authLogoutBtn = document.getElementById("auth-logout") as HTMLButtonElement;
+const authStatusEl = document.getElementById("auth-status")!;
+const adminGateHintEl = document.getElementById("admin-gate-hint")!;
+const addMcpForm = document.getElementById("add-mcp-form") as HTMLFormElement;
+const createAgentForm = document.getElementById("create-agent-form") as HTMLFormElement;
 
 const mcpListEl = document.getElementById("mcp-list")!;
 const agentListEl = document.getElementById("agent-list")!;
@@ -43,6 +64,93 @@ let selectedAgent: ActiveAgent | null = null;
 let gatewayAgent: GatewayAgent | null = null;
 let publicKeyPem = "";
 let auditPoll: ReturnType<typeof setInterval> | null = null;
+let controlPlaneAuthRequired = false;
+let adminOpsEnabled = false;
+
+setAdminTokenProvider(async () => {
+  if (!getAuth0Config() || !(await isAuth0Authenticated())) return null;
+  return getAuth0AccessToken();
+});
+
+function setFormEnabled(form: HTMLFormElement, enabled: boolean): void {
+  for (const el of form.elements) {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      el.disabled = !enabled;
+    } else if (el instanceof HTMLSelectElement) {
+      el.disabled = !enabled;
+    } else if (el instanceof HTMLButtonElement) {
+      el.disabled = !enabled;
+    }
+  }
+}
+
+async function loadControlPlaneAuthFlag(): Promise<void> {
+  try {
+    const base = resolveProxyBase().replace(/\/$/, "");
+    const res = await fetch(`${base}/health`);
+    if (!res.ok) return;
+    const data = (await res.json()) as { control_plane_auth?: boolean };
+    controlPlaneAuthRequired = Boolean(data.control_plane_auth);
+  } catch {
+    controlPlaneAuthRequired = Boolean(getAuth0Config());
+  }
+}
+
+async function syncAdminUi(): Promise<void> {
+  const auth0Config = getAuth0Config();
+  await loadControlPlaneAuthFlag();
+
+  if (!controlPlaneAuthRequired) {
+    authControls.hidden = true;
+    adminGateHintEl.textContent =
+      "Control plane auth is off (local dev). Add MCP / create agent without sign-in.";
+    adminOpsEnabled = true;
+    setFormEnabled(addMcpForm, true);
+    setFormEnabled(createAgentForm, true);
+    return;
+  }
+
+  if (!auth0Config) {
+    authControls.hidden = true;
+    adminGateHintEl.textContent =
+      "Set VITE_AUTH0_* on the UI and MCP_JWT_* on the proxy for operator sign-in.";
+    adminOpsEnabled = false;
+    setFormEnabled(addMcpForm, false);
+    setFormEnabled(createAgentForm, false);
+    return;
+  }
+
+  authControls.hidden = false;
+  await handleAuthRedirect();
+
+  const authenticated = await isAuth0Authenticated();
+  authLoginBtn.hidden = authenticated;
+  authLogoutBtn.hidden = !authenticated;
+
+  if (!authenticated) {
+    authStatusEl.textContent = "Sign in to manage MCPs and agents";
+    adminGateHintEl.textContent = `Requires Auth0 permission ${GATEWAY_ADMIN_PERMISSION}.`;
+    adminOpsEnabled = false;
+    setFormEnabled(addMcpForm, false);
+    setFormEnabled(createAgentForm, false);
+    return;
+  }
+
+  authStatusEl.textContent = await getAuth0UserLabel();
+  const isAdmin = await hasGatewayAdminPermission();
+  if (!isAdmin) {
+    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in Auth0, then sign out/in.`;
+    adminOpsEnabled = false;
+    setFormEnabled(addMcpForm, false);
+    setFormEnabled(createAgentForm, false);
+    return;
+  }
+
+  adminGateHintEl.textContent = `Control plane unlocked (${GATEWAY_ADMIN_PERMISSION}).`;
+  adminOpsEnabled = true;
+  setFormEnabled(addMcpForm, true);
+  setFormEnabled(createAgentForm, true);
+}
 
 function guardConfigForServer(server: RegisteredServer): GuardConfig {
   const tools: Record<string, { required_scope: string }> = {};
@@ -97,7 +205,9 @@ async function refreshServers(): Promise<void> {
     )
     .join("");
   mcpListEl.querySelectorAll("[data-remove-mcp]").forEach((btn) => {
+    (btn as HTMLButtonElement).disabled = !adminOpsEnabled;
     btn.addEventListener("click", () => {
+      if (!adminOpsEnabled) return;
       const id = (btn as HTMLElement).dataset.removeMcp!;
       void removeServer(id).then(refreshServers);
     });
@@ -113,7 +223,7 @@ function renderAgentCards(): void {
         <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
         <button type="button" data-select-agent="${a.clientId}">Use</button>
-        <button type="button" data-revoke-agent="${a.clientId}">Revoke</button>
+        <button type="button" data-revoke-agent="${a.clientId}" ${adminOpsEnabled ? "" : "disabled"}>Revoke</button>
       </div>`,
     )
     .join("");
@@ -128,6 +238,7 @@ function renderAgentCards(): void {
 
   agentListEl.querySelectorAll("[data-revoke-agent]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (!adminOpsEnabled) return;
       const id = (btn as HTMLElement).dataset.revokeAgent!;
       void (async () => {
         await revokeAgent(id);
@@ -158,8 +269,12 @@ function startAuditPoll(): void {
   auditPoll = setInterval(() => void refreshAudit(), 2000);
 }
 
-document.getElementById("add-mcp-form")?.addEventListener("submit", (e) => {
+addMcpForm.addEventListener("submit", (e) => {
   e.preventDefault();
+  if (!adminOpsEnabled) {
+    statusEl.textContent = `Sign in with ${GATEWAY_ADMIN_PERMISSION} first`;
+    return;
+  }
   const form = e.target as HTMLFormElement;
   const name = (form.elements.namedItem("mcp-name") as HTMLInputElement).value;
   const url = (form.elements.namedItem("mcp-url") as HTMLInputElement).value;
@@ -182,8 +297,12 @@ document.getElementById("add-mcp-form")?.addEventListener("submit", (e) => {
     });
 });
 
-document.getElementById("create-agent-form")?.addEventListener("submit", (e) => {
+createAgentForm.addEventListener("submit", (e) => {
   e.preventDefault();
+  if (!adminOpsEnabled) {
+    statusEl.textContent = `Sign in with ${GATEWAY_ADMIN_PERMISSION} first`;
+    return;
+  }
   const form = e.target as HTMLFormElement;
   const name = (form.elements.namedItem("agent-name") as HTMLInputElement).value;
   const serverId = (form.elements.namedItem("agent-mcp") as HTMLSelectElement).value;
@@ -281,8 +400,17 @@ inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendBtn.click();
 });
 
-populateLlmSelect();
-void refreshServers().then(() => {
-  updateAgentMcpSelect();
-  setInterval(updateAgentMcpSelect, 3000);
+authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLogoutBtn.addEventListener("click", () => {
+  gatewayAgent = null;
+  selectedAgent = null;
+  void logoutAuth0().then(() => syncAdminUi());
 });
+
+populateLlmSelect();
+void syncAdminUi().then(() =>
+  refreshServers().then(() => {
+    updateAgentMcpSelect();
+    setInterval(updateAgentMcpSelect, 3000);
+  }),
+);

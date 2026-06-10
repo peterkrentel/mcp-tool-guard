@@ -4,6 +4,14 @@
 
 Five-minute script to prove **authoritative enforcement** on the Render guard proxy — for reviewers, stakeholders, or your own code walkthrough.
 
+**This is the product demo** — not a tour of the repo or the chat UI. The system proves itself via API behavior: scoped JWT in → allow/deny out → `/audit` replay.
+
+| Minimum viable demo | Optional |
+|-------------------|----------|
+| Demo 1 (proxy in path) + Demo 4 (curl deny) + Demo 5 (`/audit`) | UI chat, agent trace panel, WebLLM |
+
+Do not extend the demo with more mock MCPs or UI features unless they show a **new** enforcement or audit story. See [ROADMAP → Build filter](ROADMAP.md#build-filter).
+
 ---
 
 ## Architecture (prod today)

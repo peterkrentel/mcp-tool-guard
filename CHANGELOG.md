@@ -8,6 +8,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Agent gateway admin auth** — `gateway:admin` on control plane (`POST/DELETE /servers`, `/agents`, `POST /token`) when guard + IdP trust enabled; `/agents.html` operator sign-in; `GET /health` reports `control_plane_auth`
+- Docs: product differentiators + build filter ([ROADMAP](docs/ROADMAP.md#build-filter)), proof vs presentation ([CONCEPT](docs/CONCEPT.md#proof-vs-presentation)), canonical demo guidance ([demo-proxy.md](docs/demo-proxy.md))
+- Structured upstream errors — proxy returns `{ error: "upstream_unavailable", server, detail }` on MCP connect/discovery failures; `tools/call` JSON-RPC error when upstream is unreachable
+- Flight guard middleware — 1 MiB max request body before JSON parse (DoS hardening)
+
 - **Agent gateway (stage 1, in-memory)** — dynamic MCP registry (`GET/POST/DELETE /servers`), tool discovery (`GET /servers/:id/tools`), Auth0 M2M agent lifecycle (`POST/DELETE /agents`), token vending (`POST /token`), three-layer audit (`agent` / `proxy` / `mcp` sources, `POST /audit/agent`), sliding-window rate limit (60 req/min per IP)
 - **`/agents` UI** — register external MCPs, create/revoke M2M agents, LLM selector (WebLLM, Gemini, Groq, Mistral), three-layer audit panel with trace correlation
 - [.env.example](.env.example) — `AUTH0_*` mgmt + audience vars for agent gateway

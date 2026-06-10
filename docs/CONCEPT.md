@@ -18,6 +18,18 @@ MCPToolGuard validates **JWT scopes** against per-tool policy on MCP `tools/call
 4. **Allow or deny** — server is authoritative; client SDK can pre-check first
 5. **Audit** — structured JSON per decision (`session_id`, `trace_id`)
 
+### Proof vs presentation {#proof-vs-presentation}
+
+What you **sell** is proxy enforcement + audit replay, not chat quality or model choice.
+
+| Layer | Role | Required to prove the product? |
+|-------|------|--------------------------------|
+| **Proxy + `GET /audit`** | Truth — enforcement decision + durable record | **Yes** — [demo-proxy.md](demo-proxy.md) |
+| **Client `ToolGuard`** | Pre-check + agent-attempt log (intent) | Optional — teaches dual-plane model |
+| **UI / WebLLM / LLM picker** | Human visualization | Optional — not authoritative |
+
+Canonical demo: one scoped JWT, one denied `tools/call`, one `/audit` query with matching `trace_id`. Build filter for new work: [ROADMAP → Build filter](ROADMAP.md#build-filter).
+
 ## Scopes, roles, and identity
 
 **Admins assign scope rights; MCPToolGuard enforces them per tool.** The guard does not manage users or groups — your IdP does. At `tools/call` the guard only asks: *does this Bearer token include the scope required for this tool?*

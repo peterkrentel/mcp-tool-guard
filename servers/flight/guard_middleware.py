@@ -7,6 +7,8 @@ from typing import Any
 
 from guard import FlightToolGuard
 
+MAX_BODY_BYTES = 1_048_576
+
 
 class JwtToolGuardMiddleware:
     def __init__(self, app: Any, guard: FlightToolGuard) -> None:
@@ -23,6 +25,15 @@ class JwtToolGuardMiddleware:
             return
 
         body = await _read_body(receive)
+        if len(body) > MAX_BODY_BYTES:
+            await _send_jsonrpc_error(
+                scope,
+                send,
+                None,
+                f"Request body exceeds {MAX_BODY_BYTES} bytes",
+            )
+            return
+
         replay = _replay_receive(body, receive)
 
         try:
@@ -65,6 +76,8 @@ async def _read_body(receive: Any) -> bytes:
         if message["type"] != "http.request":
             continue
         body += message.get("body", b"")
+        if len(body) > MAX_BODY_BYTES:
+            break
         if not message.get("more_body", False):
             break
     return body

@@ -7,14 +7,14 @@
  *
  * Registry:
  *   GET    /servers           — list registered MCP servers
- *   POST   /servers           — add server (in-memory)
- *   DELETE /servers/:id       — remove server
+ *   POST   /servers           — add server (gateway:admin when IdP trust enabled)
+ *   DELETE /servers/:id       — remove server (gateway:admin)
  *   GET    /servers/:id/tools — discover tools/list from upstream
  *
  * Agents (Auth0 M2M):
- *   POST   /agents            — create M2M client
- *   DELETE /agents/:clientId  — revoke M2M client
- *   POST   /token             — vend client_credentials JWT
+ *   POST   /agents            — create M2M client (gateway:admin)
+ *   DELETE /agents/:clientId  — revoke M2M client (gateway:admin)
+ *   POST   /token             — vend client_credentials JWT (gateway:admin)
  *
  * Audit:
  *   GET    /audit             — all layers (agent, proxy, mcp)
@@ -28,6 +28,7 @@ import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 
+import { adminAuthRequired, requireGatewayAdmin } from "./admin-auth.js";
 import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import {
   corsAllowOrigins,
@@ -36,7 +37,11 @@ import {
   readPublicKeyPem,
 } from "./env.js";
 import { ToolGuard } from "./guard.js";
-import { forwardMcpPost, discoverMcpTools } from "./mcp-upstream.js";
+import {
+  discoverMcpTools,
+  forwardMcpPost,
+  upstreamErrorBody,
+} from "./mcp-upstream.js";
 import { clientIp, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
@@ -277,13 +282,27 @@ async function handleMcp(
         }
       : undefined;
 
-  await forwardMcpPost({
-    upstreamUrl: serverCfg.url,
-    reqHeaders: req.headers,
-    body,
-    res,
-    audit: auditMcp,
-  });
+  try {
+    await forwardMcpPost({
+      upstreamUrl: serverCfg.url,
+      reqHeaders: req.headers,
+      body,
+      res,
+      audit: auditMcp,
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    const body502 = upstreamErrorBody(serverId, err);
+    if (payload.method === "tools/call" && payload.id !== undefined) {
+      sendJsonRpcError(
+        res,
+        payload.id,
+        `${body502.error}: ${body502.server} — ${body502.detail}`,
+      );
+      return;
+    }
+    sendJson(res, 502, body502);
+  }
 }
 
 async function main(): Promise<void> {
@@ -303,6 +322,7 @@ async function main(): Promise<void> {
   const defaultServer = process.env.MCP_PROXY_DEFAULT_SERVER?.trim() || "flight";
   const port = Number(process.env.MCP_PROXY_PORT ?? process.env.PORT ?? DEFAULT_PORT);
   const enabled = guardEnabled();
+  const controlPlaneAuth = adminAuthRequired(jwtTrust);
 
   if (!enabled) {
     console.warn(
@@ -337,6 +357,7 @@ async function main(): Promise<void> {
           service: "mcp-tool-guard-proxy",
           guard_enabled: enabled,
           jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
+          control_plane_auth: controlPlaneAuth,
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           default_server: defaultServer,
           servers: registry.serverIds(),
@@ -360,8 +381,14 @@ async function main(): Promise<void> {
         return;
       }
 
-      /** POST /servers — add MCP server. Auth: no (demo). */
+      /** POST /servers — add MCP server. Auth: gateway:admin when control plane auth enabled. */
       if (req.method === "POST" && pathname === "/servers") {
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
         const body = await readJson<{ id: string; url: string; scopes: Record<string, string[]> }>(
           req,
         );
@@ -377,7 +404,13 @@ async function main(): Promise<void> {
 
       const deleteServerMatch = pathname.match(/^\/servers\/([^/]+)\/?$/);
       if (req.method === "DELETE" && deleteServerMatch) {
-        /** DELETE /servers/:id — remove server. Auth: no (demo). */
+        /** DELETE /servers/:id — remove server. Auth: gateway:admin when enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
         const removed = registry.remove(deleteServerMatch[1]);
         if (!removed) {
           sendJson(res, 404, { error: "Server not found" });
@@ -402,13 +435,25 @@ async function main(): Promise<void> {
           sendJson(res, 200, { tools });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          sendJson(res, 502, { error: message });
+          const statusMatch = message.match(/HTTP (\d{3})/);
+          const upstreamStatus = statusMatch ? Number(statusMatch[1]) : undefined;
+          sendJson(
+            res,
+            502,
+            upstreamErrorBody(toolsMatch[1], err, upstreamStatus),
+          );
         }
         return;
       }
 
-      /** POST /agents — create Auth0 M2M client. Auth: no (demo). */
+      /** POST /agents — create Auth0 M2M client. Auth: gateway:admin when enabled. */
       if (req.method === "POST" && pathname === "/agents") {
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
         const body = await readJson<{ name: string; scopes: string[] }>(req);
         try {
           const created = await createM2mAgent(body.name, body.scopes ?? []);
@@ -422,7 +467,13 @@ async function main(): Promise<void> {
 
       const deleteAgentMatch = pathname.match(/^\/agents\/([^/]+)\/?$/);
       if (req.method === "DELETE" && deleteAgentMatch) {
-        /** DELETE /agents/:clientId — revoke M2M client. Auth: no (demo). */
+        /** DELETE /agents/:clientId — revoke M2M client. Auth: gateway:admin when enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
         try {
           await deleteM2mAgent(deleteAgentMatch[1]);
           tokenVendor?.invalidate(deleteAgentMatch[1]);
@@ -434,10 +485,16 @@ async function main(): Promise<void> {
         return;
       }
 
-      /** POST /token — vend client_credentials JWT. Auth: no; body has credentials. */
+      /** POST /token — vend client_credentials JWT. Auth: gateway:admin when enabled. */
       if (req.method === "POST" && pathname === "/token") {
         if (!tokenVendor || !apiAudience) {
           sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
+          return;
+        }
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
           return;
         }
         const body = await readJson<{ clientId: string; clientSecret: string }>(req);

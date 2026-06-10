@@ -98,3 +98,31 @@ export async function getAuth0UserLabel(): Promise<string> {
   const user = await auth0.getUser();
   return user?.email ?? user?.name ?? "Signed in";
 }
+
+export const GATEWAY_ADMIN_PERMISSION = "gateway:admin";
+
+export function permissionsFromAccessToken(token: string): string[] {
+  try {
+    const segment = token.split(".")[1];
+    if (!segment) return [];
+    const padded = segment.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(padded)) as { permissions?: string[] };
+    return Array.isArray(payload.permissions) ? payload.permissions.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function tokenHasPermission(token: string, permission: string): boolean {
+  const perms = permissionsFromAccessToken(token);
+  if (perms.includes(permission)) return true;
+  const [resource] = permission.split(":");
+  return perms.includes(`${resource}:*`) || perms.includes("*");
+}
+
+export async function hasGatewayAdminPermission(): Promise<boolean> {
+  if (!getAuth0Config()) return false;
+  if (!(await isAuth0Authenticated())) return false;
+  const token = await getAuth0AccessToken();
+  return tokenHasPermission(token, GATEWAY_ADMIN_PERMISSION);
+}

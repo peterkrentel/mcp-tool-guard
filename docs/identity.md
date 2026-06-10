@@ -39,9 +39,9 @@ The [`/agents.html`](../ui/agents.html) page uses **two different identities** �
 | **Human admin** (target) | Auth0 SPA **user** access token with `gateway:admin` | Register MCPs, create/revoke M2M agents (control plane) |
 | **M2M agent** (today) | `client_credentials` token with **tool scopes** (`flights:read`, …) | `tools/call` + client `ToolGuard` pre-check (runtime) |
 
-**Today (stage 1):** There is no admin login on `/agents.html`. Mutating proxy routes (`POST /servers`, `POST /agents`) are open; the browser drives Auth0 Management API **via server-side** `AUTH0_MGMT_*` on Render. Chat uses the **agent’s** vended M2M token — not your personal login.
+**Implemented:** `/agents.html` requires Auth0 SPA sign-in with **`gateway:admin`** on the control plane when the proxy has IdP trust (`MCP_JWT_*`) and guard enabled. Mutating routes (`POST/DELETE /servers`, `/agents`, `POST /token`) verify your user access token; chat still uses the **selected M2M agent** token for `tools/call`.
 
-**Target:** Sign in as **you** to provision agents; each agent runs with **its own** narrow credential. Tool scope enforcement on `tools/call` stays the same.
+**Local dev:** Set `MCP_GUARD_ENABLED=false` or omit `MCP_JWT_ISSUER` to keep the control plane open without sign-in.
 
 **Auth0 setup (sketch):**
 

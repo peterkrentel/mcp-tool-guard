@@ -3,6 +3,8 @@
 > A browser-native firewall for AI agent tool calls.
 > JWT scope enforcement, audit logging, and telemetry —
 > no cloud required, no data leaves your perimeter.
+>
+> Prove it with one scoped JWT, one denied tool call, and one `/audit` query — not chat quality. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
 
 ## Live demo
 
@@ -32,6 +34,8 @@ Prod path: **UI → Render guard proxy → Vercel flight**. Network tab shows `o
 *Search → **Server** ALLOW; `book` → **Agent attempts** DENY (`flights:write`), blocked before MCP — no matching server row.*
 
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
+
+**Demo JWTs:** `ui/public/demo-tokens.json` and `demo-public.pem` are **intentionally public** — pre-signed guest tokens for the flight demo only, not production secrets. Production uses Auth0 JWKS or your own PEM via env vars.
 
 ## Documentation map
 
