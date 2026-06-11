@@ -74,26 +74,21 @@ export async function kvScan(relativePattern: string): Promise<string[]> {
   if (!kvEnabled()) return [];
   const match = fullKey(relativePattern);
   const keys: string[] = [];
-  let cursor = 0;
+  let cursor = "0";
   const prefix = gatewayKvPrefix();
 
   do {
-    const qs = new URLSearchParams({
-      match,
-      count: "100",
-    });
-    const encodedCursor = encodeURIComponent(String(cursor));
-    const result = await kvRequest<[number, string[]]>(
-      `/scan/${encodedCursor}?${qs.toString()}`,
-    );
+    // Upstash REST: SCAN cursor MATCH pattern COUNT n (path segments, not query params)
+    const path = `/scan/${encodeURIComponent(cursor)}/match/${encodeURIComponent(match)}/count/100`;
+    const result = await kvRequest<[string | number, string[]]>(path);
     if (!result) break;
-    cursor = result[0];
+    cursor = String(result[0]);
     for (const key of result[1] ?? []) {
       if (key.startsWith(prefix)) {
         keys.push(key.slice(prefix.length));
       }
     }
-  } while (cursor !== 0);
+  } while (cursor !== "0");
 
   return keys;
 }

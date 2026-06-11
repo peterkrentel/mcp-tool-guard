@@ -313,11 +313,16 @@ async function main(): Promise<void> {
   const seedConfig = loadYamlConfig();
   const registry = new ServerRegistry(seedConfig);
   const seedIds = new Set(registry.serverIds());
-  const kvLoaded = await loadServersFromKv(registry, seedIds);
-  if (kvLoaded > 0) {
-    console.info(`[MCPToolGuard proxy] loaded ${kvLoaded} server(s) from KV`);
-  } else if (kvEnabled()) {
-    console.info("[MCPToolGuard proxy] KV enabled — no extra servers in registry");
+  try {
+    const kvLoaded = await loadServersFromKv(registry, seedIds);
+    if (kvLoaded > 0) {
+      console.info(`[MCPToolGuard proxy] loaded ${kvLoaded} server(s) from KV`);
+    } else if (kvEnabled()) {
+      console.info("[MCPToolGuard proxy] KV enabled — no extra servers in registry");
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[MCPToolGuard proxy] KV startup load failed: ${message}`);
   }
 
   const jwtTrust = jwtTrustFromEnv();
