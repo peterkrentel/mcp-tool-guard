@@ -1,6 +1,6 @@
 # MCPToolGuard — Concept
 
-**Navigation:** [Architecture](ARCHITECTURE.md) · [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Architecture](ARCHITECTURE.md) · [Quick start](../README.md) · [Live demo](vercel-deploy.md#live-demo) · [Vercel deploy](vercel-deploy.md) · [Next steps](NEXT-STEPS.md) · [Cursor guide](cursor-guide.md) · [Roadmap](ROADMAP.md) · [Changelog](../CHANGELOG.md)
 
 Design reference for the repo. Task checklists and release status live in [ROADMAP.md](ROADMAP.md) only.
 
@@ -210,6 +210,8 @@ Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub).
 | Authoritative audit | No | Your flight only | Yes — proxy log |
 
 **Client-only** multi-server ([ROADMAP #9](ROADMAP.md#release-030--hardening--multi-server)) = intent audit, not tamper-proof. **KV** on flight does not audit vendor MCP — see [identity.md](identity.md).
+
+**Implementation order:** [cursor-guide.md](cursor-guide.md) — persist proxy registry on KV (Track 1), wire **GitHub MCP** as first external upstream with per-server `upstream_token` (Track 2), then **approval queue** for on-demand scope when hard-deny is too coarse (Track 3). KV key sketches: [kv-design.md](kv-design.md).
 
 ```
 Unowned MCP (production):  Browser → YOUR guard proxy → vendor MCP

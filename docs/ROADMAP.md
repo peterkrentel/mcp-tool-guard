@@ -1,12 +1,12 @@
 # Roadmap
 
-**Navigation:** [Deploy overview](deploy-overview.md) · [Quick start](../README.md) · [Architecture](ARCHITECTURE.md) · [Live demo](vercel-deploy.md#live-demo) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Next steps](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Quick start](../README.md) · [Architecture](ARCHITECTURE.md) · [Live demo](vercel-deploy.md#live-demo) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Next steps](NEXT-STEPS.md) · [**Cursor guide**](cursor-guide.md) · [Design (CONCEPT)](CONCEPT.md) · [Changelog](../CHANGELOG.md)
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md) · [CONCEPT.md](CONCEPT.md).
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next:** [Implementation backlog](NEXT-STEPS.md#implementation-backlog-post-030) — agent gateway KV persistence + **wire external MCP**. **Shipped on `main`:** agent gateway stage 1 (`/agents.html`). **Deferred:** #9/#10. Optional: #7.
+**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 1** KV registry → **Track 2** GitHub MCP → **Track 3** approval queue. Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
 ## Product shape (summary)
 
@@ -25,6 +25,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 | **BYO IdP, scope-per-tool policy** | `gateway/config.yaml` maps tools → scopes; issuer-agnostic JWKS path |
 | **Control vs runtime identity** | Operators provision with `gateway:admin`; agents run with narrow M2M tool scopes |
 | **MCP-native gateway** | One enforcement layer in front of any upstream MCP URL |
+| **On-demand scope (planned)** | Approval queue — agent lacks scope → human approves → short-lived token → retry ([Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope)) |
 
 Canonical proof: [demo-proxy.md](demo-proxy.md) (curl deny + `/audit`), not chat quality.
 
@@ -34,9 +35,9 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 
 | Ship | Defer |
 |------|-------|
-| Admin auth, KV persistence, one real external MCP | Extra mock MCP servers (#9/#10) |
+| [Three tracks](cursor-guide.md): KV registry, GitHub MCP, approval queue | Extra mock MCP servers (#9/#10) |
 | Structured upstream errors, registry hygiene | Proxy audit UI chrome, path banners |
-| Demo script that replays allow/deny + audit | Another LLM integration unless needed for reliable tool JSON |
+| Demo script that replays allow/deny + audit | WebLLM text parsing — use Gemini function-calling for Track 3 |
 
 ---
 
