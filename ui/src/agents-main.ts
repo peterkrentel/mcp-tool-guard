@@ -8,6 +8,7 @@ import {
   createAgent,
   discoverTools,
   fetchGatewayAudit,
+  listAgents,
   listServers,
   mcpUrlForServer,
   removeServer,
@@ -57,6 +58,34 @@ const llmSelect = document.getElementById("llm-select") as HTMLSelectElement;
 const initBtn = document.getElementById("agents-init") as HTMLButtonElement;
 const sendBtn = document.getElementById("agents-send") as HTMLButtonElement;
 const inputEl = document.getElementById("agents-message") as HTMLInputElement;
+
+const AGENT_SESSION_KEY = "mcp-tool-guard-agent-session";
+
+interface AgentSessionSecrets {
+  clientSecret: string;
+  token: string;
+}
+
+function readAgentSessions(): Record<string, AgentSessionSecrets> {
+  try {
+    const raw = sessionStorage.getItem(AGENT_SESSION_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, AgentSessionSecrets>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeAgentSession(clientId: string, secrets: AgentSessionSecrets): void {
+  const map = readAgentSessions();
+  map[clientId] = secrets;
+  sessionStorage.setItem(AGENT_SESSION_KEY, JSON.stringify(map));
+}
+
+function removeAgentSession(clientId: string): void {
+  const map = readAgentSessions();
+  delete map[clientId];
+  sessionStorage.setItem(AGENT_SESSION_KEY, JSON.stringify(map));
+}
 
 let servers: RegisteredServer[] = [];
 let agents: ActiveAgent[] = [];
@@ -192,6 +221,34 @@ function populateLlmSelect(): void {
   }
 }
 
+async function refreshAgents(): Promise<void> {
+  try {
+    const listed = await listAgents();
+    const sessions = readAgentSessions();
+    agents = listed.map((record) => {
+      const session = sessions[record.auth0ClientId];
+      return {
+        name: record.name,
+        clientId: record.auth0ClientId,
+        clientSecret: session?.clientSecret ?? "",
+        token: session?.token ?? "",
+        scopes: record.scopes,
+        serverId: record.serverId,
+      };
+    });
+    if (
+      selectedAgent &&
+      !agents.some((a) => a.clientId === selectedAgent!.clientId)
+    ) {
+      selectedAgent = null;
+      gatewayAgent = null;
+    }
+    renderAgentCards();
+  } catch {
+    renderAgentCards();
+  }
+}
+
 async function refreshServers(): Promise<void> {
   servers = await listServers();
   mcpListEl.innerHTML = servers
@@ -216,15 +273,20 @@ async function refreshServers(): Promise<void> {
 }
 
 function renderAgentCards(): void {
+  const sessions = readAgentSessions();
   agentListEl.innerHTML = agents
     .map(
-      (a) => `<div class="card ${selectedAgent?.clientId === a.clientId ? "card-active" : ""}">
+      (a) => {
+        const hasSession = Boolean(sessions[a.clientId]);
+        return `<div class="card ${selectedAgent?.clientId === a.clientId ? "card-active" : ""}">
         <strong>${a.name}</strong>
         <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
-        <button type="button" data-select-agent="${a.clientId}">Use</button>
+        ${hasSession ? "" : '<div class="card-meta">Re-vend token to use (refresh cleared session)</div>'}
+        <button type="button" data-select-agent="${a.clientId}" ${hasSession ? "" : "disabled"}>Use</button>
         <button type="button" data-revoke-agent="${a.clientId}" ${adminOpsEnabled ? "" : "disabled"}>Revoke</button>
-      </div>`,
+      </div>`;
+      },
     )
     .join("");
 
@@ -243,6 +305,7 @@ function renderAgentCards(): void {
       void (async () => {
         await revokeAgent(id);
         agents = agents.filter((a) => a.clientId !== id);
+        removeAgentSession(id);
         if (selectedAgent?.clientId === id) selectedAgent = null;
         gatewayAgent = null;
         renderAgentCards();
@@ -310,15 +373,19 @@ createAgentForm.addEventListener("submit", (e) => {
   const scopes = scopesRaw.split(",").map((s) => s.trim()).filter(Boolean);
   void (async () => {
     statusEl.textContent = "Creating agent…";
-    const created = await createAgent(name, scopes);
+    const created = await createAgent(name, scopes, serverId);
     const vended = await vendToken(created.clientId, created.clientSecret);
+    writeAgentSession(created.clientId, {
+      clientSecret: created.clientSecret,
+      token: vended.token,
+    });
     const agent: ActiveAgent = {
       name: created.name,
       clientId: created.clientId,
       clientSecret: created.clientSecret,
       token: vended.token,
       scopes,
-      serverId,
+      serverId: created.serverId ?? serverId,
     };
     agents.push(agent);
     selectedAgent = agent;
@@ -409,8 +476,10 @@ authLogoutBtn.addEventListener("click", () => {
 
 populateLlmSelect();
 void syncAdminUi().then(() =>
-  refreshServers().then(() => {
-    updateAgentMcpSelect();
-    setInterval(updateAgentMcpSelect, 3000);
-  }),
+  refreshServers()
+    .then(() => refreshAgents())
+    .then(() => {
+      updateAgentMcpSelect();
+      setInterval(updateAgentMcpSelect, 3000);
+    }),
 );

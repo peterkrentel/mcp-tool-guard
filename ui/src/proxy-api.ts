@@ -12,6 +12,18 @@ export interface CreatedAgent {
   clientId: string;
   clientSecret: string;
   name: string;
+  serverId?: string;
+}
+
+export interface ListedAgent {
+  id: string;
+  name: string;
+  serverId: string;
+  scopes: string[];
+  auth0ClientId: string;
+  auth0AppName: string;
+  status: "active";
+  createdAt: string;
 }
 
 export interface VendedToken {
@@ -90,11 +102,22 @@ export async function discoverTools(
   return data.tools;
 }
 
-export async function createAgent(name: string, scopes: string[]): Promise<CreatedAgent> {
+export async function listAgents(): Promise<ListedAgent[]> {
+  const res = await proxyFetch("/agents");
+  if (!res.ok) throw new Error(await res.text());
+  const data = (await res.json()) as { agents: ListedAgent[] };
+  return data.agents ?? [];
+}
+
+export async function createAgent(
+  name: string,
+  scopes: string[],
+  serverId: string,
+): Promise<CreatedAgent> {
   const res = await proxyFetch("/agents", {
     method: "POST",
     headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ name, scopes }),
+    body: JSON.stringify({ name, scopes, serverId }),
   });
   if (!res.ok) {
     const body = (await res.json()) as { error?: string };
