@@ -1,6 +1,6 @@
 # Deployment overview
 
-**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Render (proxy)](render-deploy.md) · [Guard proxy](guard-proxy.md) · [Demo script](demo-proxy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
+**Navigation:** [Quick start](../README.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Render (proxy)](render-deploy.md) · [Guard proxy](guard-proxy.md) · [Demo script](demo-proxy.md) · [Cursor guide](cursor-guide.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
 
 One page for **what runs where** — local dev and prod (three services). Step-by-step Vercel setup: [vercel-deploy.md](vercel-deploy.md). Proxy on Render: [render-deploy.md](render-deploy.md). Routes and env: [guard-proxy.md](guard-proxy.md).
 

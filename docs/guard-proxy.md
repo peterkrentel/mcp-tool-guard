@@ -1,6 +1,6 @@
 # Guard HTTP proxy (#12)
 
-**Navigation:** [Deploy overview](deploy-overview.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Architecture](ARCHITECTURE.md) · [Next steps](NEXT-STEPS.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Vercel (flight + UI)](vercel-deploy.md) · [Architecture](ARCHITECTURE.md) · [Cursor guide](cursor-guide.md) · [Next steps](NEXT-STEPS.md)
 
 Authoritative JWT scope enforcement and audit **in front of** upstream MCP URLs you do not control (or your own flight server for local proof).
 

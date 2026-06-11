@@ -110,7 +110,7 @@ mcp-tool-guard/
 ├── gateway/          ← ToolGuard SDK (JWT + scopes + audit logger)
 ├── ui/               ← WebLLM agent + audit panel
 ├── servers/flight/   ← MCP server + server-side guard
-├── docs/             ← CONCEPT, ROADMAP, vercel-deploy, RELEASE
+├── docs/             ← CONCEPT, ROADMAP, cursor-guide, vercel-deploy, RELEASE
 └── scripts/generate-keys.mjs
 ```
 
@@ -137,6 +137,8 @@ uv export --directory servers/flight --no-hashes -o servers/flight/requirements.
 ## Contributing
 
 Feature branch + PR; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Track 1 KV registry → Track 2 GitHub MCP → Track 3 approval queue. Backlog summary: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
 
 ## License
 

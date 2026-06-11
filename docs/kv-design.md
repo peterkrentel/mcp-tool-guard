@@ -1,6 +1,6 @@
 # Vercel KV data model (Phase B)
 
-**Navigation:** [NEXT-STEPS](NEXT-STEPS.md) · [ROADMAP #6](ROADMAP.md#release-030--hardening--multi-server) · [Vercel deploy](vercel-deploy.md)
+**Navigation:** [NEXT-STEPS](NEXT-STEPS.md) · [ROADMAP #6](ROADMAP.md#release-030--hardening--multi-server) · [Cursor guide](cursor-guide.md) · [Vercel deploy](vercel-deploy.md)
 
 Serverless flight MCP runs in **stateless** Vercel functions. In-memory audit and bookings split across cold starts. Phase B persists both via **Vercel KV** (Upstash Redis REST).
 
@@ -90,8 +90,22 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 **Local dev:** in-memory fallback when KV env unset (same as flight).
 
+## Approval queue (Track 3, planned) {#approval-queue-track-3-planned}
+
+**Status:** not implemented — spec in [cursor-guide.md → Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope). Requires Track 1 KV client.
+
+| Key pattern | Value | Purpose |
+|-------------|-------|---------|
+| `{prefix}gateway:pending:{id}` | JSON `PendingRequest` | One scope-elevation request (`status`: pending / approved / denied) |
+| `{prefix}gateway:pending:index` | Redis list of ids | Append-only index; filter by `status` in app code |
+
+**Audit:** extend `decision` with `"pending"` when `MCP_APPROVAL_QUEUE=true` and scope mismatch → `202` + `pending_id` (hard-deny unchanged when flag off).
+
+**Prerequisite (UI):** Gemini runner uses native `tools` parameter before agent retry on approval — see [cursor-guide LLM note](cursor-guide.md#llm-note-for-the-agent).
+
 ## Related
 
 - [vercel-deploy.md → KV](vercel-deploy.md#vercel-kv-phase-b)
 - [NEXT-STEPS → Agent registry + Auth0 sync](NEXT-STEPS.md#agent-registry-auth0-sync-sketch)
+- [cursor-guide.md → three tracks](cursor-guide.md)
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)

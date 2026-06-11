@@ -1,6 +1,6 @@
 # Next steps (post–0.3.0)
 
-**Navigation:** [Deploy overview](deploy-overview.md) · [Roadmap](ROADMAP.md) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [Render deploy](render-deploy.md) · [Guard proxy](guard-proxy.md) · [Demo script](demo-proxy.md) · [CONCEPT](CONCEPT.md)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Roadmap](ROADMAP.md) · [**Cursor guide**](cursor-guide.md) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [Render deploy](render-deploy.md) · [Guard proxy](guard-proxy.md) · [Demo script](demo-proxy.md) · [CONCEPT](CONCEPT.md)
 
 Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, Vercel KV for server audit + bookings. Tag: [RELEASE.md](RELEASE.md).
 
@@ -51,7 +51,19 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
-**Build filter:** Before adding a task, ask whether it improves **enforcement + audit credibility** or only **demo UX**. Credibility wins (KV, registry, external MCP, admin auth). UX-only items stay deferred (#9/#10, proxy audit UI, extra LLMs unless needed for reliable tool JSON). Full rule: [ROADMAP → Build filter](ROADMAP.md#build-filter).
+**Build filter:** Before adding a task, ask whether it improves **enforcement + audit credibility** or only **demo UX**. Credibility wins (KV, registry, external MCP, approval queue). UX-only items stay deferred (#9/#10, proxy audit UI, extra LLMs unless needed for reliable tool JSON). Full rule: [ROADMAP → Build filter](ROADMAP.md#build-filter).
+
+### Implementation guide — three tracks (canonical order) {#cursor-guide-three-tracks}
+
+**For Cursor / contributors:** [cursor-guide.md](cursor-guide.md) — complete **Track 1 → 2 → 3** before starting the next. Key designs already live in [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) and [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp); the guide references them instead of duplicating.
+
+| Track | Focus | Why this order |
+|-------|--------|----------------|
+| **1 — KV-persist registry + agents** | `gateway/kv.ts`, `GET /agents`, startup load, `kv_enabled` on `/health` | Without KV, `POST /servers` (and GitHub) is lost on every Render redeploy |
+| **2 — Wire GitHub MCP** | `upstream_token` on `ServerConfig`, policy in yaml, curl deny demo | First vendor MCP you don't control — credibility jump beyond flight |
+| **3 — Approval queue** | `pending-store.ts`, `MCP_APPROVAL_QUEUE`, `/pending/*`, admin UI | On-demand ephemeral scope + human-in-the-loop; **prerequisite:** Gemini native function-calling (not `parseToolCallFromText`) for reliable agent retry on `202` |
+
+**Demo surfaces:** [Flight demo `/`](../ui/index.html) — **Server enforcement** audit panel (canonical enforce story). [`/agents.html`](../ui/agents.html) — operator provisioning GUI; approval panel lands in Track 3.
 
 ### Production hardening priorities (review)
 
@@ -61,26 +73,10 @@ Highest leverage before more prod exposure or external MCP demos:
 |----------|------|--------|-------|
 | ✅ | **Admin auth** (`gateway:admin` on control plane) | **Done** | `POST/DELETE /servers`, `/agents`, `POST /token` — gated when IdP trust + guard on |
 | ✅ | **Gate `POST /token`** | **Done** | Same `gateway:admin` Bearer as other control-plane routes |
-| 🟡 | **Upstash KV** (registry + proxy audit) | ~2–3 hrs | In-memory state lost on Render redeploy; blocks demo credibility |
+| 🟡 | **Track 1 — KV registry + agents** | ~2–3 hrs | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
+| 🟡 | **Track 2 — GitHub MCP** | ~2 hrs | [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream) · upstream credential forwarding |
+| 🟡 | **Track 3 — Approval queue** | ~3–4 hrs | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) · planned KV keys in [kv-design](kv-design.md#approval-queue-track-3-planned) |
 | 🟡 | **Upstream error handling** | ~1 hr | Structured `upstream_unavailable` on connect/discovery failures — partial in proxy |
-| 🟢 | **Max body on flight middleware** | 15 min | **Done** — 1 MiB cap in `guard_middleware.py` |
-| 🟢 | **External MCP** (GitHub read-only) | ~2 hrs | Needs PAT/credential forwarding in proxy; policy alignment in `config.prod.yaml` |
-| 🟢 | **Gemini on `/agents`** | config | Code exists; set `VITE_GEMINI_API_KEY` local + Vercel for reliable tool JSON |
-
-**Control-plane auth** (`gateway:admin` + gated `POST /token`) is implemented on this branch — merge before exposing more public registry surface in prod.
-
-### Recommended build order
-
-| Step | # | Why |
-|------|---|-----|
-| **1** | **Agent gateway stage 1** | **Done** — generic proxy + UI for external MCPs and scoped M2M agents |
-| **1b** | **Agent gateway admin auth** | **Done** on this branch — human `gateway:admin` vs M2M runtime tokens ([sketch](#agent-gateway-admin-auth-sketch)) |
-| **1b′** | **Gate `POST /token`** | **Done** — same `gateway:admin` Bearer as other control-plane routes |
-| **1c** | **Agent registry + Auth0 sync** | KV agent list, unique Auth0 names, reuse/templates — [sketch](#agent-registry-auth0-sync-sketch) |
-| **1d** | **Upstash KV persistence** | Registry + proxy audit survive redeploy — [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) |
-| **2** | **External MCP** | Wire real vendor URL + credentials; smoke `POST /{serverId}/mcp` |
-| Optional | **Proxy audit UI** | Path banner + terminal view (stashed locally) |
-| **Deferred** | **#9 + #10** | Multi-server UI + second owned mock MCP — optional |
 
 Agent-vs-chat UI and external SDK agents are optional polish; they do not change the authoritative enforcement story.
 
@@ -91,9 +87,10 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
 | — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
 | — | **Agent gateway admin auth** | **Done** | `gateway/admin-auth.ts`, `gateway/proxy-server.ts`, `ui/agents-main.ts` — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD + `/token`; M2M agents unchanged on `tools/call` |
-| — | **Agent gateway KV persistence** | **Next** | Registry + audit durability — [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs survive proxy restart; proxy audit survives redeploy |
-| — | **Agent registry + Auth0 sync** | **Open** | `gateway/auth0-mgmt.ts`, KV store, `GET /agents`, `ui/agents-main.ts` — [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse; UI loads agents from server |
-| — | **Wire external MCP** | **Next** | `gateway/config.prod.yaml`, smoke curl | Real upstream behind `POST /{serverId}/mcp`; scope enforced |
+| — | **Agent gateway KV persistence (Track 1)** | **Next** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |
+| — | **Wire GitHub MCP (Track 2)** | **Next** | [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream) | Real upstream behind `POST /github/mcp`; scope enforced; PAT not exposed |
+| — | **Approval queue (Track 3)** | **Planned** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) | `202` + admin approve/deny; audit `pending` → `allow`; Gemini function-calling prerequisite |
+| — | **Agent registry + Auth0 sync** | **Open** (part of Track 1) | [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse |
 | 7 | Max request body size | **Done** | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse (1 MiB) |
 | — | Gate `POST /token` | **Done** | `gateway/proxy-server.ts`, `ui/proxy-api.ts` | `gateway:admin` Bearer required when `control_plane_auth` |
 | — | Upstream structured errors | **Partial** | `gateway/mcp-upstream.ts`, `gateway/proxy-server.ts` | Connect/discovery → `upstream_unavailable`; upstream HTTP errors still pass through on `tools/call` |

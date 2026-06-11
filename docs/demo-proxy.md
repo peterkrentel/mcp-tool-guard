@@ -1,6 +1,6 @@
 # Live demo — guard proxy in prod
 
-**Navigation:** [Deploy overview](deploy-overview.md) · [Render deploy](render-deploy.md) · [README Live demo](../README.md#live-demo)
+**Navigation:** [Deploy overview](deploy-overview.md) · [Render deploy](render-deploy.md) · [Cursor guide](cursor-guide.md) · [README Live demo](../README.md#live-demo)
 
 Five-minute script to prove **authoritative enforcement** on the Render guard proxy — for reviewers, stakeholders, or your own code walkthrough.
 
@@ -103,6 +103,14 @@ curl -s -X POST "$PROXY/mcp" \
 
 ---
 
+## Demo 6 — GitHub MCP deny (Track 2, planned)
+
+After [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream): same curl deny pattern against `POST $PROXY/github/mcp` — read-scoped JWT **allow** on `get_file_contents`, **deny** at proxy on `create_or_update_file` before GitHub is contacted. Upstream uses `GITHUB_MCP_TOKEN` (never returned to client). This becomes the canonical **unowned MCP** proof alongside flight.
+
+**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) for operator provisioning only until Track 3 approval UI lands.
+
+---
+
 ## Demo 5 — Audit API (30 s)
 
 ```bash
@@ -125,6 +133,8 @@ Read in this order to understand the flow:
 | 5 | `ui/src/agent.ts` | Client pre-check before MCP |
 | 6 | `ui/src/mcp-client.ts` | Headers (`Accept`, Bearer, trace) |
 | 7 | `ui/src/audit-view.ts` | Three panels, session filter |
+
+**Implement next:** [cursor-guide.md](cursor-guide.md) (KV → GitHub → approval queue).
 
 **One request to trace:** chat → `agent.ts` authorize → `mcp-client.ts` POST → proxy `handleMcp` → `guard.authorize` → forward to flight.
 
