@@ -73,7 +73,7 @@ Highest leverage before more prod exposure or external MCP demos:
 |----------|------|--------|-------|
 | ✅ | **Admin auth** (`gateway:admin` on control plane) | **Done** | `POST/DELETE /servers`, `/agents`, `POST /token` — gated when IdP trust + guard on |
 | ✅ | **Gate `POST /token`** | **Done** | Same `gateway:admin` Bearer as other control-plane routes |
-| 🟡 | **Track 1 — KV registry + agents** | ~2–3 hrs | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
+| ✅ | **Track 1 — KV registry + agents** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 | 🟡 | **Track 2 — GitHub MCP** | ~2 hrs | [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream) · upstream credential forwarding |
 | 🟡 | **Track 3 — Approval queue** | ~3–4 hrs | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) · planned KV keys in [kv-design](kv-design.md#approval-queue-track-3-planned) |
 | 🟡 | **Upstream error handling** | ~1 hr | Structured `upstream_unavailable` on connect/discovery failures — partial in proxy |
@@ -87,7 +87,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
 | — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
 | — | **Agent gateway admin auth** | **Done** | `gateway/admin-auth.ts`, `gateway/proxy-server.ts`, `ui/agents-main.ts` — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD + `/token`; M2M agents unchanged on `tools/call` |
-| — | **Agent gateway KV persistence (Track 1)** | **Next** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |
+| — | **Agent gateway KV persistence (Track 1)** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |
 | — | **Wire GitHub MCP (Track 2)** | **Next** | [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream) | Real upstream behind `POST /github/mcp`; scope enforced; PAT not exposed |
 | — | **Approval queue (Track 3)** | **Planned** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) | `202` + admin approve/deny; audit `pending` → `allow`; Gemini function-calling prerequisite |
 | — | **Agent registry + Auth0 sync** | **Open** (part of Track 1) | [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse |

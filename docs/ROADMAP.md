@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 1** KV registry → **Track 2** GitHub MCP → **Track 3** approval queue. Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
+**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 2** GitHub MCP → **Track 3** approval queue (Track 1 KV registry **done**). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
 ## Product shape (summary)
 

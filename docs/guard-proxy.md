@@ -41,12 +41,13 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/servers` | List registered MCP servers (yaml seed + UI-added, in-memory) |
-| `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on) |
-| `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`** |
+| `GET` | `/servers` | List registered MCP servers (yaml seed + KV-backed runtime entries) |
+| `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on); persisted to KV when `KV_REST_API_*` set |
+| `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`**; KV delete when configured |
 | `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
-| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*` |
-| `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`** |
+| `GET` | `/agents` | List agents from KV (metadata only; no client secrets) |
+| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*`; KV write when configured |
+| `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`**; KV delete when configured |
 | `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
 
 ### Audit + health
@@ -55,7 +56,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 |--------|------|---------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
 | `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check |
-| `GET` | `/health` | Status, `servers[]`, `control_plane_auth`, `auth0_mgmt_configured` |
+| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `auth0_mgmt_configured` |
 
 ## Environment
 
@@ -76,6 +77,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |
 | `AUTH0_MGMT_CLIENT_SECRET` | Mgmt app secret |
 | `AUTH0_AUDIENCE` | API identifier for client grants (same as `MCP_JWT_AUDIENCE`) |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
+| `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 
 See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
 

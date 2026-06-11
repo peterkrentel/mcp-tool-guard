@@ -60,7 +60,7 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 ## Guard proxy KV (agent gateway) {#guard-proxy-kv-agent-gateway}
 
-**Status:** planned — [NEXT-STEPS → Agent gateway KV](NEXT-STEPS.md#implementation-backlog-post-030). Render proxy is long-running but registry and audit are **in-memory** today (lost on redeploy). Use **Upstash Redis REST** on the proxy (same env vars as flight, or a dedicated store).
+**Status:** implemented (Track 1) — servers + agents on Upstash REST; audit lists still in-memory until a follow-up.
 
 | Key pattern | Value | Purpose |
 |-------------|-------|---------|

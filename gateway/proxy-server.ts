@@ -12,6 +12,7 @@
  *   GET    /servers/:id/tools — discover tools/list from upstream
  *
  * Agents (Auth0 M2M):
+ *   GET    /agents            — list agents from KV (when configured)
  *   POST   /agents            — create M2M client (gateway:admin)
  *   DELETE /agents/:clientId  — revoke M2M client (gateway:admin)
  *   POST   /token             — vend client_credentials JWT (gateway:admin)
@@ -28,8 +29,11 @@ import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 
+import { buildAgentRecord, deleteAgent, listAgents, saveAgent } from "./agent-store.js";
 import { adminAuthRequired, requireGatewayAdmin } from "./admin-auth.js";
 import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
+import { kvEnabled } from "./kv.js";
+import { loadServersFromKv, persistServer, removeServerFromKv } from "./registry-kv.js";
 import {
   corsAllowOrigins,
   guardEnabled,
@@ -308,6 +312,14 @@ async function handleMcp(
 async function main(): Promise<void> {
   const seedConfig = loadYamlConfig();
   const registry = new ServerRegistry(seedConfig);
+  const seedIds = new Set(registry.serverIds());
+  const kvLoaded = await loadServersFromKv(registry, seedIds);
+  if (kvLoaded > 0) {
+    console.info(`[MCPToolGuard proxy] loaded ${kvLoaded} server(s) from KV`);
+  } else if (kvEnabled()) {
+    console.info("[MCPToolGuard proxy] KV enabled — no extra servers in registry");
+  }
+
   const jwtTrust = jwtTrustFromEnv();
   const guard = new ToolGuard({
     config: registry.toGuardConfig(),
@@ -315,6 +327,7 @@ async function main(): Promise<void> {
     ...jwtTrust,
   });
   await guard.init();
+  syncGuardConfig(guard, registry);
 
   const tokenVendor = tokenVendorFromEnv();
   const apiAudience = auth0AudienceFromEnv();
@@ -359,6 +372,7 @@ async function main(): Promise<void> {
           jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
           control_plane_auth: controlPlaneAuth,
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
+          kv_enabled: kvEnabled(),
           default_server: defaultServer,
           servers: registry.serverIds(),
         });
@@ -397,6 +411,7 @@ async function main(): Promise<void> {
           sendJson(res, 400, { error: result.error });
           return;
         }
+        await persistServer(result.id, { url: body.url.trim(), scopes: body.scopes ?? {} });
         syncGuardConfig(guard, registry);
         sendJson(res, 201, result);
         return;
@@ -411,11 +426,13 @@ async function main(): Promise<void> {
         ) {
           return;
         }
-        const removed = registry.remove(deleteServerMatch[1]);
+        const removedId = deleteServerMatch[1];
+        const removed = registry.remove(removedId);
         if (!removed) {
           sendJson(res, 404, { error: "Server not found" });
           return;
         }
+        await removeServerFromKv(removedId);
         syncGuardConfig(guard, registry);
         sendJson(res, 200, { ok: true });
         return;
@@ -446,6 +463,13 @@ async function main(): Promise<void> {
         return;
       }
 
+      /** GET /agents — list persisted agents. Auth: no. */
+      if (req.method === "GET" && pathname === "/agents") {
+        const agents = await listAgents();
+        sendJson(res, 200, { agents });
+        return;
+      }
+
       /** POST /agents — create Auth0 M2M client. Auth: gateway:admin when enabled. */
       if (req.method === "POST" && pathname === "/agents") {
         if (
@@ -454,10 +478,18 @@ async function main(): Promise<void> {
         ) {
           return;
         }
-        const body = await readJson<{ name: string; scopes: string[] }>(req);
+        const body = await readJson<{ name: string; scopes: string[]; serverId?: string }>(req);
         try {
           const created = await createM2mAgent(body.name, body.scopes ?? []);
-          sendJson(res, 201, created);
+          const record = buildAgentRecord({
+            name: created.name,
+            serverId: body.serverId?.trim() || "flight",
+            scopes: body.scopes ?? [],
+            auth0ClientId: created.clientId,
+            auth0AppName: `mcp-agent-${created.name}`,
+          });
+          await saveAgent(record);
+          sendJson(res, 201, { ...created, serverId: record.serverId });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           sendJson(res, 503, { error: message });
@@ -475,8 +507,10 @@ async function main(): Promise<void> {
           return;
         }
         try {
-          await deleteM2mAgent(deleteAgentMatch[1]);
-          tokenVendor?.invalidate(deleteAgentMatch[1]);
+          const clientId = deleteAgentMatch[1];
+          await deleteM2mAgent(clientId);
+          await deleteAgent(clientId);
+          tokenVendor?.invalidate(clientId);
           sendJson(res, 200, { ok: true });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -533,7 +567,7 @@ async function main(): Promise<void> {
 
   server.listen(port, () => {
     console.info(
-      `[MCPToolGuard proxy] listening on :${port} — agent gateway + guard proxy (in-memory)`,
+      `[MCPToolGuard proxy] listening on :${port} — agent gateway + guard proxy${kvEnabled() ? " (KV)" : " (in-memory)"}`,
     );
   });
 }
