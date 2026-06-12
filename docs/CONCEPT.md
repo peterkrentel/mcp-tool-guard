@@ -176,7 +176,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 | Policy | One canonical yaml; flight `guard_config.yaml` is temporary demo scaffolding |
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
 | Data | Mock in-memory flights/bookings |
-| Multi-server | UI wires **flight** only; yaml stubs for slack/github are future |
+| Multi-server | `/` flight chat only; `/agents.html` routes per selected agent (`/github/mcp`, …) |
 | Demo tokens | Guest JWTs in repo + Auth0 login — [identity.md](identity.md#guest-demo-existing-jwts--auth0) |
 
 ## Remote deployment
@@ -211,7 +211,7 @@ Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub).
 
 **Client-only** multi-server ([ROADMAP #9](ROADMAP.md#release-030--hardening--multi-server)) = intent audit, not tamper-proof. **KV** on flight does not audit vendor MCP — see [identity.md](identity.md).
 
-**Implementation order:** [cursor-guide.md](cursor-guide.md) — persist proxy registry on KV (Track 1), wire **GitHub MCP** as first external upstream with per-server `upstream_token` (Track 2), then **approval queue** for on-demand scope when hard-deny is too coarse (Track 3). KV key sketches: [kv-design.md](kv-design.md).
+**Implementation order:** [cursor-guide.md](cursor-guide.md) — **Track 1** KV registry (**done**), **Track 2** GitHub MCP + `upstream_token` (**done** — [track2-github-proof.md](track2-github-proof.md)), **Track 3** approval queue for on-demand scope. KV key sketches: [kv-design.md](kv-design.md).
 
 ```
 Unowned MCP (production):  Browser → YOUR guard proxy → vendor MCP

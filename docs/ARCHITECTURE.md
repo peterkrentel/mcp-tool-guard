@@ -136,7 +136,7 @@ flowchart LR
 
 | File | Role |
 |------|------|
-| [`gateway/config.yaml`](../gateway/config.yaml) | **Canonical** — per-server `url` + per-tool `required_scope` (flight, slack/github stubs) |
+| [`gateway/config.yaml`](../gateway/config.yaml) | **Canonical** — per-server `url` + per-tool `required_scope` (flight, github live; slack stub) |
 | [`ui/src/guard-config.ts`](../ui/src/guard-config.ts) | Loads canonical yaml; `TOOL_DESCRIPTIONS` for LLM hints only |
 | [`servers/flight/guard_config.yaml`](../servers/flight/guard_config.yaml) | **Demo only** — embedded guard on flight; CI `npm run check:demo-policy` keeps flight slice aligned |
 | [`gateway/proxy-server.ts`](../gateway/proxy-server.ts) | **Product path** — enforce + forward + proxy `/audit`; local `make dev`, prod on [Render](render-deploy.md) |
@@ -200,14 +200,14 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 
 | | Local `make dev` | Prod (Render + Vercel) | Next |
 |--|------------------|------------------------|------|
-| MCP path | UI → proxy → flight | UI → Render proxy → flight | Proxy → external vendor MCP |
+| MCP path | UI → proxy → flight or `/{id}/mcp` | UI/curl → Render proxy → flight or **GitHub MCP** | More vendor MCPs; approval queue (Track 3) |
 | Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
 | `/audit` source | `guard-proxy` | `guard-proxy` on Render | Durable proxy audit (KV) optional |
-| Agent | Browser WebLLM | Same | SDK agents + proxy |
-| Multi-server | Stubs in yaml; UI = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
-| Vendor MCP | yaml stubs only | Not wired yet | Wire real URL in `config.prod.yaml` |
+| Agent | Browser WebLLM / gateway agent | Same + M2M agents | SDK agents + approval queue |
+| Multi-server | `/agents.html` per-server routing; `/` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
+| Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md) | `slack` stub; Track 3 approval |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Build order:** **Wire external MCP** — proxy [#12](ROADMAP.md) deployed on Render. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030) and [demo-proxy.md](demo-proxy.md).
+**Build order:** **Track 3 approval queue** — Tracks 1–2 done. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030), [demo-proxy.md](demo-proxy.md), [track2-github-proof.md](track2-github-proof.md).
 
 Design tradeoffs and limitations: [CONCEPT.md](CONCEPT.md).

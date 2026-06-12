@@ -10,7 +10,7 @@ Prior: [CHANGELOG 0.3.0](CHANGELOG.md#030---2026-06-02) — Auth0 + guest dual t
 
 See **[NEXT-STEPS → Implementation backlog](docs/NEXT-STEPS.md#implementation-backlog-post-030)**.
 
-**Next:** **Wire one external MCP** in `gateway/config.prod.yaml` — proxy is deployed; smoke `POST /{serverId}/mcp` with scoped JWT. Review flow: [demo-proxy.md](docs/demo-proxy.md).
+**Next:** **Track 3 approval queue** — [cursor-guide Track 3](docs/cursor-guide.md#track-3--approval-queue-on-demand-scope). **Done:** GitHub MCP — [track2-github-proof.md](docs/track2-github-proof.md).
 
 **Deferred:** **#9/#10** multi-server + second mock MCP (branch `feature/documents-multi-server` closed without merge).
 

@@ -10,12 +10,12 @@
 
 | | Link |
 |---|------|
-| **Flight demo** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
-| **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — register MCPs, scoped M2M agents, three-layer audit |
-| **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) |
+| **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — register MCPs, scoped M2M agents, GitHub upstream proof |
+| **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) — `flight` + **`github`** live |
+| **Flight demo** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) — WebLLM chat (demo UX; enforcement story is proxy + curl) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
-Prod path: **UI → Render guard proxy → Vercel flight**. Network tab shows `onrender.com` for `/mcp` and `/audit`. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
+Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Vercel flight (`POST /{serverId}/mcp`). Flight chat UI uses `/mcp` only. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md) · GitHub proof: [docs/track2-github-proof.md](docs/track2-github-proof.md).
 
 ![MCPToolGuard on Vercel — Auth0 sign-in, chat, server audit ALLOW](docs/images/demo/prod-ui-audit-success.png)
 
@@ -145,7 +145,7 @@ uv export --directory servers/flight --no-hashes -o servers/flight/requirements.
 
 Feature branch + PR; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Track 1 KV registry → Track 2 GitHub MCP → Track 3 approval queue. Backlog summary: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
+**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Tracks 1–2 **done** ([track2-github-proof](docs/track2-github-proof.md)); **Track 3** approval queue next. Backlog: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
 
 ## License
 

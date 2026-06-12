@@ -74,8 +74,8 @@ The proxy is a persistent Node service ([`gateway/proxy-server.ts`](../gateway/p
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
 | `make dev` (one terminal) | Yes | N/A (local only) |
 | Proxy-focused audit UI | Optional branch / stash | N/A until UI PR merged |
-| Agent gateway KV persistence | Planned | **Next** — UI-added MCPs lost on proxy restart today |
-| External vendor MCP | yaml stubs (`slack`, `github`) | **Next** — wire real URL in `config.prod.yaml` |
+| Agent gateway KV persistence | Yes — when `KV_REST_API_*` set on Render | **Yes** — registry + agents persist |
+| External vendor MCP (GitHub) | Yes — `upstream_token_env` + policy | **Yes** — [track2-github-proof.md](track2-github-proof.md); `slack` remains yaml stub |
 
 ---
 

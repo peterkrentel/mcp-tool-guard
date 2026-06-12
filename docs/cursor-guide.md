@@ -2,7 +2,7 @@
 
 **Navigation:** [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [KV design](kv-design.md) · [Demo script](demo-proxy.md) · [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp) · [Render deploy](render-deploy.md)
 
-Three sequential tracks. Complete each before starting the next — they build on each other.
+Three sequential tracks. **Tracks 1–2 are done** on `main` ([Track 2 proof](track2-github-proof.md)); start **Track 3** next.
 
 **Principle from the [build filter](ROADMAP.md#build-filter):** every change must strengthen enforcement + audit credibility, not demo UX.
 
@@ -16,7 +16,9 @@ Three sequential tracks. Complete each before starting the next — they build o
 
 ## Track 1 — KV-persist the server registry
 
-**Why first:** The proxy's `ServerRegistry` is in-memory. Any MCP server added via `POST /servers` (including GitHub) is lost on Render restart or redeploy. Fix this before wiring external MCPs or you'll be re-configuring on every test.
+**Status: done** — registry + agents persist when `KV_REST_API_*` is set on Render.
+
+**Why first (historical):** The proxy's `ServerRegistry` was in-memory. Any MCP server added via `POST /servers` (including GitHub) was lost on Render restart or redeploy. Track 1 fixed this before wiring external MCPs.
 
 **What already exists:**
 - `gateway/server-registry.ts` — clean in-memory class with `add`, `remove`, `list`, `getServer`
@@ -69,6 +71,8 @@ Add `kv_enabled: kvEnabled()` to the `/health` response so it's visible in smoke
 ---
 
 ## Track 2 — Wire GitHub MCP as the first external upstream
+
+**Status: done** — prod proof: [track2-github-proof.md](track2-github-proof.md) · [demo-proxy Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream).
 
 **Why:** The proxy is live on Render but enforcing only your own flight server. Wiring a vendor MCP you don't control is the credibility jump — it proves the guard proxy pattern works against real external tools.
 

@@ -73,9 +73,11 @@ Confirm under **Settings → Tenant Settings → General** (Tenant Name + Region
 | `flights:read` | Flight demo | read_only |
 | `flights:write` | Flight demo | booking |
 | `flights:delete` | Flight demo | admin cancel |
+| `repo:read` | GitHub MCP | read repos / search / `get_file_contents` |
+| `repo:write` | GitHub MCP | create/update issues, PRs, files (policy tools) |
 | `gateway:admin` | Agent gateway control plane | Operator users on `/agents.html` only — **not** M2M agents |
 
-Optional when policy adds more servers (proxy or multi-server): `docs:read`, `docs:write`, `docs:delete`, `slack:read`, … — same permission model per tool in `gateway/config.yaml`.
+Optional when policy adds more servers (proxy or multi-server): `docs:read`, `docs:write`, `docs:delete`, `slack:read`, … — same permission model per tool in `gateway/config.yaml`. GitHub tools map to `repo:read` or `repo:write` in [`gateway/config.yaml`](../gateway/config.yaml).
 
 **Agent gateway:** Assign `gateway:admin` to **human operators** (SPA users) via a role such as `platform-admin`. M2M agents created on `/agents.html` must receive only **tool scopes** (`flights:read`, …), never `gateway:admin`.
 

@@ -6,7 +6,7 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
 
-**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 2** GitHub MCP → **Track 3** approval queue (Track 1 KV registry **done**). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
+**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 3** approval queue (Tracks 1–2 **done** — [track2-github-proof.md](track2-github-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
 ## Product shape (summary)
 
@@ -100,7 +100,7 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 
 - Toy **`MCP_AUDIT_SECRET`** — use IdP token for `/audit` instead ([identity.md](identity.md))
 - Shorter demo token expiry — IdP replaces static JWTs
-- Real Slack/GitHub MCP without proxy
+- Real Slack MCP without proxy (GitHub via guard proxy is **done** — [track2-github-proof](track2-github-proof.md))
 
 ---
 

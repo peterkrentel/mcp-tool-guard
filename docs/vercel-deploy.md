@@ -245,6 +245,6 @@ Optional flight env:
 - [deploy-overview.md](deploy-overview.md) — **start here** if local proxy vs Vercel prod is confusing
 - [guard-proxy.md](guard-proxy.md) — proxy routes, env, local `make dev`
 - [README → Deploy](../README.md#deploy)
-- [NEXT-STEPS](NEXT-STEPS.md) — backlog (agent gateway KV + external MCP next)
+- [NEXT-STEPS](NEXT-STEPS.md) — backlog (Track 3 approval queue next; Track 2 proof: [track2-github-proof.md](track2-github-proof.md))
 - [CONCEPT → Remote deployment](CONCEPT.md#remote-deployment)
 - Local deps: `uv export --directory servers/flight --no-hashes -o servers/flight/requirements.txt`
