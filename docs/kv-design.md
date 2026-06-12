@@ -84,7 +84,7 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 }
 ```
 
-`clientSecret` — encrypt at rest if stored; prefer vend-on-create and template reuse to limit secret retention.
+`clientSecretEnc` — AES-GCM at rest when `GATEWAY_AGENT_SECRET_KEY` or `AUTH0_MGMT_CLIENT_SECRET` is set; `POST /agents/:clientId/token` vends JWT for **Use** after refresh (never returned from `GET /agents`).
 
 **Startup:** load `gateway:servers:*` into `ServerRegistry` → `syncGuardConfig(guard)`. Load agents for `GET /agents`.
 

@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Gateway KV scan** — fix Upstash REST SCAN URL and string cursor `"0"` termination (was hanging Render startup when `KV_REST_API_*` set)
+- **Agent re-vend** — encrypt M2M `clientSecret` at create (AES-GCM, key from `GATEWAY_AGENT_SECRET_KEY` or `AUTH0_MGMT_CLIENT_SECRET`); `POST /agents/:clientId/token` vends JWT so persisted agents are usable after refresh/new browser
 - **Cursor implementation guide** — [cursor-guide.md](docs/cursor-guide.md): three sequential tracks (KV registry → GitHub MCP → approval queue); cross-links [kv-design](docs/kv-design.md) and [CONCEPT → unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp); approval queue KV keys sketched in kv-design
 - Docs: align [NEXT-STEPS](docs/NEXT-STEPS.md), [ROADMAP](docs/ROADMAP.md), [demo-proxy](docs/demo-proxy.md) with three-track build order; flight `/` as canonical audit demo surface
 - **Agent gateway admin auth** — `gateway:admin` on control plane (`POST/DELETE /servers`, `/agents`, `POST /token`) when guard + IdP trust enabled; `/agents.html` operator sign-in; `GET /health` reports `control_plane_auth`
