@@ -153,7 +153,7 @@ Add to Render environment variables. Redeploy proxy. Repeat smoke test against `
 - Read-scoped JWT: `create_or_update_file` denied at proxy before reaching GitHub, audit shows `deny`
 - No GitHub PAT exposed in any response or log
 
-**Prod proof:** [track2-github-proof.md](../track2-github-proof.md) (curl allow + Render logs; optional proxy deny with `repo:read`-only agent).
+**Prod proof:** [track2-github-proof.md](../track2-github-proof.md) (curl allow + **proxy write deny** + Render logs).
 
 ---
 
