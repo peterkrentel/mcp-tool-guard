@@ -39,6 +39,10 @@ Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Verce
 
 *M2M agent JWT (`repo:read`) → Render proxy → GitHub Copilot MCP (`GITHUB_MCP_TOKEN`) → README.md in SSE `result`.*
 
+![GitHub MCP curl deny — create_or_update_file blocked at proxy](docs/images/demo/track2-github-curl-write-deny.png)
+
+*Read-only agent (`repo:read` only) → proxy `-32001` **before** GitHub — airtight scope enforce on vendor MCP.*
+
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
 
 **Demo JWTs:** `ui/public/demo-tokens.json` and `demo-public.pem` are **intentionally public** — pre-signed guest tokens for the flight demo only, not production secrets. Production uses Auth0 JWKS or your own PEM via env vars.
@@ -53,7 +57,7 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/guard-proxy.md](docs/guard-proxy.md) | **Guard proxy** — routes, env, `make dev`, prod checklist link |
 | [docs/render-deploy.md](docs/render-deploy.md) | **Render** — deploy guard proxy to prod, smoke tests, UI rewire |
 | [docs/demo-proxy.md](docs/demo-proxy.md) | **Live demo script** — Network tab, read-only deny, Render logs, curl proxy deny, GitHub MCP |
-| [docs/track2-github-proof.md](docs/track2-github-proof.md) | **Track 2 prod proof** — GitHub MCP curl allow, Render logs, screenshots |
+| [docs/track2-github-proof.md](docs/track2-github-proof.md) | **Track 2 prod proof** — GitHub MCP curl allow + **proxy write deny**, Render logs, screenshots |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |

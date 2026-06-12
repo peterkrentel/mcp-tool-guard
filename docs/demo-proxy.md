@@ -146,15 +146,21 @@ curl -s -X POST "$PROXY/github/mcp" \
 
 **Deny — write tool without repo:write (proxy blocks before GitHub)**
 
+Use a **`repo:read`-only** agent token (e.g. `github-test01-read` on `/agents.html`).
+
 ```bash
 curl -s -X POST "$PROXY/github/mcp" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{}}}' | jq .
 ```
 
-**Expected:** JSON-RPC error `code: -32001` (scope denied). Render log: `[MCPToolGuard] deny create_or_update_file`.
+**Expected:** JSON-RPC error `code: -32001`, message `Missing required scope 'repo:write'`. Render log: `[MCPToolGuard] deny create_or_update_file source=proxy`.
+
+**Format note:** Proxy deny is **plain JSON** — use `jq .` directly. Allow responses from GitHub are SSE — use `grep '^data: '` (see [track2-github-proof.md](track2-github-proof.md)).
+
+![curl write deny — -32001 at proxy](images/demo/track2-github-curl-write-deny.png)
 
 **Audit**
 
