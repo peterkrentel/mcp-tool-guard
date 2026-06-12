@@ -33,6 +33,12 @@ Prod path: **UI → Render guard proxy → Vercel flight**. Network tab shows `o
 
 *Search → **Server** ALLOW; `book` → **Agent attempts** DENY (`flights:write`), blocked before MCP — no matching server row.*
 
+**Track 2 — GitHub MCP (external upstream, prod proof):** [docs/track2-github-proof.md](docs/track2-github-proof.md) · [demo-proxy Demo 6](docs/demo-proxy.md#demo-6--github-mcp-external-upstream)
+
+![GitHub MCP curl allow — get_file_contents via /github/mcp](docs/images/demo/track2-github-curl-read-allow.png)
+
+*M2M agent JWT (`repo:read`) → Render proxy → GitHub Copilot MCP (`GITHUB_MCP_TOKEN`) → README.md in SSE `result`.*
+
 Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
 
 **Demo JWTs:** `ui/public/demo-tokens.json` and `demo-public.pem` are **intentionally public** — pre-signed guest tokens for the flight demo only, not production secrets. Production uses Auth0 JWKS or your own PEM via env vars.
@@ -46,7 +52,8 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/vercel-deploy.md](docs/vercel-deploy.md) | **Vercel** — flight + UI step-by-step, env vars, troubleshooting |
 | [docs/guard-proxy.md](docs/guard-proxy.md) | **Guard proxy** — routes, env, `make dev`, prod checklist link |
 | [docs/render-deploy.md](docs/render-deploy.md) | **Render** — deploy guard proxy to prod, smoke tests, UI rewire |
-| [docs/demo-proxy.md](docs/demo-proxy.md) | **Live demo script** — Network tab, read-only deny, Render logs, curl deny |
+| [docs/demo-proxy.md](docs/demo-proxy.md) | **Live demo script** — Network tab, read-only deny, Render logs, curl proxy deny, GitHub MCP |
+| [docs/track2-github-proof.md](docs/track2-github-proof.md) | **Track 2 prod proof** — GitHub MCP curl allow, Render logs, screenshots |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
