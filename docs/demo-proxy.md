@@ -8,7 +8,9 @@ Five-minute script to prove **authoritative enforcement** on the Render guard pr
 
 | Minimum viable demo | Optional |
 |-------------------|----------|
-| Demo 1 (proxy in path) + Demo 4 (curl deny) + Demo 5 (`/audit`) | UI chat, agent trace panel, WebLLM |
+| **Demo 6** (GitHub curl allow) + Render logs · or flight **Demo 4** (curl deny) + **Demo 5** (`/audit`) | UI chat, agent trace panel, WebLLM |
+
+**Track 2 prod proof (screenshots + checklist):** [track2-github-proof.md](track2-github-proof.md).
 
 Do not extend the demo with more mock MCPs or UI features unless they show a **new** enforcement or audit story. See [ROADMAP → Build filter](ROADMAP.md#build-filter).
 
@@ -17,9 +19,10 @@ Do not extend the demo with more mock MCPs or UI features unless they show a **n
 ## Architecture (prod today)
 
 ```
-Browser (Vercel UI)  →  Render guard proxy  →  Vercel flight MCP
-                              ↑ JWT + scopes on tools/call
-                              ↑ GET /audit (source: guard-proxy)
+Browser / curl  →  Render guard proxy  →  upstream MCP
+                      ↑ JWT scopes        flight (Vercel)  OR  github (GitHub Copilot)
+                      ↑ GET /audit
+                      ↑ GITHUB_MCP_TOKEN (upstream only — github server)
 ```
 
 | Service | URL |
@@ -103,9 +106,15 @@ curl -s -X POST "$PROXY/mcp" \
 
 ---
 
-## Demo 6 — GitHub MCP (external upstream)
+## Demo 6 — GitHub MCP (external upstream) {#demo-6--github-mcp-external-upstream}
 
-Prove scope enforcement on a **vendor MCP you do not control**. The proxy substitutes `GITHUB_MCP_TOKEN` for upstream auth — callers still present their **Auth0 M2M or guest JWT** for scope checks. The PAT never appears in responses or audit rows.
+**Prod proof recorded:** [track2-github-proof.md](track2-github-proof.md) (curl allow + Render logs, June 2026).
+
+Prove scope enforcement on a **vendor MCP you do not control**. The proxy substitutes `GITHUB_MCP_TOKEN` for upstream auth — callers still present their **Auth0 M2M JWT** for scope checks. The PAT never appears in responses or audit rows.
+
+![curl allow — get_file_contents returns README](images/demo/track2-github-curl-read-allow.png)
+
+![Render logs — proxy and mcp allow](images/demo/track2-github-render-logs.png)
 
 **Prerequisites**
 
@@ -132,6 +141,8 @@ curl -s -X POST "$PROXY/github/mcp" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_file_contents","arguments":{"owner":"YOUR_ORG","repo":"YOUR_REPO","path":"README.md"}}}'
 ```
+
+**SSE note:** GitHub MCP responses are `text/event-stream`. Pipe through `grep '^data: '` before `jq` (see [track2-github-proof.md](track2-github-proof.md)).
 
 **Deny — write tool without repo:write (proxy blocks before GitHub)**
 
@@ -180,18 +191,8 @@ Read in this order to understand the flow:
 | 6 | `ui/src/mcp-client.ts` | Headers (`Accept`, Bearer, trace) |
 | 7 | `ui/src/audit-view.ts` | Three panels, session filter |
 
-**Implement next:** [cursor-guide.md](cursor-guide.md) (KV → GitHub → approval queue).
+**Implement next:** [cursor-guide.md](cursor-guide.md) Track 3 (approval queue).
 
-**One request to trace:** chat → `agent.ts` authorize → `mcp-client.ts` POST → proxy `handleMcp` → `guard.authorize` → forward to flight.
+**GitHub request to trace:** curl/agent JWT → `POST /github/mcp` → proxy `authorize(repo:read)` → forward with `GITHUB_MCP_TOKEN` → GitHub MCP → SSE result.
 
----
-
-## Next: external MCP
-
-Wire a real vendor URL in `gateway/config.prod.yaml` under `servers:`, then call:
-
-```
-POST https://mcp-tool-guard-proxy.onrender.com/{serverId}/mcp
-```
-
-UI still targets flight only until [#9 multi-server UI](ROADMAP.md) — external MCP is proxy + curl/SDK first. See [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp).
+**Flight request to trace:** chat → `agent.ts` authorize → `mcp-client.ts` POST `/mcp` → proxy → flight.
