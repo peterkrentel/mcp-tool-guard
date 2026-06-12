@@ -69,6 +69,8 @@ export interface ForwardMcpOptions {
   reqHeaders: Record<string, string | string[] | undefined>;
   body: Buffer;
   res: import("node:http").ServerResponse;
+  /** When set, replaces caller Authorization on the upstream request (vendor PAT). */
+  upstreamBearer?: string;
   audit?: {
     logger: AuditLogger;
     serverId: string;
@@ -80,14 +82,18 @@ export interface ForwardMcpOptions {
 
 /** Forward POST to upstream MCP; stream response and log MCP-layer audit entry. */
 export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> {
-  const { upstreamUrl, reqHeaders, body, res, audit } = options;
+  const { upstreamUrl, reqHeaders, body, res, audit, upstreamBearer } = options;
 
   const forwardHeaders: Record<string, string> = {
     "Content-Type": header(reqHeaders, "content-type") ?? "application/json",
     Accept: header(reqHeaders, "accept") ?? "application/json, text/event-stream",
   };
-  const auth = header(reqHeaders, "authorization");
-  if (auth) forwardHeaders.Authorization = auth;
+  if (upstreamBearer) {
+    forwardHeaders.Authorization = `Bearer ${upstreamBearer}`;
+  } else {
+    const auth = header(reqHeaders, "authorization");
+    if (auth) forwardHeaders.Authorization = auth;
+  }
   const traceId = header(reqHeaders, "x-trace-id");
   if (traceId) forwardHeaders["X-Trace-Id"] = traceId;
   const sessionId = header(reqHeaders, "x-session-id");
@@ -229,7 +235,9 @@ async function mcpJsonRpc(
 export async function discoverMcpTools(
   upstreamUrl: string,
   bearer?: string,
+  upstreamBearer?: string,
 ): Promise<unknown[]> {
+  const auth = upstreamBearer ?? bearer;
   await mcpJsonRpc(
     upstreamUrl,
     "initialize",
@@ -238,9 +246,9 @@ export async function discoverMcpTools(
       capabilities: {},
       clientInfo: { name: "mcp-tool-guard-proxy", version: "0.4.0" },
     },
-    bearer,
+    auth,
   );
-  const result = (await mcpJsonRpc(upstreamUrl, "tools/list", {}, bearer)) as {
+  const result = (await mcpJsonRpc(upstreamUrl, "tools/list", {}, auth)) as {
     tools?: unknown[];
   };
   return result.tools ?? [];

@@ -9,6 +9,10 @@ export interface ToolConfig {
 export interface ServerConfig {
   url: string;
   tools: Record<string, ToolConfig>;
+  /** Env var name for upstream Bearer (e.g. GITHUB_MCP_TOKEN). Set in yaml only. */
+  upstream_token_env?: string;
+  /** Resolved at startup from upstream_token_env — never log or expose in API responses. */
+  upstream_token?: string;
 }
 
 export interface GuardConfig {

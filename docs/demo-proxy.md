@@ -103,11 +103,57 @@ curl -s -X POST "$PROXY/mcp" \
 
 ---
 
-## Demo 6 — GitHub MCP deny (Track 2, planned)
+## Demo 6 — GitHub MCP (external upstream)
 
-After [cursor-guide Track 2](cursor-guide.md#track-2--wire-github-mcp-as-the-first-external-upstream): same curl deny pattern against `POST $PROXY/github/mcp` — read-scoped JWT **allow** on `get_file_contents`, **deny** at proxy on `create_or_update_file` before GitHub is contacted. Upstream uses `GITHUB_MCP_TOKEN` (never returned to client). This becomes the canonical **unowned MCP** proof alongside flight.
+Prove scope enforcement on a **vendor MCP you do not control**. The proxy substitutes `GITHUB_MCP_TOKEN` for upstream auth — callers still present their **Auth0 M2M or guest JWT** for scope checks. The PAT never appears in responses or audit rows.
 
-**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) for operator provisioning only until Track 3 approval UI lands.
+**Prerequisites**
+
+1. Add `repo:read` and `repo:write` permissions to your Auth0 API (`https://mcp-tool-guard`).
+2. Set `GITHUB_MCP_TOKEN` on Render (fine-grained PAT with repo access for the demo repo).
+3. Redeploy proxy. `GET /health` → `"upstream_auth_missing": []` (empty when PAT is set).
+4. Create a read-only M2M agent on [`/agents.html`](../ui/agents.html): MCP server **github**, scopes `repo:read` → **Use** to vend token. (Same as `POST /agents` with `"scopes": ["repo:read"], "serverId": "github"`.)
+
+**Discover real tool names** (optional — policy in yaml may need tuning):
+
+```bash
+curl -s "$PROXY/servers/github/tools" | jq '.tools[].name'
+```
+
+**Allow — read-scoped agent token**
+
+```bash
+PROXY=https://mcp-tool-guard-proxy.onrender.com
+TOKEN="<M2M agent JWT with repo:read>"
+
+curl -s -X POST "$PROXY/github/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_file_contents","arguments":{"owner":"YOUR_ORG","repo":"YOUR_REPO","path":"README.md"}}}'
+```
+
+**Deny — write tool without repo:write (proxy blocks before GitHub)**
+
+```bash
+curl -s -X POST "$PROXY/github/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{}}}'
+```
+
+**Expected:** JSON-RPC error `code: -32001` (scope denied). Render log: `[MCPToolGuard] deny create_or_update_file`.
+
+**Audit**
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
+```
+
+**Talking point:** Same JWT scope model as flight — different upstream credential for the vendor MCP.
+
+**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision github agents until Track 3 approval UI lands.
 
 ---
 

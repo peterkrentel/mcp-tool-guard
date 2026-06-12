@@ -37,6 +37,8 @@ Health: `curl http://localhost:8787/health` — `make stop` frees :8000, :8787, 
 
 Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without scope checks (same as flight embedded guard).
 
+**Upstream credentials:** When a server entry sets `upstream_token_env` (e.g. `GITHUB_MCP_TOKEN` for `github`), the proxy sends that Bearer to the vendor MCP. Caller JWT is still used for scope enforcement only — never forwarded as upstream auth when `upstream_token` is configured.
+
 ### Agent gateway (stage 1)
 
 | Method | Path | Purpose |
@@ -78,6 +80,7 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |
 | `AUTH0_MGMT_CLIENT_SECRET` | Mgmt app secret |
 | `AUTH0_AUDIENCE` | API identifier for client grants (same as `MCP_JWT_AUDIENCE`) |
+| `GITHUB_MCP_TOKEN` | GitHub PAT for `servers.github` upstream auth only — never sent to browsers |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
 | `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 
