@@ -39,6 +39,7 @@ import {
 } from "./agent-store.js";
 import { adminAuthRequired, requireGatewayAdmin } from "./admin-auth.js";
 import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
+import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.js";
 import { kvEnabled } from "./kv.js";
 import { loadServersFromKv, persistServer, removeServerFromKv } from "./registry-kv.js";
 import {
@@ -59,7 +60,7 @@ import {
   auth0AudienceFromEnv,
   tokenVendorFromEnv,
 } from "./token-vendor.js";
-import type { AuditLogEntry, GuardConfig } from "./types.js";
+import type { AuditLogEntry, GuardConfig, ServerConfig } from "./types.js";
 
 function gatewayRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -75,7 +76,23 @@ function loadYamlConfig(): GuardConfig {
     process.env.MCP_PROXY_CONFIG?.trim() ||
     resolve(gatewayDir, "config.yaml");
   const raw = readFileSync(configPath, "utf8");
-  return parseYaml(raw) as GuardConfig;
+  return resolveGuardConfig(parseYaml(raw) as GuardConfig);
+}
+
+function upstreamAuthMissing(serverCfg: ServerConfig): string | null {
+  const envName = serverCfg.upstream_token_env?.trim();
+  if (!envName || serverCfg.upstream_token) return null;
+  return envName;
+}
+
+function buildReqHeadersWithUpstreamAuth(
+  req: IncomingMessage,
+  serverCfg: ServerConfig,
+): Record<string, string | string[] | undefined> {
+  if (!serverCfg.upstream_token) return req.headers;
+  const headers = { ...req.headers };
+  headers.authorization = `Bearer ${serverCfg.upstream_token}`;
+  return headers;
 }
 
 function extractBearer(authHeader: string | undefined): string | null {
@@ -241,6 +258,17 @@ async function handleMcp(
     return;
   }
 
+  const missingUpstream = upstreamAuthMissing(serverCfg);
+  if (missingUpstream) {
+    sendJson(res, 503, {
+      error: `Upstream credential not configured — set ${missingUpstream} on the proxy`,
+    });
+    return;
+  }
+
+  const forwardHeaders = buildReqHeadersWithUpstreamAuth(req, serverCfg);
+  const upstreamBearer = serverCfg.upstream_token;
+
   let body: Buffer;
   try {
     body = await readBody(req);
@@ -256,9 +284,10 @@ async function handleMcp(
   } catch {
     await forwardMcpPost({
       upstreamUrl: serverCfg.url,
-      reqHeaders: req.headers,
+      reqHeaders: forwardHeaders,
       body,
       res,
+      upstreamBearer,
     });
     return;
   }
@@ -296,10 +325,11 @@ async function handleMcp(
   try {
     await forwardMcpPost({
       upstreamUrl: serverCfg.url,
-      reqHeaders: req.headers,
+      reqHeaders: forwardHeaders,
       body,
       res,
       audit: auditMcp,
+      upstreamBearer,
     });
   } catch (err) {
     if (res.headersSent) return;
@@ -378,6 +408,7 @@ async function main(): Promise<void> {
       }
 
       if (req.method === "GET" && pathname === "/health") {
+        const serverConfigs = registry.serverIds().map((id) => registry.getServer(id)!);
         sendJson(res, 200, {
           service: "mcp-tool-guard-proxy",
           guard_enabled: enabled,
@@ -387,6 +418,7 @@ async function main(): Promise<void> {
           kv_enabled: kvEnabled(),
           default_server: defaultServer,
           servers: registry.serverIds(),
+          upstream_auth_missing: missingUpstreamEnvNames(serverConfigs),
         });
         return;
       }
@@ -458,9 +490,20 @@ async function main(): Promise<void> {
           sendJson(res, 404, { error: "Server not found" });
           return;
         }
+        const missingUpstream = upstreamAuthMissing(serverCfg);
+        if (missingUpstream) {
+          sendJson(res, 503, {
+            error: `Upstream credential not configured — set ${missingUpstream} on the proxy`,
+          });
+          return;
+        }
         const bearer = extractBearer(header(req, "authorization")) ?? undefined;
         try {
-          const tools = await discoverMcpTools(serverCfg.url, bearer);
+          const tools = await discoverMcpTools(
+            serverCfg.url,
+            bearer,
+            serverCfg.upstream_token,
+          );
           sendJson(res, 200, { tools });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

@@ -74,8 +74,11 @@ In the Render service → **Environment**, add:
 | `MCP_CORS_ORIGINS` | `https://mcp-tool-guard-ui.vercel.app,http://localhost:5173` |
 | `MCP_PROXY_DEFAULT_SERVER` | `flight` |
 | `MCP_PROXY_CONFIG` | `config.prod.yaml` |
+| `GITHUB_MCP_TOKEN` | Fine-grained GitHub PAT for GitHub Copilot MCP upstream (see [demo-proxy § Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream)) |
 
 **`MCP_PROXY_CONFIG` path:** The start command runs from the `gateway/` workspace package directory. Use `config.prod.yaml` (file lives in `gateway/`). If you see `ENOENT` on start, verify the path relative to the process cwd — do not use `gateway/config.prod.yaml` unless cwd is the repo root.
+
+Verify GitHub upstream: `curl …/health` → `"upstream_auth_missing": []` when `GITHUB_MCP_TOKEN` is set.
 
 ### Agent gateway env (Render + Vercel) {#agent-gateway-env-render--vercel}
 
@@ -106,7 +109,9 @@ Redeploy **both** Render and Vercel after env changes.
 
 [`gateway/config.prod.yaml`](../gateway/config.prod.yaml) mirrors `config.yaml` with `servers.flight.url` pointing at the Vercel flight deployment. Local dev uses `config.yaml` (`localhost:8000`).
 
-**Slack / GitHub entries are policy stubs only.** Their URLs (`https://mcp.slack.com`, `https://mcp.github.com`) are placeholders — not real MCP endpoints. For this demo, use **`POST /mcp`** (default server `flight`) only.
+**Slack** entry is a policy stub only (`https://mcp.slack.com` is not a real MCP endpoint for this demo).
+
+**GitHub** is wired in prod yaml (`https://api.githubcopilot.com/mcp/`) but requires `GITHUB_MCP_TOKEN` on Render — without it, `POST /github/mcp` returns 503 and `/health` lists `"upstream_auth_missing": ["GITHUB_MCP_TOKEN"]`. Flight demo still uses **`POST /mcp`** (default server `flight`).
 
 ---
 

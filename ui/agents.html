@@ -37,7 +37,7 @@
           <label>Display name <input name="mcp-name" required placeholder="my-github" /></label>
           <label>MCP URL <input name="mcp-url" required placeholder="https://…/mcp" /></label>
           <label>Tool scopes (one per line: tool=scope)
-            <textarea name="mcp-tools" rows="4" placeholder="list_repos=github:read"></textarea>
+            <textarea name="mcp-tools" rows="4" placeholder="get_file_contents=repo:read&#10;create_or_update_file=repo:write"></textarea>
           </label>
           <button type="submit">Add MCP</button>
         </form>
@@ -51,7 +51,7 @@
           <label>MCP server
             <select name="agent-mcp" id="agent-mcp"></select>
           </label>
-          <label>Scopes (comma-separated) <input name="agent-scopes" placeholder="flights:read" required /></label>
+          <label>Scopes (comma-separated) <input name="agent-scopes" placeholder="flights:read or repo:read" required /></label>
           <button type="submit">Create agent</button>
         </form>
         <div id="agent-list" class="card-list"></div>

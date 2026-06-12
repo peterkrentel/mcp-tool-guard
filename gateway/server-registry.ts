@@ -30,6 +30,15 @@ function toolsToScopes(tools: Record<string, ToolConfig>): Record<string, string
   return scopes;
 }
 
+function copyServerConfig(cfg: ServerConfig): ServerConfig {
+  return {
+    url: cfg.url,
+    tools: { ...cfg.tools },
+    ...(cfg.upstream_token_env ? { upstream_token_env: cfg.upstream_token_env } : {}),
+    ...(cfg.upstream_token ? { upstream_token: cfg.upstream_token } : {}),
+  };
+}
+
 /** In-memory MCP server registry — seeded from yaml, extended at runtime. */
 export class ServerRegistry {
   private servers = new Map<string, ServerConfig>();
@@ -37,7 +46,7 @@ export class ServerRegistry {
   constructor(seed?: GuardConfig) {
     if (seed?.servers) {
       for (const [id, cfg] of Object.entries(seed.servers)) {
-        this.servers.set(id, { url: cfg.url, tools: { ...cfg.tools } });
+        this.servers.set(id, copyServerConfig(cfg));
       }
     }
   }
@@ -53,7 +62,7 @@ export class ServerRegistry {
   getServer(id: string): ServerConfig | undefined {
     const cfg = this.servers.get(id);
     if (!cfg) return undefined;
-    return { url: cfg.url, tools: { ...cfg.tools } };
+    return copyServerConfig(cfg);
   }
 
   list(): RegisteredServerView[] {

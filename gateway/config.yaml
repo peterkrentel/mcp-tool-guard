@@ -37,12 +37,17 @@ servers:
         required_scope: slack:write
 
   github:
-    url: TBD
+    url: https://api.githubcopilot.com/mcp/
+    upstream_token_env: GITHUB_MCP_TOKEN
     tools:
-      list_repositories:
-        required_scope: github:read
-      read_repo:
-        required_scope: github:read
-      push_code:
-        required_scope: github:write
+      get_file_contents:
+        required_scope: repo:read
+      search_code:
+        required_scope: repo:read
+      create_or_update_file:
+        required_scope: repo:write
+      push_files:
+        required_scope: repo:write
+      create_pull_request:
+        required_scope: repo:write
         alert: true
