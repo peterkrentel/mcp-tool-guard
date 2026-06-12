@@ -4,6 +4,7 @@ import type { LlmProviderId } from "./llm/types.js";
 import { listLlmProviders } from "./llm/providers.js";
 import type { GatewayAgent } from "./gateway-agent.js";
 import {
+  activateAgentToken,
   addServer,
   createAgent,
   discoverTools,
@@ -62,7 +63,6 @@ const inputEl = document.getElementById("agents-message") as HTMLInputElement;
 const AGENT_SESSION_KEY = "mcp-tool-guard-agent-session";
 
 interface AgentSessionSecrets {
-  clientSecret: string;
   token: string;
 }
 
@@ -230,7 +230,7 @@ async function refreshAgents(): Promise<void> {
       return {
         name: record.name,
         clientId: record.auth0ClientId,
-        clientSecret: session?.clientSecret ?? "",
+        clientSecret: "",
         token: session?.token ?? "",
         scopes: record.scopes,
         serverId: record.serverId,
@@ -273,28 +273,22 @@ async function refreshServers(): Promise<void> {
 }
 
 function renderAgentCards(): void {
-  const sessions = readAgentSessions();
   agentListEl.innerHTML = agents
     .map(
-      (a) => {
-        const hasSession = Boolean(sessions[a.clientId]);
-        return `<div class="card ${selectedAgent?.clientId === a.clientId ? "card-active" : ""}">
+      (a) => `<div class="card ${selectedAgent?.clientId === a.clientId ? "card-active" : ""}">
         <strong>${a.name}</strong>
         <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
-        ${hasSession ? "" : '<div class="card-meta">Re-vend token to use (refresh cleared session)</div>'}
-        <button type="button" data-select-agent="${a.clientId}" ${hasSession ? "" : "disabled"}>Use</button>
+        <button type="button" data-select-agent="${a.clientId}">Use</button>
         <button type="button" data-revoke-agent="${a.clientId}" ${adminOpsEnabled ? "" : "disabled"}>Revoke</button>
-      </div>`;
-      },
+      </div>`,
     )
     .join("");
 
   agentListEl.querySelectorAll("[data-select-agent]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = (btn as HTMLElement).dataset.selectAgent!;
-      selectedAgent = agents.find((a) => a.clientId === id) ?? null;
-      renderAgentCards();
+      void activateSelectedAgent(id);
     });
   });
 
@@ -312,6 +306,27 @@ function renderAgentCards(): void {
       })();
     });
   });
+}
+
+async function activateSelectedAgent(clientId: string): Promise<void> {
+  const meta = agents.find((a) => a.clientId === clientId);
+  if (!meta) return;
+
+  statusEl.textContent = "Activating agent…";
+  try {
+    let token = readAgentSessions()[clientId]?.token;
+    if (!token) {
+      const vended = await activateAgentToken(clientId);
+      token = vended.token;
+      writeAgentSession(clientId, { token });
+    }
+    selectedAgent = { ...meta, token, clientSecret: "" };
+    gatewayAgent = null;
+    statusEl.textContent = `Selected ${meta.name}`;
+    renderAgentCards();
+  } catch (err) {
+    statusEl.textContent = err instanceof Error ? err.message : String(err);
+  }
 }
 
 async function refreshAudit(): Promise<void> {
@@ -375,14 +390,11 @@ createAgentForm.addEventListener("submit", (e) => {
     statusEl.textContent = "Creating agent…";
     const created = await createAgent(name, scopes, serverId);
     const vended = await vendToken(created.clientId, created.clientSecret);
-    writeAgentSession(created.clientId, {
-      clientSecret: created.clientSecret,
-      token: vended.token,
-    });
+    writeAgentSession(created.clientId, { token: vended.token });
     const agent: ActiveAgent = {
       name: created.name,
       clientId: created.clientId,
-      clientSecret: created.clientSecret,
+      clientSecret: "",
       token: vended.token,
       scopes,
       serverId: created.serverId ?? serverId,

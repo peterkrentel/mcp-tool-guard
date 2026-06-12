@@ -45,8 +45,9 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on); persisted to KV when `KV_REST_API_*` set |
 | `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`**; KV delete when configured |
 | `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
-| `GET` | `/agents` | List agents from KV (metadata only; no client secrets) |
-| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*`; KV write when configured |
+| `GET` | `/agents` | List agents from KV (metadata only; secrets never exposed) |
+| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*`; encrypted secret stored in KV when configured |
+| `POST` | `/agents/:clientId/token` | Vend agent JWT from server-stored secret — **`gateway:admin`** |
 | `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`**; KV delete when configured |
 | `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
 

@@ -137,6 +137,19 @@ export async function revokeAgent(clientId: string): Promise<void> {
   }
 }
 
+export async function activateAgentToken(clientId: string): Promise<VendedToken> {
+  const res = await proxyFetch(`/agents/${encodeURIComponent(clientId)}/token`, {
+    method: "POST",
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
+    body: "{}",
+  });
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: string };
+    throw new Error(body.error ?? res.statusText);
+  }
+  return (await res.json()) as VendedToken;
+}
+
 export async function vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
   const res = await proxyFetch("/token", {
     method: "POST",
