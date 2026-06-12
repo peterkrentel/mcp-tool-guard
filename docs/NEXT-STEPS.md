@@ -67,7 +67,7 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 
 ### Production hardening priorities (review)
 
-Highest leverage before more prod exposure or external MCP demos:
+Highest leverage next (Track 3 and hardening):
 
 | Priority | Item | Effort | Notes |
 |----------|------|--------|-------|
@@ -198,10 +198,10 @@ Store `clientSecret` encrypted at create time only (Auth0 shows it once); never 
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | In-memory on Render process; resets on redeploy / spin-down |
-| Agent gateway registry | In-memory on proxy — UI-added MCPs lost on restart; seeded yaml entries survive |
+| Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
-| Agent gateway control plane | `POST /servers`, `POST /agents` unauthenticated (demo) — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
-| Agent list | Browser memory only — refresh loses cards; Auth0 clients may remain ([registry sketch](#agent-registry-auth0-sync-sketch)) |
+| Agent gateway control plane | **`gateway:admin`** Bearer when IdP trust + guard on — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
+| Agent list | **`GET /agents`** from proxy/KV after refresh; browser cards still local until full registry UI sync |
 | Auth0 client quota | Each **Create agent** = new Application; free tenant `too_many_entities` — reuse/revoke ([registry sketch](#agent-registry-auth0-sync-sketch)) |
 | Auth0 app names | Duplicate `mcp-agent-${name}` per click — use suffixed names ([registry sketch](#agent-registry-auth0-sync-sketch)) |
 | Flight seat counts | In-memory seed; only **bookings** use KV |

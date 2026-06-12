@@ -61,7 +61,7 @@ Implementation backlog: [NEXT-STEPS → Agent gateway admin auth](NEXT-STEPS.md#
 | Piece | Today |
 |-------|--------|
 | MCP `tools/call` | `Authorization: Bearer` + dual trust: **JWKS** (`MCP_JWT_*`) or **demo PEM** |
-| Scopes | `flights:*`, `docs:*` (and stubs `slack:*`, `github:*` in policy) in JWT `scope` / Auth0 `permissions` |
+| Scopes | `flights:*`, `repo:read` / `repo:write` (GitHub MCP), `docs:*`, stubs `slack:*` in policy — JWT `permissions` / `scope` |
 | UI tokens | **Guest:** `demo-tokens.json` dropdown · **Auth0:** SPA login (`VITE_AUTH0_*`) |
 | `GET /audit` | **Bearer JWT required** when guard enabled (guest or Auth0 token) |
 | `iss` / `aud` | Validated on IdP path only |

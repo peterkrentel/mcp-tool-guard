@@ -222,8 +222,10 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 ## Verification checklist
 
 - [ ] `GET /health` → `guard_enabled: true`, `service: mcp-tool-guard-proxy`
-- [ ] `servers` lists `flight` (plus `slack` / `github` stubs — **only flight is live**)
+- [ ] `servers` lists `flight`, **`github`** (live with `GITHUB_MCP_TOKEN`), `slack` (policy stub)
 - [ ] `POST /mcp` `tools/call` with valid JWT + correct scope → allowed, forwarded to flight
+- [ ] `POST /github/mcp` `get_file_contents` with M2M `repo:read` → allow — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream)
+- [ ] `upstream_auth_missing: []` when `GITHUB_MCP_TOKEN` is set
 - [ ] `POST /mcp` `tools/call` with missing/wrong scope → `error.code: -32001`
 - [ ] `GET /audit` → `"source": "guard-proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`
