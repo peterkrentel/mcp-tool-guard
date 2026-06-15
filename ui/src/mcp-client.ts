@@ -28,6 +28,7 @@ export class McpHttpClient {
   private url: string;
   private headers: Record<string, string>;
   private initialized = false;
+  private approvalToken?: string;
 
   constructor(options: McpClientOptions) {
     this.url = options.url;
@@ -43,6 +44,14 @@ export class McpHttpClient {
 
   setBearerToken(token: string): void {
     this.headers.Authorization = `Bearer ${token}`;
+  }
+
+  setApprovalToken(token: string): void {
+    this.approvalToken = token;
+  }
+
+  clearApprovalToken(): void {
+    this.approvalToken = undefined;
   }
 
   private unwrapJsonRpc(data: JsonRpcResponse): unknown {
@@ -80,12 +89,18 @@ export class McpHttpClient {
     const headers = { ...this.headers };
     if (trace?.trace_id) headers["X-Trace-Id"] = trace.trace_id;
     if (trace?.session_id) headers["X-Session-Id"] = trace.session_id;
+    if (this.approvalToken) headers["X-Approval-Token"] = this.approvalToken;
 
     const response = await fetch(this.url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
+
+    // Handle 202 Accepted (pending approval queue)
+    if (response.status === 202) {
+      return (await response.json()) as unknown;
+    }
 
     if (!response.ok) {
       throw new Error(`MCP HTTP ${response.status}: ${await response.text()}`);

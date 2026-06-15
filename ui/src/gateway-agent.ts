@@ -36,6 +36,7 @@ export class GatewayAgent {
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
   private onAudit?: () => void;
+  private pendingApprovalState: { pendingId: string; approvalToken?: string } | null = null;
 
   constructor(private options: GatewayAgentOptions) {
     this.serverId = options.serverId;
@@ -128,6 +129,23 @@ export class GatewayAgent {
         session_id: this.sessionId,
         trace_id: traceId,
       });
+
+      // Check for pending approval response
+      if (
+        typeof result === "object" &&
+        result !== null &&
+        (result as Record<string, unknown>).result &&
+        typeof (result as Record<string, unknown>).result === "object"
+      ) {
+        const innerResult = (result as Record<string, unknown>).result as Record<string, unknown>;
+        if (innerResult.status === "pending" && innerResult.pending_id) {
+          this.pendingApprovalState = {
+            pendingId: innerResult.pending_id as string,
+          };
+          return `Pending approval: ${innerResult.pending_id}\nWaiting for admin approval to proceed…`;
+        }
+      }
+
       this.onAudit?.();
       return `Tool \`${tool}\` result:\n${result}`;
     } catch (err) {
@@ -135,6 +153,57 @@ export class GatewayAgent {
       this.onAudit?.();
       return `Tool error: ${message}`;
     }
+  }
+
+  /** Poll for approval and retry tool call when approved. */
+  async retryApprovedTool(tool: string, args: Record<string, unknown>, intent: string): Promise<string> {
+    if (!this.pendingApprovalState) {
+      return "No pending approval to retry";
+    }
+
+    const { pendingId } = this.pendingApprovalState;
+    const maxAttempts = 60; // 60 seconds of polling
+    let attempt = 0;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      this.onStatus?.(`Polling for approval… (${attempt}s)`);
+
+      try {
+        // Fetch pending status from proxy
+        const response = await fetch(
+          this.options.mcpUrl.replace(/\/mcp\/?$/, "") + `/pending/${encodeURIComponent(pendingId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.jwt}`,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = (await response.json()) as any;
+          if (data.pending?.status === "approved" && data.approval_token) {
+            this.onStatus?.("Approval received! Retrying…");
+            this.mcp.setApprovalToken(data.approval_token);
+            const result = await this.mcp.callTool(tool, args, {
+              session_id: this.sessionId,
+              trace_id: newTraceId(),
+            });
+            this.mcp.clearApprovalToken();
+            this.pendingApprovalState = null;
+            this.onAudit?.();
+            return `Tool \`${tool}\` result:\n${result}`;
+          }
+        }
+      } catch (err) {
+        console.warn("Polling failed:", err);
+      }
+
+      // Wait 1 second before next poll
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    return "Approval timeout after 60 seconds";
   }
 
   async chat(userMessage: string): Promise<string> {
@@ -149,6 +218,19 @@ export class GatewayAgent {
     if (completion.toolCall) {
       const { name, arguments: args } = completion.toolCall;
       const reply = await this.executeTool(name, args, userMessage);
+      
+      if (reply.startsWith("Pending approval:")) {
+        this.onStatus?.("Awaiting approval…");
+        this.messages.push({ role: "assistant", content: reply });
+        this.onMessage?.("assistant", reply);
+        // Poll for admin approval, then retry with approval token
+        const retryResult = await this.retryApprovedTool(name, args, userMessage);
+        this.messages.push({ role: "assistant", content: retryResult });
+        this.onMessage?.("assistant", retryResult);
+        this.onStatus?.("Ready");
+        return retryResult;
+      }
+      
       this.messages.push({ role: "assistant", content: reply });
       this.onMessage?.("assistant", reply);
       this.onStatus?.("Ready");

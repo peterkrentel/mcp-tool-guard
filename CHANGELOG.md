@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Track 3 — Approval queue (end-to-end)** — `gateway/pending-store.ts`, `MCP_APPROVAL_QUEUE=true` gate, `202` pending response, admin `/pending/*` resolve routes, time-bound approval tokens bound to tool+server, `x-approval-token` bypass path, Gemini native function-calling, agent polls `/pending/:id` and retries with token; audit decision type includes `"pending"`
 - **Track 2 prod proof** — [track2-github-proof.md](docs/track2-github-proof.md): GitHub MCP curl allow + **proxy write deny** (`repo:read`-only agent → `-32001` on `create_or_update_file`), Render logs, screenshots; [demo-proxy Demo 6](docs/demo-proxy.md#demo-6--github-mcp-external-upstream) updated
 - **GitHub MCP (Track 2)** — `upstream_token_env` on server config; proxy substitutes `GITHUB_MCP_TOKEN` for upstream auth while enforcing caller JWT scopes (`repo:read` / `repo:write`); `upstream_auth_missing` on `/health`; [demo-proxy Demo 6](docs/demo-proxy.md#demo-6--github-mcp-external-upstream)
 - **Gateway KV persistence (Track 1)** — `gateway/kv.ts` Upstash REST client; runtime MCP registry + agent records survive proxy restart; `GET /agents`; `kv_enabled` on `/health`; `/agents.html` loads agents from server (secrets in sessionStorage only)

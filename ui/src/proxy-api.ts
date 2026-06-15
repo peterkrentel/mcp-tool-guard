@@ -177,6 +177,50 @@ export async function fetchGatewayAudit(
   return data.entries ?? [];
 }
 
+export interface PendingRequest {
+  id: string;
+  server_id: string;
+  tool: string;
+  required_scope: string;
+  token_scopes: string[];
+  agent_id?: string;
+  requested_at: string;
+  status: "pending" | "approved" | "denied";
+  resolved_at?: string;
+  resolved_by?: string;
+}
+
+export async function listPendingRequests(): Promise<PendingRequest[]> {
+  const res = await proxyFetch("/pending", { headers: await adminAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  const data = (await res.json()) as { pending: PendingRequest[] };
+  return data.pending ?? [];
+}
+
+export async function approvePendingRequest(
+  id: string,
+  resolvedBy?: string,
+): Promise<{ pending: PendingRequest; approval_token: string }> {
+  const res = await proxyFetch(`/pending/${encodeURIComponent(id)}/approve`, {
+    method: "POST",
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ resolvedBy }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as { pending: PendingRequest; approval_token: string };
+}
+
+export async function denyPendingRequest(id: string, resolvedBy?: string): Promise<PendingRequest> {
+  const res = await proxyFetch(`/pending/${encodeURIComponent(id)}/deny`, {
+    method: "POST",
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ resolvedBy }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const data = (await res.json()) as { pending: PendingRequest };
+  return data.pending;
+}
+
 export async function postAgentAudit(entries: AuditLogEntry[]): Promise<void> {
   await proxyFetch("/audit/agent", {
     method: "POST",

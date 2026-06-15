@@ -2,7 +2,7 @@
 
 **Navigation:** [Next steps](NEXT-STEPS.md) · [Roadmap](ROADMAP.md) · [KV design](kv-design.md) · [Demo script](demo-proxy.md) · [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp) · [Render deploy](render-deploy.md)
 
-Three sequential tracks. **Tracks 1–2 are done** on `main` ([Track 2 proof](track2-github-proof.md)); start **Track 3** next.
+Three sequential tracks. **Tracks 1–2 are done** on `main` ([Track 2 proof](track2-github-proof.md)); **Track 3 is now in progress** (backend scaffold started on feature branch).
 
 **Principle from the [build filter](ROADMAP.md#build-filter):** every change must strengthen enforcement + audit credibility, not demo UX.
 
@@ -11,6 +11,11 @@ Three sequential tracks. **Tracks 1–2 are done** on `main` ([Track 2 proof](tr
 | **1 — KV registry** | Servers + agents survive proxy restart | — |
 | **2 — GitHub MCP** | First real external upstream + upstream credential | Track 1 |
 | **3 — Approval queue** | On-demand scope with human-in-the-loop | Tracks 1–2; Gemini native function-calling before agent retry |
+
+Track 3 status snapshot:
+
+- Done (kickoff): `gateway/pending-store.ts`, `MCP_APPROVAL_QUEUE` gate, `202` pending response path, `/pending` read/resolve routes.
+- Remaining: approval token handoff, agent auto-retry wiring, admin panel UI, final end-to-end proof script.
 
 ---
 

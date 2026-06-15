@@ -6,16 +6,20 @@ import type { GatewayAgent } from "./gateway-agent.js";
 import {
   activateAgentToken,
   addServer,
+  approvePendingRequest,
   createAgent,
+  denyPendingRequest,
   discoverTools,
   fetchGatewayAudit,
   listAgents,
+  listPendingRequests,
   listServers,
   mcpUrlForServer,
   removeServer,
   revokeAgent,
   setAdminTokenProvider,
   vendToken,
+  type PendingRequest,
   type RegisteredServer,
 } from "./proxy-api.js";
 import { renderThreeLayerAudit } from "./agents-audit-view.js";
@@ -59,6 +63,8 @@ const llmSelect = document.getElementById("llm-select") as HTMLSelectElement;
 const initBtn = document.getElementById("agents-init") as HTMLButtonElement;
 const sendBtn = document.getElementById("agents-send") as HTMLButtonElement;
 const inputEl = document.getElementById("agents-message") as HTMLInputElement;
+const pendingListEl = document.getElementById("pending-list")!;
+const pendingRefreshBtn = document.getElementById("pending-refresh") as HTMLButtonElement;
 
 const AGENT_SESSION_KEY = "mcp-tool-guard-agent-session";
 
@@ -347,6 +353,61 @@ function startAuditPoll(): void {
   auditPoll = setInterval(() => void refreshAudit(), 2000);
 }
 
+async function refreshPending(): Promise<void> {
+  try {
+    const items = await listPendingRequests();
+    if (items.length === 0) {
+      pendingListEl.innerHTML = '<p class="admin-hint">No pending requests.</p>';
+      return;
+    }
+    pendingListEl.innerHTML = items
+      .map((p) => {
+        const age = Math.round((Date.now() - new Date(p.requested_at).getTime()) / 1000);
+        const badge = p.status === "pending"
+          ? '<span style="color:#f90;font-weight:600">PENDING</span>'
+          : p.status === "approved"
+          ? '<span style="color:#4c4;font-weight:600">APPROVED</span>'
+          : '<span style="color:#c44;font-weight:600">DENIED</span>';
+        return `<div class="card" style="border-left:3px solid ${p.status === "pending" ? "#f90" : p.status === "approved" ? "#4c4" : "#c44"}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>${p.tool}</strong>${badge}
+          </div>
+          <div class="card-meta">server: ${p.server_id} &nbsp;·&nbsp; needs: <code>${p.required_scope}</code></div>
+          <div class="card-meta">agent has: ${p.token_scopes.join(", ") || "(none)"}</div>
+          <div class="card-meta mono" style="font-size:.7rem">${p.id} &nbsp;·&nbsp; ${age}s ago</div>
+          ${p.status === "pending" ? `
+          <div style="display:flex;gap:.5rem;margin-top:.4rem">
+            <button type="button" data-approve="${p.id}" style="background:#2a5;color:#fff;border:none;padding:.25rem .75rem;border-radius:4px;cursor:pointer">Approve</button>
+            <button type="button" data-deny="${p.id}" style="background:#a22;color:#fff;border:none;padding:.25rem .75rem;border-radius:4px;cursor:pointer">Deny</button>
+          </div>` : p.resolved_by ? `<div class="card-meta">by ${p.resolved_by}</div>` : ""}
+        </div>`;
+      })
+      .join("");
+
+    pendingListEl.querySelectorAll("[data-approve]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = (btn as HTMLElement).dataset.approve!;
+        void approvePendingRequest(id, "admin")
+          .then(() => refreshPending())
+          .catch((err) => { statusEl.textContent = err instanceof Error ? err.message : String(err); });
+      });
+    });
+
+    pendingListEl.querySelectorAll("[data-deny]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = (btn as HTMLElement).dataset.deny!;
+        void denyPendingRequest(id, "admin")
+          .then(() => refreshPending())
+          .catch((err) => { statusEl.textContent = err instanceof Error ? err.message : String(err); });
+      });
+    });
+  } catch (err) {
+    pendingListEl.innerHTML = `<div class="log-error">${err instanceof Error ? err.message : String(err)}</div>`;
+  }
+}
+
+pendingRefreshBtn.addEventListener("click", () => void refreshPending());
+
 addMcpForm.addEventListener("submit", (e) => {
   e.preventDefault();
   if (!adminOpsEnabled) {
@@ -493,5 +554,7 @@ void syncAdminUi().then(() =>
     .then(() => {
       updateAgentMcpSelect();
       setInterval(updateAgentMcpSelect, 3000);
+      void refreshPending();
+      setInterval(() => void refreshPending(), 5000);
     }),
 );

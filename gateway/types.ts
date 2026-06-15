@@ -19,7 +19,7 @@ export interface GuardConfig {
   servers: Record<string, ServerConfig>;
 }
 
-export type GuardDecision = "allow" | "deny";
+export type GuardDecision = "allow" | "deny" | "pending";
 
 /** Three-layer telemetry source (agent gateway). */
 export type AuditSource = "agent" | "proxy" | "mcp";
