@@ -103,3 +103,32 @@ export async function resolvePendingRequest(
   await kvSet(pendingKey(id), updated);
   return updated;
 }
+
+const APPROVAL_TOKEN_PREFIX = "gateway:approval-token:";
+const PENDING_APPROVAL_TOKEN_PREFIX = "gateway:pending:approval-token:";
+
+/** Generate a short-lived approval token that authorizes bypassing scope checks. */
+export async function generateApprovalToken(pendingId: string): Promise<string> {
+  const tokenId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`).replace(/-/g, "").slice(0, 12);
+  const token = `at_${tokenId}`;
+  const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
+  const pendingTokenKey = `${PENDING_APPROVAL_TOKEN_PREFIX}${pendingId}`;
+  // Store mapping: token -> pending request ID. TTL would be 1h if KV supports it.
+  await kvSet(key, pendingId);
+  // Also store pending -> token for agent polling
+  await kvSet(pendingTokenKey, token);
+  return token;
+}
+
+/** Validate an approval token and return the pending request ID if valid. */
+export async function validateApprovalToken(token: string): Promise<string | null> {
+  if (!token.startsWith("at_")) return null;
+  const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
+  return kvGet<string>(key);
+}
+
+/** Get the approval token for a pending request (if approved). */
+export async function getApprovalTokenForPending(pendingId: string): Promise<string | null> {
+  const key = `${PENDING_APPROVAL_TOKEN_PREFIX}${pendingId}`;
+  return kvGet<string>(key);
+}

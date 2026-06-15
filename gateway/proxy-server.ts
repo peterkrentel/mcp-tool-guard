@@ -56,9 +56,12 @@ import {
 } from "./mcp-upstream.js";
 import {
   createPendingRequest,
+  generateApprovalToken,
+  getApprovalTokenForPending,
   getPendingRequest,
   listPendingRequests,
   resolvePendingRequest,
+  validateApprovalToken,
 } from "./pending-store.js";
 import { clientIp, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
@@ -334,35 +337,63 @@ async function handleMcp(
     });
 
     if (!result.allowed) {
-      if (
-        APPROVAL_QUEUE_ENABLED &&
-        result.reason?.startsWith("Missing required scope")
-      ) {
-        const pending = await createPendingRequest({
-          trace_id: traceId,
-          session_id: sessionId,
-          server_id: serverId,
-          tool: toolName,
-          required_scope: result.required_scope,
-          token_scopes: result.entry.token_scopes,
-          agent_id: header(req, "x-agent-id"),
-        });
+      // Check for approval token bypass (from admin approval of pending request)
+      if (result.reason?.startsWith("Missing required scope")) {
+        const approvalToken = header(req, "x-approval-token");
+        if (approvalToken && APPROVAL_QUEUE_ENABLED) {
+          const pendingId = await validateApprovalToken(approvalToken);
+          if (pendingId) {
+            const pending = await getPendingRequest(pendingId);
+            if (pending && pending.status === "approved") {
+              guard.logger.log({
+                timestamp: new Date().toISOString(),
+                decision: "allow",
+                server: serverId,
+                tool: toolName,
+                required_scope: result.required_scope,
+                token_scopes: result.entry.token_scopes,
+                source: "proxy",
+                trace_id: traceId,
+                session_id: sessionId,
+                reason: `Approved via token (${pendingId})`,
+              });
+              // Continue with the MCP call (fall through)
+            } else {
+              sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
+              return;
+            }
+          } else {
+            sendJsonRpcError(res, payload.id, "Approval token invalid");
+            return;
+          }
+        } else if (APPROVAL_QUEUE_ENABLED) {
+          // No approval token, create pending request
+          const pending = await createPendingRequest({
+            trace_id: traceId,
+            session_id: sessionId,
+            server_id: serverId,
+            tool: toolName,
+            required_scope: result.required_scope,
+            token_scopes: result.entry.token_scopes,
+            agent_id: header(req, "x-agent-id"),
+          });
 
-        guard.logger.log({
-          timestamp: new Date().toISOString(),
-          decision: "pending",
-          server: serverId,
-          tool: toolName,
-          required_scope: result.required_scope,
-          token_scopes: result.entry.token_scopes,
-          source: "proxy",
-          trace_id: traceId,
-          session_id: sessionId,
-          reason: `Awaiting approval (${pending.id})`,
-        });
+          guard.logger.log({
+            timestamp: new Date().toISOString(),
+            decision: "pending",
+            server: serverId,
+            tool: toolName,
+            required_scope: result.required_scope,
+            token_scopes: result.entry.token_scopes,
+            source: "proxy",
+            trace_id: traceId,
+            session_id: sessionId,
+            reason: `Awaiting approval (${pending.id})`,
+          });
 
-        sendJsonRpcPending(res, payload.id, pending.id);
-        return;
+          sendJsonRpcPending(res, payload.id, pending.id);
+          return;
+        }
       }
       sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
       return;
@@ -524,7 +555,14 @@ async function main(): Promise<void> {
           sendJson(res, 404, { error: "Pending request not found" });
           return;
         }
-        sendJson(res, 200, { pending: item });
+        const response: any = { pending: item };
+        if (item.status === "approved") {
+          const token = await getApprovalTokenForPending(item.id);
+          if (token) {
+            response.approval_token = token;
+          }
+        }
+        sendJson(res, 200, response);
         return;
       }
 
@@ -547,6 +585,7 @@ async function main(): Promise<void> {
           sendJson(res, 404, { error: "Pending request not found" });
           return;
         }
+        const approvalToken = await generateApprovalToken(updated.id);
         guard.logger.log({
           timestamp: new Date().toISOString(),
           decision: "allow",
@@ -559,7 +598,7 @@ async function main(): Promise<void> {
           session_id: updated.session_id,
           reason: `Pending request approved (${updated.id})`,
         });
-        sendJson(res, 200, { pending: updated });
+        sendJson(res, 200, { pending: updated, approval_token: approvalToken });
         return;
       }
 
