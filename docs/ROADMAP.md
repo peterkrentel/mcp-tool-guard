@@ -8,6 +8,8 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 3** approval queue (Tracks 1–2 **done** — [track2-github-proof.md](track2-github-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
+**Track 3 kickoff:** backend scaffold landed on feature branch — `MCP_APPROVAL_QUEUE=true` returns `202` + `pending_id`, with admin `/pending/*` resolve routes. Remaining work: token handoff + agent retry path + admin UI panel.
+
 ## Product shape (summary)
 
 **One-liner:** Policy-enforced MCP gateway with verifiable scoped agent execution.
@@ -112,6 +114,9 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 | Audit export / observability sink | OTel, Loki, Datadog |
 | Python audit `LogSink` | Parity with TypeScript sinks |
 | LangChain / backend agent | Guarded MCP outside browser |
+| Proxy audit persistence | Persist `gateway:audit:*` in KV (survive restarts/redeploys) |
+| Distributed rate limiting | KV-backed limiter for multi-instance proxy correctness |
+| SDK packaging | Publish guard package for external agent integrations |
 
 ---
 
@@ -122,6 +127,12 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 | MCP elicitation | Server `elicit()` + client callback |
 | MCP CLI / Cursor docs | `mcp.json` for HTTP flight |
 | UX polish | IATA false positives, empty-search messaging |
+
+## Near-term execution notes
+
+1. Finish Track 3 before additional UX scope.
+2. Land Gemini native function-calling before approval auto-retry wiring.
+3. Prioritize proxy audit persistence and distributed rate limiting before broad production claims.
 
 ---
 

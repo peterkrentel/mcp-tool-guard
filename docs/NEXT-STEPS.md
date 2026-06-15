@@ -77,6 +77,12 @@ Highest leverage next (Track 3 and hardening):
 | 🟡 | **Track 2 — GitHub MCP** | **Done** | [track2-github-proof.md](track2-github-proof.md) |
 | 🟡 | **Track 3 — Approval queue** | ~3–4 hrs | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) · planned KV keys in [kv-design](kv-design.md#approval-queue-track-3-planned) |
 | 🟡 | **Upstream error handling** | ~1 hr | Structured `upstream_unavailable` on connect/discovery failures — partial in proxy |
+| 🟡 | **Proxy audit persistence (KV)** | ~1–2 hrs | Persist `gateway:audit:*` so `/audit` survives Render restart/redeploy |
+| 🟡 | **Distributed rate limiting** | ~2–3 hrs | Replace in-memory limiter with KV-backed counters/sliding window |
+| 🟡 | **Gemini native function-calling** | ~1–2 hrs | Required for reliable Track 3 retry flow (remove text-parsed tool JSON dependency) |
+| 🟡 | **Backend agent example (Python)** | ~1 hr | Minimal server-side agent proof against proxy for enterprise viability demo |
+| 🟡 | **SDK packaging path** | ~1 hr | Prepare/publish gateway guard package workflow (npm distribution) |
+| 🟡 | **Audit sink integration** | ~2–4 hrs | Add webhook/OTel sink path for SIEM/Grafana ingestion |
 
 Agent-vs-chat UI and external SDK agents are optional polish; they do not change the authoritative enforcement story.
 
@@ -90,6 +96,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 | — | **Agent gateway KV persistence (Track 1)** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |
 | — | **Wire GitHub MCP (Track 2)** | **Done** | [track2-github-proof.md](track2-github-proof.md) · [demo-proxy Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream) | Prod smoke: curl `get_file_contents` allow + Render proxy/mcp logs; `GITHUB_MCP_TOKEN` + Auth0 `repo:*` |
 | — | **Approval queue (Track 3)** | **Planned** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) | `202` + admin approve/deny; audit `pending` → `allow`; Gemini function-calling prerequisite |
+| — | **Approval queue backend scaffold (Track 3 kickoff)** | **In progress** | `gateway/pending-store.ts`, `gateway/proxy-server.ts` | `MCP_APPROVAL_QUEUE=true` returns `202` + `pending_id`; `GET /pending`, `GET /pending/:id`, `POST /pending/:id/approve|deny` available |
 | — | **Agent registry + Auth0 sync** | **Open** (part of Track 1) | [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse |
 | 7 | Max request body size | **Done** | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse (1 MiB) |
 | — | Gate `POST /token` | **Done** | `gateway/proxy-server.ts`, `ui/proxy-api.ts` | `gateway:admin` Bearer required when `control_plane_auth` |
@@ -198,6 +205,7 @@ Store `clientSecret` encrypted at create time only (Auth0 shows it once); never 
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | In-memory on Render process; resets on redeploy / spin-down |
+| Approval queue flow | Backend scaffold only (pending creation + admin resolve routes); agent auto-retry/token handoff still to complete in Track 3 |
 | Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Agent gateway control plane | **`gateway:admin`** Bearer when IdP trust + guard on — [admin auth sketch](#agent-gateway-admin-auth-sketch) |

@@ -54,6 +54,12 @@ import {
   forwardMcpPost,
   upstreamErrorBody,
 } from "./mcp-upstream.js";
+import {
+  createPendingRequest,
+  getPendingRequest,
+  listPendingRequests,
+  resolvePendingRequest,
+} from "./pending-store.js";
 import { clientIp, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
@@ -70,6 +76,8 @@ function gatewayRoot(): string {
 const gatewayDir = gatewayRoot();
 const DEFAULT_PORT = 8787;
 const RATE_LIMIT = new SlidingWindowRateLimiter(60, 60_000);
+const APPROVAL_QUEUE_ENABLED =
+  process.env.MCP_APPROVAL_QUEUE?.trim().toLowerCase() === "true";
 
 function loadYamlConfig(): GuardConfig {
   const configPath =
@@ -166,6 +174,26 @@ function sendJsonRpcError(
     error: { code: -32001, message },
   });
   res.statusCode = status;
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Length", String(Buffer.byteLength(body)));
+  res.end(body);
+}
+
+function sendJsonRpcPending(
+  res: ServerResponse,
+  requestId: unknown,
+  pendingId: string,
+): void {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: requestId ?? null,
+    result: {
+      status: "pending",
+      pending_id: pendingId,
+      message: "Awaiting approval",
+    },
+  });
+  res.statusCode = 202;
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Length", String(Buffer.byteLength(body)));
   res.end(body);
@@ -306,6 +334,36 @@ async function handleMcp(
     });
 
     if (!result.allowed) {
+      if (
+        APPROVAL_QUEUE_ENABLED &&
+        result.reason?.startsWith("Missing required scope")
+      ) {
+        const pending = await createPendingRequest({
+          trace_id: traceId,
+          session_id: sessionId,
+          server_id: serverId,
+          tool: toolName,
+          required_scope: result.required_scope,
+          token_scopes: result.entry.token_scopes,
+          agent_id: header(req, "x-agent-id"),
+        });
+
+        guard.logger.log({
+          timestamp: new Date().toISOString(),
+          decision: "pending",
+          server: serverId,
+          tool: toolName,
+          required_scope: result.required_scope,
+          token_scopes: result.entry.token_scopes,
+          source: "proxy",
+          trace_id: traceId,
+          session_id: sessionId,
+          reason: `Awaiting approval (${pending.id})`,
+        });
+
+        sendJsonRpcPending(res, payload.id, pending.id);
+        return;
+      }
       sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
       return;
     }
@@ -416,6 +474,7 @@ async function main(): Promise<void> {
           control_plane_auth: controlPlaneAuth,
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           kv_enabled: kvEnabled(),
+          approval_queue_enabled: APPROVAL_QUEUE_ENABLED,
           default_server: defaultServer,
           servers: registry.serverIds(),
           upstream_auth_missing: missingUpstreamEnvNames(serverConfigs),
@@ -430,6 +489,112 @@ async function main(): Promise<void> {
 
       if (req.method === "POST" && pathname === "/audit/agent") {
         await handleAuditAgentPost(guard, req, res);
+        return;
+      }
+
+      if (req.method === "GET" && pathname === "/pending") {
+        /** GET /pending — list pending requests. Auth: gateway:admin when control plane auth enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
+        const statusRaw = url.searchParams.get("status") ?? undefined;
+        const status =
+          statusRaw === "pending" || statusRaw === "approved" || statusRaw === "denied"
+            ? statusRaw
+            : undefined;
+        const items = await listPendingRequests(status);
+        sendJson(res, 200, { pending: items });
+        return;
+      }
+
+      const pendingIdMatch = pathname.match(/^\/pending\/([^/]+)\/?$/);
+      if (req.method === "GET" && pendingIdMatch) {
+        /** GET /pending/:id — read one pending request. Auth: gateway:admin when enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
+        const item = await getPendingRequest(pendingIdMatch[1]);
+        if (!item) {
+          sendJson(res, 404, { error: "Pending request not found" });
+          return;
+        }
+        sendJson(res, 200, { pending: item });
+        return;
+      }
+
+      const pendingApproveMatch = pathname.match(/^\/pending\/([^/]+)\/approve\/?$/);
+      if (req.method === "POST" && pendingApproveMatch) {
+        /** POST /pending/:id/approve — resolve a pending request as approved. Auth: gateway:admin when enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
+        const body = await readJson<{ resolvedBy?: string }>(req).catch(() => ({ resolvedBy: undefined }));
+        const updated = await resolvePendingRequest(
+          pendingApproveMatch[1],
+          "approved",
+          body.resolvedBy,
+        );
+        if (!updated) {
+          sendJson(res, 404, { error: "Pending request not found" });
+          return;
+        }
+        guard.logger.log({
+          timestamp: new Date().toISOString(),
+          decision: "allow",
+          server: updated.server_id,
+          tool: updated.tool,
+          required_scope: updated.required_scope,
+          token_scopes: updated.token_scopes,
+          source: "proxy",
+          trace_id: updated.trace_id,
+          session_id: updated.session_id,
+          reason: `Pending request approved (${updated.id})`,
+        });
+        sendJson(res, 200, { pending: updated });
+        return;
+      }
+
+      const pendingDenyMatch = pathname.match(/^\/pending\/([^/]+)\/deny\/?$/);
+      if (req.method === "POST" && pendingDenyMatch) {
+        /** POST /pending/:id/deny — resolve a pending request as denied. Auth: gateway:admin when enabled. */
+        if (
+          controlPlaneAuth &&
+          !(await requireGatewayAdmin(guard, req, res, sendJson))
+        ) {
+          return;
+        }
+        const body = await readJson<{ resolvedBy?: string }>(req).catch(() => ({ resolvedBy: undefined }));
+        const updated = await resolvePendingRequest(
+          pendingDenyMatch[1],
+          "denied",
+          body.resolvedBy,
+        );
+        if (!updated) {
+          sendJson(res, 404, { error: "Pending request not found" });
+          return;
+        }
+        guard.logger.log({
+          timestamp: new Date().toISOString(),
+          decision: "deny",
+          server: updated.server_id,
+          tool: updated.tool,
+          required_scope: updated.required_scope,
+          token_scopes: updated.token_scopes,
+          source: "proxy",
+          trace_id: updated.trace_id,
+          session_id: updated.session_id,
+          reason: `Pending request denied (${updated.id})`,
+        });
+        sendJson(res, 200, { pending: updated });
         return;
       }
 
