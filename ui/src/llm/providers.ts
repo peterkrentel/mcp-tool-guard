@@ -193,12 +193,16 @@ class GeminiRunner implements LlmRunner {
     const parts = data.candidates?.[0]?.content?.parts ?? [];
     for (const part of parts) {
       if (part.functionCall?.name) {
-        return {
-          toolCall: {
-            name: part.functionCall.name,
-            arguments: (part.functionCall.args ?? {}) as Record<string, unknown>,
-          },
-        };
+        const rawArgs = (part.functionCall.args ?? {}) as Record<string, unknown>;
+        // Unwrap the { args: {...} } wrapper introduced by our schema
+        const args =
+          rawArgs.args !== null &&
+          typeof rawArgs.args === "object" &&
+          !Array.isArray(rawArgs.args) &&
+          Object.keys(rawArgs).length === 1
+            ? (rawArgs.args as Record<string, unknown>)
+            : rawArgs;
+        return { toolCall: { name: part.functionCall.name, arguments: args } };
       }
     }
 

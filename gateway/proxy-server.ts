@@ -341,7 +341,7 @@ async function handleMcp(
       if (result.reason?.startsWith("Missing required scope")) {
         const approvalToken = header(req, "x-approval-token");
         if (approvalToken && APPROVAL_QUEUE_ENABLED) {
-          const pendingId = await validateApprovalToken(approvalToken);
+          const pendingId = await validateApprovalToken(approvalToken, serverId, toolName);
           if (pendingId) {
             const pending = await getPendingRequest(pendingId);
             if (pending && pending.status === "approved") {
@@ -585,7 +585,7 @@ async function main(): Promise<void> {
           sendJson(res, 404, { error: "Pending request not found" });
           return;
         }
-        const approvalToken = await generateApprovalToken(updated.id);
+        const approvalToken = await generateApprovalToken(updated);
         guard.logger.log({
           timestamp: new Date().toISOString(),
           decision: "allow",

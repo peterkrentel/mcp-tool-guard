@@ -223,7 +223,12 @@ export class GatewayAgent {
         this.onStatus?.("Awaiting approval…");
         this.messages.push({ role: "assistant", content: reply });
         this.onMessage?.("assistant", reply);
-        return reply;
+        // Poll for admin approval, then retry with approval token
+        const retryResult = await this.retryApprovedTool(name, args, userMessage);
+        this.messages.push({ role: "assistant", content: retryResult });
+        this.onMessage?.("assistant", retryResult);
+        this.onStatus?.("Ready");
+        return retryResult;
       }
       
       this.messages.push({ role: "assistant", content: reply });

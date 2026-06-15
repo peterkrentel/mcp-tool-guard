@@ -94,6 +94,10 @@ export async function resolvePendingRequest(
 ): Promise<PendingRequest | null> {
   const current = await getPendingRequest(id);
   if (!current) return null;
+  // Guard against double-resolve — idempotent only if same outcome
+  if (current.status !== "pending") {
+    return current.status === status ? current : null;
+  }
   const updated: PendingRequest = {
     ...current,
     status,
@@ -104,27 +108,47 @@ export async function resolvePendingRequest(
   return updated;
 }
 
+const APPROVAL_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const APPROVAL_TOKEN_PREFIX = "gateway:approval-token:";
 const PENDING_APPROVAL_TOKEN_PREFIX = "gateway:pending:approval-token:";
 
-/** Generate a short-lived approval token that authorizes bypassing scope checks. */
-export async function generateApprovalToken(pendingId: string): Promise<string> {
+interface ApprovalTokenRecord {
+  pendingId: string;
+  serverId: string;
+  tool: string;
+  expiresAt: number;
+}
+
+/** Generate a short-lived approval token bound to the specific pending request, server, and tool. */
+export async function generateApprovalToken(pending: PendingRequest): Promise<string> {
   const tokenId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`).replace(/-/g, "").slice(0, 12);
   const token = `at_${tokenId}`;
-  const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
-  const pendingTokenKey = `${PENDING_APPROVAL_TOKEN_PREFIX}${pendingId}`;
-  // Store mapping: token -> pending request ID. TTL would be 1h if KV supports it.
-  await kvSet(key, pendingId);
-  // Also store pending -> token for agent polling
-  await kvSet(pendingTokenKey, token);
+  const record: ApprovalTokenRecord = {
+    pendingId: pending.id,
+    serverId: pending.server_id,
+    tool: pending.tool,
+    expiresAt: Date.now() + APPROVAL_TOKEN_TTL_MS,
+  };
+  await kvSet(`${APPROVAL_TOKEN_PREFIX}${token}`, record);
+  await kvSet(`${PENDING_APPROVAL_TOKEN_PREFIX}${pending.id}`, token);
   return token;
 }
 
-/** Validate an approval token and return the pending request ID if valid. */
-export async function validateApprovalToken(token: string): Promise<string | null> {
+/**
+ * Validate an approval token for a specific server+tool.
+ * Returns the pending request ID on success, null if invalid/expired/wrong target.
+ */
+export async function validateApprovalToken(
+  token: string,
+  serverId: string,
+  tool: string,
+): Promise<string | null> {
   if (!token.startsWith("at_")) return null;
-  const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
-  return kvGet<string>(key);
+  const record = await kvGet<ApprovalTokenRecord>(`${APPROVAL_TOKEN_PREFIX}${token}`);
+  if (!record) return null;
+  if (Date.now() > record.expiresAt) return null;
+  if (record.serverId !== serverId || record.tool !== tool) return null;
+  return record.pendingId;
 }
 
 /** Get the approval token for a pending request (if approved). */
