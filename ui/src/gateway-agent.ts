@@ -149,6 +149,14 @@ export class GatewayAgent {
     if (completion.toolCall) {
       const { name, arguments: args } = completion.toolCall;
       const reply = await this.executeTool(name, args, userMessage);
+      
+      if (reply.startsWith("Pending approval:")) {
+        this.onStatus?.("Awaiting approval…");
+        this.messages.push({ role: "assistant", content: reply });
+        this.onMessage?.("assistant", reply);
+        return reply;
+      }
+      
       this.messages.push({ role: "assistant", content: reply });
       this.onMessage?.("assistant", reply);
       this.onStatus?.("Ready");

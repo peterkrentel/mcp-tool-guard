@@ -153,21 +153,56 @@ class GeminiRunner implements LlmRunner {
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
+
+    const toolDefinitions = tools.map((t) => ({
+      name: t.name,
+      description: t.description ?? "",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          args: { type: "object", description: "Tool arguments" },
+        },
+        required: ["args"],
+      },
+    }));
+
+    const payload = {
+      contents,
+      ...(tools.length > 0 && {
+        tools: [
+          {
+            functionDeclarations: toolDefinitions,
+          },
+        ],
+      }),
+    };
+
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents }),
+        body: JSON.stringify(payload),
       },
     );
     if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{ content?: { parts?: Array<{ functionCall?: { name?: string; args?: Record<string, unknown> }; text?: string }> } }>;
     };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    const toolCall = parseToolCallFromText(text);
-    if (toolCall) return { toolCall };
+
+    const parts = data.candidates?.[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.functionCall?.name) {
+        return {
+          toolCall: {
+            name: part.functionCall.name,
+            arguments: (part.functionCall.args ?? {}) as Record<string, unknown>,
+          },
+        };
+      }
+    }
+
+    const text = parts.find((p) => p.text)?.text ?? "";
     return { text };
   }
 }
