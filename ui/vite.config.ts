@@ -30,6 +30,7 @@ export default defineConfig({
       "/token": { target: "http://localhost:8787", changeOrigin: true },
       "/health": { target: "http://localhost:8787", changeOrigin: true },
       "/flight": { target: "http://localhost:8787", changeOrigin: true },
+      "/pending": { target: "http://localhost:8787", changeOrigin: true },
     },
   },
   build: {

@@ -72,6 +72,12 @@
         </div>
       </section>
 
+      <section class="panel">
+        <h2>Approval queue <button id="pending-refresh" type="button" style="font-size:.75rem;padding:.15rem .5rem;margin-left:.5rem">Refresh</button></h2>
+        <p class="admin-hint">Pending tool calls awaiting human approval. Approve grants a one-time token to the agent.</p>
+        <div id="pending-list" class="card-list"></div>
+      </section>
+
       <section class="panel log-panel">
         <h2>Three-layer audit</h2>
         <p class="log-panel-sub">Agent · Proxy · MCP — click trace id to correlate</p>

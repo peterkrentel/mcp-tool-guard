@@ -1,4 +1,4 @@
-import { kvDel, kvGet, kvScan, kvSet } from "./kv.js";
+import { kvDel, kvEnabled, kvGet, kvScan, kvSet } from "./kv.js";
 
 export type PendingStatus = "pending" | "approved" | "denied";
 
@@ -26,6 +26,11 @@ interface CreatePendingInput {
   token_scopes: string[];
   agent_id?: string;
 }
+
+// In-memory fallback when KV is not configured (local dev)
+const memPending = new Map<string, PendingRequest>();
+const memApprovalTokens = new Map<string, { pendingId: string; serverId: string; tool: string; expiresAt: number }>();
+const memPendingTokens = new Map<string, string>(); // pendingId -> token
 
 const PENDING_PREFIX = "gateway:pending:";
 const PENDING_INDEX_KEY = "gateway:pending:index";
@@ -61,28 +66,38 @@ export async function createPendingRequest(input: CreatePendingInput): Promise<P
     status: "pending",
   };
 
-  await kvSet(pendingKey(pending.id), pending);
-  await addToPendingIndex(pending.id);
+  if (kvEnabled()) {
+    await kvSet(pendingKey(pending.id), pending);
+    await addToPendingIndex(pending.id);
+  } else {
+    memPending.set(pending.id, pending);
+  }
   return pending;
 }
 
 export async function getPendingRequest(id: string): Promise<PendingRequest | null> {
+  if (!kvEnabled()) return memPending.get(id) ?? null;
   return kvGet<PendingRequest>(pendingKey(id));
 }
 
 export async function listPendingRequests(status?: PendingStatus): Promise<PendingRequest[]> {
-  const keys = await kvScan(`${PENDING_PREFIX}*`);
-  const entries: PendingRequest[] = [];
+  let entries: PendingRequest[];
 
-  for (const key of keys) {
-    const suffix = key.slice(PENDING_PREFIX.length);
-    if (!suffix || suffix === "index") continue;
-    const record = await kvGet<PendingRequest>(key);
-    if (!record) continue;
-    if (status && record.status !== status) continue;
-    entries.push(record);
+  if (!kvEnabled()) {
+    entries = Array.from(memPending.values());
+  } else {
+    const keys = await kvScan(`${PENDING_PREFIX}*`);
+    entries = [];
+    for (const key of keys) {
+      const suffix = key.slice(PENDING_PREFIX.length);
+      if (!suffix || suffix === "index") continue;
+      const record = await kvGet<PendingRequest>(key);
+      if (!record) continue;
+      entries.push(record);
+    }
   }
 
+  if (status) entries = entries.filter((e) => e.status === status);
   entries.sort((a, b) => b.requested_at.localeCompare(a.requested_at));
   return entries;
 }
@@ -104,7 +119,11 @@ export async function resolvePendingRequest(
     resolved_at: new Date().toISOString(),
     resolved_by: resolvedBy,
   };
-  await kvSet(pendingKey(id), updated);
+  if (kvEnabled()) {
+    await kvSet(pendingKey(id), updated);
+  } else {
+    memPending.set(id, updated);
+  }
   return updated;
 }
 
@@ -129,8 +148,13 @@ export async function generateApprovalToken(pending: PendingRequest): Promise<st
     tool: pending.tool,
     expiresAt: Date.now() + APPROVAL_TOKEN_TTL_MS,
   };
-  await kvSet(`${APPROVAL_TOKEN_PREFIX}${token}`, record);
-  await kvSet(`${PENDING_APPROVAL_TOKEN_PREFIX}${pending.id}`, token);
+  if (kvEnabled()) {
+    await kvSet(`${APPROVAL_TOKEN_PREFIX}${token}`, record);
+    await kvSet(`${PENDING_APPROVAL_TOKEN_PREFIX}${pending.id}`, token);
+  } else {
+    memApprovalTokens.set(token, record);
+    memPendingTokens.set(pending.id, token);
+  }
   return token;
 }
 
@@ -144,6 +168,14 @@ export async function validateApprovalToken(
   tool: string,
 ): Promise<string | null> {
   if (!token.startsWith("at_")) return null;
+  if (!kvEnabled()) {
+    const record = memApprovalTokens.get(token);
+    if (!record) return null;
+    if (Date.now() > record.expiresAt) return null;
+    if (record.serverId !== serverId || record.tool !== tool) return null;
+    memApprovalTokens.delete(token); // burn on use
+    return record.pendingId;
+  }
   const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
   const record = await kvGet<ApprovalTokenRecord>(key);
   if (!record) return null;
@@ -156,6 +188,7 @@ export async function validateApprovalToken(
 
 /** Get the approval token for a pending request (if approved). */
 export async function getApprovalTokenForPending(pendingId: string): Promise<string | null> {
+  if (!kvEnabled()) return memPendingTokens.get(pendingId) ?? null;
   const key = `${PENDING_APPROVAL_TOKEN_PREFIX}${pendingId}`;
   return kvGet<string>(key);
 }
