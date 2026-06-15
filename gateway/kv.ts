@@ -52,11 +52,12 @@ export async function kvGet<T>(relativeKey: string): Promise<T | null> {
   }
 }
 
-export async function kvSet(relativeKey: string, value: unknown): Promise<void> {
+export async function kvSet(relativeKey: string, value: unknown, ttlSec?: number): Promise<void> {
   if (!kvEnabled()) return;
   const encoded = encodeURIComponent(fullKey(relativeKey));
   const payload = JSON.stringify(value);
-  await kvRequest(`/set/${encoded}`, {
+  const path = ttlSec ? `/set/${encoded}?EX=${ttlSec}` : `/set/${encoded}`;
+  await kvRequest(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: payload,

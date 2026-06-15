@@ -132,96 +132,54 @@ class MistralRunner implements LlmRunner {
   }
 }
 
+/**
+ * GeminiRunner — routes completions through the gateway's POST /llm/complete endpoint.
+ * GEMINI_API_KEY lives on the server; the browser never sees it.
+ * If the gateway health check reports gemini_configured=false we mark this
+ * runner as not configured.
+ */
 class GeminiRunner implements LlmRunner {
   readonly id = "gemini" as const;
   readonly label = "Gemini Flash";
-  readonly configured;
-  private readonly apiKey: string;
+  configured: boolean;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-    this.configured = Boolean(apiKey);
+  constructor(configured: boolean) {
+    this.configured = configured;
   }
 
   async init(): Promise<void> {}
 
   async complete(messages: ChatMessage[], tools: LlmToolSchema[]): Promise<LlmCompletion> {
-    const withSystem = messages.some((m) => m.role === "system")
-      ? messages
-      : [{ role: "system" as const, content: buildToolSystemPrompt(tools) }, ...messages];
-    const contents = withSystem.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-    const toolDefinitions = tools.map((t) => ({
-      name: t.name,
-      description: t.description ?? "",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          args: { type: "object", description: "Tool arguments" },
-        },
-        required: ["args"],
-      },
-    }));
-
-    const payload = {
-      contents,
-      ...(tools.length > 0 && {
-        tools: [
-          {
-            functionDeclarations: toolDefinitions,
-          },
-        ],
-      }),
-    };
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ functionCall?: { name?: string; args?: Record<string, unknown> }; text?: string }> } }>;
-    };
-
-    const parts = data.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
-      if (part.functionCall?.name) {
-        const rawArgs = (part.functionCall.args ?? {}) as Record<string, unknown>;
-        // Unwrap the { args: {...} } wrapper introduced by our schema
-        const args =
-          rawArgs.args !== null &&
-          typeof rawArgs.args === "object" &&
-          !Array.isArray(rawArgs.args) &&
-          Object.keys(rawArgs).length === 1
-            ? (rawArgs.args as Record<string, unknown>)
-            : rawArgs;
-        return { toolCall: { name: part.functionCall.name, arguments: args } };
-      }
+    const { resolveProxyBase } = await import("../config.js");
+    const base = resolveProxyBase();
+    const res = await fetch(`${base}/llm/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, tools }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`Gemini proxy ${res.status}: ${text}`);
     }
-
-    const text = parts.find((p) => p.text)?.text ?? "";
-    return { text };
+    const data = (await res.json()) as {
+      text?: string;
+      toolCall?: { name: string; arguments: Record<string, unknown> };
+    };
+    if (data.toolCall) return { toolCall: data.toolCall };
+    return { text: data.text ?? "" };
   }
 }
 
 export function listLlmProviders(): LlmProviderMeta[] {
   const groq = import.meta.env.VITE_GROQ_API_KEY as string | undefined;
   const mistral = import.meta.env.VITE_MISTRAL_API_KEY as string | undefined;
-  const gemini = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
   return [
     { id: "webllm", label: "WebLLM (browser)", configured: true },
     {
       id: "gemini",
       label: "Gemini Flash",
-      configured: Boolean(gemini?.trim()),
-      hint: gemini?.trim() ? undefined : "add VITE_GEMINI_API_KEY to .env.local",
+      // configured is detected from /health at runtime — default true for the list
+      configured: true,
     },
     {
       id: "groq",
@@ -238,7 +196,7 @@ export function listLlmProviders(): LlmProviderMeta[] {
   ];
 }
 
-export function createLlmRunner(id: LlmProviderId): LlmRunner {
+export function createLlmRunner(id: LlmProviderId, opts: { geminiConfigured?: boolean } = {}): LlmRunner {
   switch (id) {
     case "webllm":
       return new WebLlmRunner();
@@ -247,7 +205,7 @@ export function createLlmRunner(id: LlmProviderId): LlmRunner {
     case "mistral":
       return new MistralRunner(String(import.meta.env.VITE_MISTRAL_API_KEY ?? "").trim());
     case "gemini":
-      return new GeminiRunner(String(import.meta.env.VITE_GEMINI_API_KEY ?? "").trim());
+      return new GeminiRunner(opts.geminiConfigured ?? true);
     default:
       throw new Error(`Unknown LLM provider: ${id}`);
   }
