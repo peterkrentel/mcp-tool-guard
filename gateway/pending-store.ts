@@ -1,4 +1,4 @@
-import { kvGet, kvScan, kvSet } from "./kv.js";
+import { kvDel, kvGet, kvScan, kvSet } from "./kv.js";
 
 export type PendingStatus = "pending" | "approved" | "denied";
 
@@ -135,7 +135,7 @@ export async function generateApprovalToken(pending: PendingRequest): Promise<st
 }
 
 /**
- * Validate an approval token for a specific server+tool.
+ * Validate an approval token for a specific server+tool and burn it (one-time use).
  * Returns the pending request ID on success, null if invalid/expired/wrong target.
  */
 export async function validateApprovalToken(
@@ -144,10 +144,13 @@ export async function validateApprovalToken(
   tool: string,
 ): Promise<string | null> {
   if (!token.startsWith("at_")) return null;
-  const record = await kvGet<ApprovalTokenRecord>(`${APPROVAL_TOKEN_PREFIX}${token}`);
+  const key = `${APPROVAL_TOKEN_PREFIX}${token}`;
+  const record = await kvGet<ApprovalTokenRecord>(key);
   if (!record) return null;
   if (Date.now() > record.expiresAt) return null;
   if (record.serverId !== serverId || record.tool !== tool) return null;
+  // Burn on first use — token cannot be reused
+  await kvDel(key);
   return record.pendingId;
 }
 
