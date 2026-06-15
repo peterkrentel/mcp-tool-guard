@@ -63,12 +63,13 @@ import {
   resolvePendingRequest,
   validateApprovalToken,
 } from "./pending-store.js";
-import { clientIp, SlidingWindowRateLimiter } from "./rate-limit.js";
+import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
   auth0AudienceFromEnv,
   tokenVendorFromEnv,
 } from "./token-vendor.js";
+import { geminiComplete, geminiConfigured } from "./llm-proxy.js";
 import type { AuditLogEntry, GuardConfig, ServerConfig } from "./types.js";
 
 function gatewayRoot(): string {
@@ -78,7 +79,8 @@ function gatewayRoot(): string {
 
 const gatewayDir = gatewayRoot();
 const DEFAULT_PORT = 8787;
-const RATE_LIMIT = new SlidingWindowRateLimiter(60, 60_000);
+const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT = new SlidingWindowRateLimiter(RATE_LIMIT_MAX, 60_000);
 const APPROVAL_QUEUE_ENABLED =
   process.env.MCP_APPROVAL_QUEUE?.trim().toLowerCase() === "true";
 
@@ -460,6 +462,11 @@ async function main(): Promise<void> {
   await guard.init();
   syncGuardConfig(guard, registry);
 
+  // Load persisted audit entries from KV (best-effort, don't block startup)
+  guard.logger.loadFromKv().then((n) => {
+    if (n > 0) console.info(`[MCPToolGuard proxy] loaded ${n} audit entries from KV`);
+  }).catch(() => {/* non-fatal */});
+
   const tokenVendor = tokenVendorFromEnv();
   const apiAudience = auth0AudienceFromEnv();
 
@@ -487,10 +494,18 @@ async function main(): Promise<void> {
       const { pathname } = url;
 
       if (pathname !== "/health" && req.method !== "OPTIONS") {
-        const rl = RATE_LIMIT.check(clientIp(req));
+        const ip = clientIp(req);
+        const rl = RATE_LIMIT.check(ip);
         if (!rl.allowed) {
           res.statusCode = 429;
           res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+          sendJson(res, 429, { error: "Rate limit exceeded" });
+          return;
+        }
+        // Distributed check — KV fixed-window complements in-memory sliding window
+        if (await kvRateLimitExceeded(ip, RATE_LIMIT_MAX)) {
+          res.statusCode = 429;
+          res.setHeader("Retry-After", "60");
           sendJson(res, 429, { error: "Rate limit exceeded" });
           return;
         }
@@ -506,6 +521,7 @@ async function main(): Promise<void> {
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           kv_enabled: kvEnabled(),
           approval_queue_enabled: APPROVAL_QUEUE_ENABLED,
+          gemini_configured: geminiConfigured(),
           default_server: defaultServer,
           servers: registry.serverIds(),
           upstream_auth_missing: missingUpstreamEnvNames(serverConfigs),
@@ -807,6 +823,23 @@ async function main(): Promise<void> {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           sendJson(res, 503, { error: message });
+        }
+        return;
+      }
+
+      /** POST /llm/complete — proxy Gemini completion server-side (key never exposed to browser). */
+      if (req.method === "POST" && pathname === "/llm/complete") {
+        if (!geminiConfigured()) {
+          sendJson(res, 503, { error: "GEMINI_API_KEY not configured on gateway" });
+          return;
+        }
+        try {
+          const body = await readJson<{ messages: unknown[]; tools?: unknown[] }>(req);
+          const result = await geminiComplete(body as Parameters<typeof geminiComplete>[0]);
+          sendJson(res, 200, result);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(res, 502, { error: message });
         }
         return;
       }
