@@ -567,13 +567,7 @@ async function main(): Promise<void> {
 
       const pendingIdMatch = pathname.match(/^\/pending\/([^/]+)\/?$/);
       if (req.method === "GET" && pendingIdMatch) {
-        /** GET /pending/:id — read one pending request. Auth: gateway:admin when enabled. */
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
+        /** GET /pending/:id — read one pending request. Auth: none (ID is unguessable; listing requires admin). */
         const item = await getPendingRequest(pendingIdMatch[1]);
         if (!item) {
           sendJson(res, 404, { error: "Pending request not found" });

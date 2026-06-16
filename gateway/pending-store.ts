@@ -98,7 +98,7 @@ export async function listPendingRequests(status?: PendingStatus): Promise<Pendi
   }
 
   if (status) entries = entries.filter((e) => e.status === status);
-  entries.sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+  entries.sort((a, b) => (b.requested_at ?? "").localeCompare(a.requested_at ?? ""));
   return entries;
 }
 

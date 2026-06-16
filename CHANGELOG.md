@@ -20,6 +20,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Approval queue — pending poll auth** — `GET /pending/:id` no longer requires `gateway:admin`; agents can poll their own pending ID without an admin token; `localeCompare` crash on stale KV entries missing `requested_at` field guarded with `?? ""`
 - **Approval queue — scope bypass** — `approvedViaToken` flag prevents final 403 after valid approval token; polling GETs (`/audit`, `/pending/*`) exempted from rate limiter; agent retry loop breaks on tool error instead of looping; dropdown `<select>` no longer reset mid-interaction by background poll
 - **Gateway KV scan** — fix Upstash REST SCAN URL and string cursor `"0"` termination (was hanging Render startup when `KV_REST_API_*` set)
 - **Agent re-vend** — encrypt M2M `clientSecret` at create (AES-GCM, key from `GATEWAY_AGENT_SECRET_KEY` or `AUTH0_MGMT_CLIENT_SECRET`); `POST /agents/:clientId/token` vends JWT so persisted agents are usable after refresh/new browser
