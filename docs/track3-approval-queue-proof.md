@@ -4,6 +4,10 @@
 
 Shipped and **smoke-tested on prod** after merging `feature/tier2-hardening` + `fix/pending-poll-auth-and-sort-crash` to `main`.
 
+![Approval queue panel and three-layer audit](images/demo/track3-approval.png)
+
+![Render proxy logs showing full approval flow](images/demo/track3-proxy-log.png)
+
 ---
 
 ## What was proven
@@ -61,13 +65,3 @@ Shipped and **smoke-tested on prod** after merging `feature/tier2-hardening` + `
 | `MCP_APPROVAL_QUEUE` | `true` |
 | `GITHUB_MCP_TOKEN` | Fine-grained PAT — Contents: R/w, Issues: R/w, PRs: R/w |
 | Demo agent | `github-test-render-00` → `serverId: github`, scopes `repo:read` |
-
----
-
-## Screenshots
-
-### Approval queue panel + three-layer audit
-![Approval queue panel and three-layer audit](images/demo/track3-approval.png)
-
-### Render proxy logs
-![Render proxy logs showing full approval flow](images/demo/track3-proxy-log.png)
