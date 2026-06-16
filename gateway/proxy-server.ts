@@ -128,7 +128,7 @@ function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
     res.setHeader("Vary", "Origin");
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Authorization, Content-Type, Accept, X-Trace-Id, X-Session-Id",
+      "Authorization, Content-Type, Accept, X-Trace-Id, X-Session-Id, X-Approval-Token, X-Agent-Id",
     );
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   }
