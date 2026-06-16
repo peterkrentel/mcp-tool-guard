@@ -121,7 +121,11 @@ export class GatewayAgent {
     await this.pushAgentAudit(auth.entry);
 
     if (!auth.allowed) {
-      return `Blocked before MCP: ${auth.reason}`;
+      // Tool not configured at all — proxy would hard-deny too, no approval possible.
+      if (!auth.reason?.startsWith("Missing required scope")) {
+        return `Blocked before MCP: ${auth.reason}`;
+      }
+      // Scope mismatch — pass through to proxy, which owns the approval queue.
     }
 
     try {
@@ -130,14 +134,18 @@ export class GatewayAgent {
         trace_id: traceId,
       });
 
-      // Check for pending approval response
+      // Check for pending approval response — result may be object or raw JSON string
+      let resultObj: unknown = result;
+      if (typeof result === "string") {
+        try { resultObj = JSON.parse(result); } catch { /* not JSON */ }
+      }
       if (
-        typeof result === "object" &&
-        result !== null &&
-        (result as Record<string, unknown>).result &&
-        typeof (result as Record<string, unknown>).result === "object"
+        typeof resultObj === "object" &&
+        resultObj !== null &&
+        (resultObj as Record<string, unknown>).result &&
+        typeof (resultObj as Record<string, unknown>).result === "object"
       ) {
-        const innerResult = (result as Record<string, unknown>).result as Record<string, unknown>;
+        const innerResult = (resultObj as Record<string, unknown>).result as Record<string, unknown>;
         if (innerResult.status === "pending" && innerResult.pending_id) {
           this.pendingApprovalState = {
             pendingId: innerResult.pending_id as string,
@@ -170,9 +178,11 @@ export class GatewayAgent {
       this.onStatus?.(`Polling for approval… (${attempt}s)`);
 
       try {
-        // Fetch pending status from proxy
+        // Fetch pending status from proxy — always at gateway root /pending/:id
+        const { resolveProxyBase } = await import("./config.js");
+        const base = resolveProxyBase();
         const response = await fetch(
-          this.options.mcpUrl.replace(/\/mcp\/?$/, "") + `/pending/${encodeURIComponent(pendingId)}`,
+          `${base}/pending/${encodeURIComponent(pendingId)}`,
           {
             headers: {
               Authorization: `Bearer ${this.jwt}`,
@@ -185,22 +195,35 @@ export class GatewayAgent {
           if (data.pending?.status === "approved" && data.approval_token) {
             this.onStatus?.("Approval received! Retrying…");
             this.mcp.setApprovalToken(data.approval_token);
-            const result = await this.mcp.callTool(tool, args, {
-              session_id: this.sessionId,
-              trace_id: newTraceId(),
-            });
-            this.mcp.clearApprovalToken();
+            try {
+              const result = await this.mcp.callTool(tool, args, {
+                session_id: this.sessionId,
+                trace_id: newTraceId(),
+              });
+              this.mcp.clearApprovalToken();
+              this.pendingApprovalState = null;
+              this.onAudit?.();
+              return `Tool \`${tool}\` result:\n${result}`;
+            } catch (toolErr) {
+              // Tool call failed after approval — don't retry, surface the error
+              this.mcp.clearApprovalToken();
+              this.pendingApprovalState = null;
+              const msg = toolErr instanceof Error ? toolErr.message : String(toolErr);
+              return `Tool error after approval: ${msg}`;
+            }
+          }
+          if (data.pending?.status === "denied") {
             this.pendingApprovalState = null;
-            this.onAudit?.();
-            return `Tool \`${tool}\` result:\n${result}`;
+            return "Request denied by operator.";
           }
         }
       } catch (err) {
+        // Poll fetch failed (network/429) — log and keep waiting
         console.warn("Polling failed:", err);
       }
 
-      // Wait 1 second before next poll
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait 2 seconds before next poll (reduce request pressure)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     return "Approval timeout after 60 seconds";

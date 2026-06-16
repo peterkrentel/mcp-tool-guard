@@ -472,9 +472,14 @@ createAgentForm.addEventListener("submit", (e) => {
 
 function updateAgentMcpSelect(): void {
   const sel = document.getElementById("agent-mcp") as HTMLSelectElement;
-  sel.innerHTML = servers
-    .map((s) => `<option value="${s.id}">${s.id}</option>`)
-    .join("");
+  // Don't clobber the dropdown while the user has it open
+  if (document.activeElement === sel) return;
+  const newIds = servers.map((s) => s.id);
+  const currentIds = Array.from(sel.options).map((o) => o.value);
+  if (newIds.join(",") === currentIds.join(",")) return;
+  const prev = sel.value;
+  sel.innerHTML = newIds.map((id) => `<option value="${id}">${id}</option>`).join("");
+  if (prev && newIds.includes(prev)) sel.value = prev;
 }
 
 initBtn.addEventListener("click", () => {

@@ -140,7 +140,7 @@ class MistralRunner implements LlmRunner {
  */
 class GeminiRunner implements LlmRunner {
   readonly id = "gemini" as const;
-  readonly label = "Gemini Flash";
+  readonly label = "Gemini 3.1 Flash Lite";
   configured: boolean;
 
   constructor(configured: boolean) {
@@ -177,7 +177,7 @@ export function listLlmProviders(): LlmProviderMeta[] {
     { id: "webllm", label: "WebLLM (browser)", configured: true },
     {
       id: "gemini",
-      label: "Gemini Flash",
+      label: "Gemini 3.1 Flash Lite",
       // configured is detected from /health at runtime — default true for the list
       configured: true,
     },

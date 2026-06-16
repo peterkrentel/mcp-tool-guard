@@ -340,6 +340,7 @@ async function handleMcp(
 
     if (!result.allowed) {
       // Check for approval token bypass (from admin approval of pending request)
+      let approvedViaToken = false;
       if (result.reason?.startsWith("Missing required scope")) {
         const approvalToken = header(req, "x-approval-token");
         if (approvalToken && APPROVAL_QUEUE_ENABLED) {
@@ -359,7 +360,7 @@ async function handleMcp(
                 session_id: sessionId,
                 reason: `Approved via token (${pendingId})`,
               });
-              // Continue with the MCP call (fall through)
+              approvedViaToken = true; // bypass scope denial, fall through to MCP call
             } else {
               sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
               return;
@@ -397,8 +398,10 @@ async function handleMcp(
           return;
         }
       }
-      sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
-      return;
+      if (!approvedViaToken) {
+        sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
+        return;
+      }
     }
   }
 
@@ -493,7 +496,12 @@ async function main(): Promise<void> {
       const url = new URL(req.url ?? "/", "http://localhost");
       const { pathname } = url;
 
-      if (pathname !== "/health" && req.method !== "OPTIONS") {
+      // Exempt cheap read-only polls from rate limiting — only throttle MCP tool calls and LLM
+      const isExemptFromRateLimit =
+        req.method === "OPTIONS" ||
+        pathname === "/health" ||
+        (req.method === "GET" && (pathname === "/audit" || pathname.startsWith("/pending")));
+      if (!isExemptFromRateLimit) {
         const ip = clientIp(req);
         const rl = RATE_LIMIT.check(ip);
         if (!rl.allowed) {
@@ -836,9 +844,11 @@ async function main(): Promise<void> {
         try {
           const body = await readJson<{ messages: unknown[]; tools?: unknown[] }>(req);
           const result = await geminiComplete(body as Parameters<typeof geminiComplete>[0]);
+          console.info(`[MCPToolGuard] llm/complete → ${result.toolCall ? `toolCall:${result.toolCall.name}` : "text"}`);
           sendJson(res, 200, result);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          console.warn(`[MCPToolGuard] llm/complete error: ${message}`);
           sendJson(res, 502, { error: message });
         }
         return;
