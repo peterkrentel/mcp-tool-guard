@@ -121,7 +121,11 @@ export class GatewayAgent {
     await this.pushAgentAudit(auth.entry);
 
     if (!auth.allowed) {
-      return `Blocked before MCP: ${auth.reason}`;
+      // Tool not configured at all — proxy would hard-deny too, no approval possible.
+      if (!auth.reason?.startsWith("Missing required scope")) {
+        return `Blocked before MCP: ${auth.reason}`;
+      }
+      // Scope mismatch — pass through to proxy, which owns the approval queue.
     }
 
     try {

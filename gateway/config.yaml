@@ -40,9 +40,27 @@ servers:
     url: https://api.githubcopilot.com/mcp/
     upstream_token_env: GITHUB_MCP_TOKEN
     tools:
+      get_me:
+        required_scope: repo:read
+      list_branches:
+        required_scope: repo:read
       get_file_contents:
         required_scope: repo:read
       search_code:
+        required_scope: repo:read
+      search_repositories:
+        required_scope: repo:read
+      list_commits:
+        required_scope: repo:read
+      get_commit:
+        required_scope: repo:read
+      list_issues:
+        required_scope: repo:read
+      get_issue:
+        required_scope: repo:read
+      list_pull_requests:
+        required_scope: repo:read
+      get_pull_request:
         required_scope: repo:read
       create_or_update_file:
         required_scope: repo:write
@@ -51,3 +69,7 @@ servers:
       create_pull_request:
         required_scope: repo:write
         alert: true
+      create_issue:
+        required_scope: repo:write
+      create_branch:
+        required_scope: repo:write

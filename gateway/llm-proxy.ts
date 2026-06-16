@@ -54,32 +54,17 @@ export async function geminiComplete(
         ...messages,
       ];
 
+  // Gemini REST v1 doesn't support native function declarations —
+  // use system-prompt + JSON text parsing (same approach as Groq/Mistral).
   const contents = withSystem.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
 
-  const toolDefinitions = tools.map((t) => ({
-    name: t.name,
-    description: t.description ?? "",
-    parameters: {
-      type: "object" as const,
-      properties: {
-        args: { type: "object", description: "Tool arguments" },
-      },
-      required: ["args"],
-    },
-  }));
-
-  const payload = {
-    contents,
-    ...(tools.length > 0 && {
-      tools: [{ functionDeclarations: toolDefinitions }],
-    }),
-  };
+  const payload = { contents };
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -93,33 +78,25 @@ export async function geminiComplete(
 
   const data = (await res.json()) as {
     candidates?: Array<{
-      content?: {
-        parts?: Array<{
-          functionCall?: { name?: string; args?: Record<string, unknown> };
-          text?: string;
-        }>;
-      };
+      content?: { parts?: Array<{ text?: string }> };
     }>;
   };
 
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const text = data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "";
 
-  for (const part of parts) {
-    if (part.functionCall?.name) {
-      const rawArgs = (part.functionCall.args ?? {}) as Record<string, unknown>;
-      // Unwrap the { args: {...} } wrapper from our schema
-      const args =
-        rawArgs.args !== null &&
-        typeof rawArgs.args === "object" &&
-        !Array.isArray(rawArgs.args) &&
-        Object.keys(rawArgs).length === 1
-          ? (rawArgs.args as Record<string, unknown>)
-          : rawArgs;
-      return { toolCall: { name: part.functionCall.name, arguments: args } };
+  // Parse tool call from JSON text ({"tool":"<name>","arguments":{...}})
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as { tool?: string; arguments?: Record<string, unknown> };
+      if (parsed.tool) {
+        return { toolCall: { name: parsed.tool, arguments: parsed.arguments ?? {} } };
+      }
+    } catch {
+      // Not JSON — fall through to plain text
     }
   }
 
-  const text = parts.find((p) => p.text)?.text ?? "";
   return { text };
 }
 

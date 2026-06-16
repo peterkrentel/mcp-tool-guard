@@ -13,6 +13,7 @@ export function gatewayKvPrefix(): string {
 }
 
 export function kvEnabled(): boolean {
+  if (typeof process === "undefined") return false;
   return Boolean(REST_URL() && REST_TOKEN());
 }
 
