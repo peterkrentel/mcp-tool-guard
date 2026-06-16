@@ -362,7 +362,7 @@ async function refreshPending(): Promise<void> {
     }
     pendingListEl.innerHTML = items
       .map((p) => {
-        const age = Math.round((Date.now() - new Date(p.requested_at).getTime()) / 1000);
+        const age = p.requested_at ? Math.round((Date.now() - new Date(p.requested_at).getTime()) / 1000) : "?";
         const badge = p.status === "pending"
           ? '<span style="color:#f90;font-weight:600">PENDING</span>'
           : p.status === "approved"
@@ -373,7 +373,7 @@ async function refreshPending(): Promise<void> {
             <strong>${p.tool}</strong>${badge}
           </div>
           <div class="card-meta">server: ${p.server_id} &nbsp;·&nbsp; needs: <code>${p.required_scope}</code></div>
-          <div class="card-meta">agent has: ${p.token_scopes.join(", ") || "(none)"}</div>
+          <div class="card-meta">agent has: ${(p.token_scopes ?? []).join(", ") || "(none)"}</div>
           <div class="card-meta mono" style="font-size:.7rem">${p.id} &nbsp;·&nbsp; ${age}s ago</div>
           ${p.status === "pending" ? `
           <div style="display:flex;gap:.5rem;margin-top:.4rem">
