@@ -66,4 +66,8 @@ Shipped and **smoke-tested on prod** after merging `feature/tier2-hardening` + `
 
 ## Screenshots
 
-_See `docs/images/demo/` — add screenshots of approval queue panel, three-layer audit, and Render logs._
+### Approval queue panel + three-layer audit
+![Approval queue panel and three-layer audit](images/demo/track3-approval.png)
+
+### Render proxy logs
+![Render proxy logs showing full approval flow](images/demo/track3-proxy-log.png)
