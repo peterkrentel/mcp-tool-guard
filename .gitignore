@@ -11,3 +11,4 @@ scripts/dev.env
 !ui/public/demo-public.pem
 __pycache__/
 *.pyc
+slack-mcp.env
