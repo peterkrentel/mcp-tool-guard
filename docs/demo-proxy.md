@@ -7,7 +7,7 @@ Five-minute script to prove **authoritative enforcement** on the Render guard pr
 **This is the product demo** — not a tour of the repo or the chat UI. The system proves itself via API behavior: scoped JWT in → allow/deny out → `/audit` replay.
 
 | Minimum viable demo | Optional |
-|-------------------|----------|
+| ------------------- | -------- |
 | **Demo 6** (GitHub curl allow) + Render logs · or flight **Demo 4** (curl deny) + **Demo 5** (`/audit`) | UI chat, agent trace panel, WebLLM |
 
 **Track 2 prod proof (screenshots + checklist):** [track2-github-proof.md](track2-github-proof.md).
@@ -18,7 +18,7 @@ Do not extend the demo with more mock MCPs or UI features unless they show a **n
 
 ## Architecture (prod today)
 
-```
+```text
 Browser / curl  →  Render guard proxy  →  upstream MCP
                       ↑ JWT scopes        flight (Vercel)  OR  github (GitHub Copilot)
                       ↑ GET /audit
@@ -26,7 +26,7 @@ Browser / curl  →  Render guard proxy  →  upstream MCP
 ```
 
 | Service | URL |
-|---------|-----|
+| ------- | --- |
 | **UI** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) |
 | **Guard proxy** | [mcp-tool-guard-proxy.onrender.com](https://mcp-tool-guard-proxy.onrender.com/health) |
 | **Flight** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
@@ -34,7 +34,7 @@ Browser / curl  →  Render guard proxy  →  upstream MCP
 Two-layer model:
 
 | Layer | Where | Role |
-|-------|-------|------|
+| ----- | ----- | ---- |
 | **Client pre-check** | Browser (`ui/src/agent.ts`) | UX — blocks obvious denies before network |
 | **Proxy enforce** | Render (`gateway/proxy-server.ts`) | **Authoritative** — cannot bypass with a direct HTTP call |
 
@@ -56,7 +56,7 @@ Two-layer model:
 Use `demo-read@…` (or guest **read_only** token).
 
 | Action | Audit panel | Proxy |
-|--------|-------------|-------|
+| ------ | ----------- | ----- |
 | Search flights | **Server** ALLOW | Request reaches proxy → allow |
 | Book a flight | **Agent attempts** DENY only | No matching server row (blocked client-side) |
 
@@ -76,7 +76,7 @@ Sign in as admin (full `flights:*` permissions).
 
 **Proof (Render dashboard → Logs):**
 
-```
+```text
 [MCPToolGuard] allow search_flights_tool
 [MCPToolGuard] allow create_booking_tool
 [MCPToolGuard ALERT] allow cancel_booking_tool
@@ -116,7 +116,7 @@ Prove scope enforcement on a **vendor MCP you do not control**. The proxy substi
 
 ![Render logs — proxy and mcp allow](images/demo/track2-github-render-logs.png)
 
-**Prerequisites**
+### Prerequisites
 
 1. Add `repo:read` and `repo:write` permissions to your Auth0 API (`https://mcp-tool-guard`).
 2. Set `GITHUB_MCP_TOKEN` on Render (fine-grained PAT with repo access for the demo repo).
@@ -129,7 +129,7 @@ Prove scope enforcement on a **vendor MCP you do not control**. The proxy substi
 curl -s "$PROXY/servers/github/tools" | jq '.tools[].name'
 ```
 
-**Allow — read-scoped agent token**
+### Allow — read-scoped agent token
 
 ```bash
 PROXY=https://mcp-tool-guard-proxy.onrender.com
@@ -144,7 +144,7 @@ curl -s -X POST "$PROXY/github/mcp" \
 
 **SSE note:** GitHub MCP responses are `text/event-stream`. Pipe through `grep '^data: '` before `jq` (see [track2-github-proof.md](track2-github-proof.md)).
 
-**Deny — write tool without repo:write (proxy blocks before GitHub)**
+### Deny — write tool without repo:write (proxy blocks before GitHub)
 
 Use a **`repo:read`-only** agent token (e.g. `github-test01-read` on `/agents.html`).
 
@@ -162,7 +162,7 @@ curl -s -X POST "$PROXY/github/mcp" \
 
 ![curl write deny — -32001 at proxy](images/demo/track2-github-curl-write-deny.png)
 
-**Audit**
+### Audit
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
@@ -170,7 +170,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
 
 **Talking point:** Same JWT scope model as flight — different upstream credential for the vendor MCP.
 
-**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision github agents until Track 3 approval UI lands.
+**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision GitHub agents and review the shipped approval queue panel.
 
 ---
 
@@ -188,7 +188,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.source'
 Read in this order to understand the flow:
 
 | Order | File | What you learn |
-|-------|------|----------------|
+| ----- | ---- | -------------- |
 | 1 | [deploy-overview.md](deploy-overview.md) | Local vs prod paths |
 | 2 | `gateway/config.yaml` + `config.prod.yaml` | Policy: server → url + tool → scope |
 | 3 | `gateway/guard.ts` | JWT verify, `authorize()`, deny reasons |
@@ -197,7 +197,9 @@ Read in this order to understand the flow:
 | 6 | `ui/src/mcp-client.ts` | Headers (`Accept`, Bearer, trace) |
 | 7 | `ui/src/audit-view.ts` | Three panels, session filter |
 
-**Implement next:** [cursor-guide.md](cursor-guide.md) Track 3 (approval queue).
+**Related shipped proof:** [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
+
+**Hardening next:** audit export, SDK packaging, Auth0 registry sync, and broader backend-agent deployment.
 
 **GitHub request to trace:** curl/agent JWT → `POST /github/mcp` → proxy `authorize(repo:read)` → forward with `GITHUB_MCP_TOKEN` → GitHub MCP → SSE result.
 
