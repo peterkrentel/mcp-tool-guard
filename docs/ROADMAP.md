@@ -4,11 +4,11 @@
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md) · [CONCEPT.md](CONCEPT.md).
 
-**Current release:** [0.3.1 shipped](#release-031--demo-polish) — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior: [0.3.0](#release-030--hardening--multi-server).
+**Current release:** `0.3.1` shipped — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior release: `0.3.0`.
 
-**Next (implementation order):** [cursor-guide.md](cursor-guide.md) — **Track 3** approval queue (Tracks 1–2 **done** — [track2-github-proof.md](track2-github-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
+**Implementation status:** Tracks 1–3 are shipped on `main` — KV registry + agents, GitHub MCP upstream, and approval queue ([track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
-**Track 3 kickoff:** backend scaffold landed on feature branch — `MCP_APPROVAL_QUEUE=true` returns `202` + `pending_id`, with admin `/pending/*` resolve routes. Remaining work: token handoff + agent retry path + admin UI panel.
+**Next focus:** post-Track-3 hardening — Auth0 registry hygiene, audit export, SDK packaging, and broader backend-agent deployment patterns.
 
 ## Product shape (summary)
 
@@ -21,13 +21,13 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 ### Differentiators
 
 | Moat | What it means |
-|------|----------------|
+| ---- | ------------- |
 | **Authoritative enforcement** | Proxy/server denies before upstream MCP runs — not prompt promises |
 | **Auditable execution** | Every `tools/call` → structured allow/deny + `trace_id` replay via `GET /audit` |
 | **BYO IdP, scope-per-tool policy** | `gateway/config.yaml` maps tools → scopes; issuer-agnostic JWKS path |
 | **Control vs runtime identity** | Operators provision with `gateway:admin`; agents run with narrow M2M tool scopes |
 | **MCP-native gateway** | One enforcement layer in front of any upstream MCP URL |
-| **On-demand scope (planned)** | Approval queue — agent lacks scope → human approves → short-lived token → retry ([Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope)) |
+| **On-demand scope** | Approval queue — agent lacks scope → human approves → short-lived token → retry ([Track 3 proof](track3-approval-queue-proof.md)) |
 
 Canonical proof: [demo-proxy.md](demo-proxy.md) (curl deny + `/audit`), not chat quality.
 
@@ -36,17 +36,17 @@ Canonical proof: [demo-proxy.md](demo-proxy.md) (curl deny + `/audit`), not chat
 Before adding scope, ask: **does this strengthen enforcement + audit credibility, or only demo UX?**
 
 | Ship | Defer |
-|------|-------|
+| ---- | ----- |
 | [Three tracks](cursor-guide.md): KV registry, GitHub MCP, approval queue | Extra mock MCP servers (#9/#10) |
 | Structured upstream errors, registry hygiene | Proxy audit UI chrome, path banners |
-| Demo script that replays allow/deny + audit | WebLLM text parsing — use Gemini function-calling for Track 3 |
+| Demo script that replays allow/deny + audit | UI-only polish that does not change enforcement credibility |
 
 ---
 
 ## Release 0.2.0 — Remote & server auth {#release-020--remote--server-auth}
 
 | # | Task | Status |
-|---|------|--------|
+| - | ---- | ------ |
 | 1 | Deploy flight MCP to Vercel | Done |
 | 2 | Deploy UI; `VITE_MCP_URL` → remote flight | Done |
 | 3 | `Authorization: Bearer` on every MCP request | Done |
@@ -72,7 +72,7 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 ### High — identity & public deploy
 
 | # | Task | Notes | Priority |
-|---|------|--------|----------|
+| - | ---- | ----- | -------- |
 | 1 | Auth0 login **+ guest demo** | Dual trust: JWKS + PEM | **Done** |
 | 2 | JWKS + `iss` / `aud` on flight + SDK | PEM fallback for guest/CI | **Done** |
 | 3 | `GET /audit` requires Bearer JWT | Same token as MCP | **Done** |
@@ -83,7 +83,7 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 ### Medium — correctness & multi-server
 
 | # | Task | Notes |
-|---|------|--------|
+| - | ---- | ----- |
 | 7 | Middleware max request body size | DoS: unbounded body in middleware |
 | 8 | Policy from `gateway/config.yaml` in UI + demo alignment CI | **Done** — `ui/guard-config.ts` imports yaml; `check:demo-policy` until #12 |
 | 9 | Multi-server UI | `authorize(server, …)` + per-URL MCP client — **deferred** |
@@ -93,7 +93,7 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 ### Larger — Tier 2 (may follow 0.3)
 
 | # | Task | Notes |
-|---|------|--------|
+| - | ---- | ----- |
 | 12 | **Guard HTTP proxy** | **Done** — code on `main`, **deployed on Render** — [render-deploy](render-deploy.md), [demo-proxy](demo-proxy.md), [CONCEPT](CONCEPT.md#third-party--unowned-mcp) |
 | 13 | Rate limiting | MCP + `/audit` |
 | 14 | Guard `initialize` / `tools/list` (optional auth) | Capability enumeration |
@@ -109,7 +109,7 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 ## Tier 2 — Product depth (post-0.3)
 
 | Item | Notes |
-|------|--------|
+| ---- | ----- |
 | **Keycloak / Azure AD** | Same `MCP_JWT_*` env as Auth0; enterprise demo |
 | Audit export / observability sink | OTel, Loki, Datadog |
 | Python audit `LogSink` | Parity with TypeScript sinks |
@@ -123,16 +123,16 @@ Before adding scope, ask: **does this strengthen enforcement + audit credibility
 ## Tier 3 — Optional
 
 | Item | Notes |
-|------|--------|
+| ---- | ----- |
 | MCP elicitation | Server `elicit()` + client callback |
 | MCP CLI / Cursor docs | `mcp.json` for HTTP flight |
 | UX polish | IATA false positives, empty-search messaging |
 
 ## Near-term execution notes
 
-1. Finish Track 3 before additional UX scope.
-2. Land Gemini native function-calling before approval auto-retry wiring.
-3. Prioritize proxy audit persistence and distributed rate limiting before broad production claims.
+1. Prioritize Auth0 registry sync and client reuse before scaling agent creation.
+2. Prioritize audit export and SDK packaging before broader production claims.
+3. Keep multi-server UI expansion behind hardening work.
 
 ---
 

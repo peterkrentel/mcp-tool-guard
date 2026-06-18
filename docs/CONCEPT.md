@@ -23,7 +23,7 @@ MCPToolGuard validates **JWT scopes** against per-tool policy on MCP `tools/call
 What you **sell** is proxy enforcement + audit replay, not chat quality or model choice.
 
 | Layer | Role | Required to prove the product? |
-|-------|------|--------------------------------|
+| ----- | ---- | ------------------------------ |
 | **Proxy + `GET /audit`** | Truth — enforcement decision + durable record | **Yes** — [demo-proxy.md](demo-proxy.md) |
 | **Client `ToolGuard`** | Pre-check + agent-attempt log (intent) | Optional — teaches dual-plane model |
 | **UI / WebLLM / LLM picker** | Human visualization | Optional — not authoritative |
@@ -37,7 +37,7 @@ Canonical demo: one scoped JWT, one denied `tools/call`, one `/audit` query with
 ### Two layers (do not mix them)
 
 | Layer | Owner | Question |
-|-------|--------|----------|
+| ----- | ----- | -------- |
 | **Identity** | Auth0, Keycloak, Azure AD, … | Who is this principal? Which **roles/groups** do they have? What **scopes** go on the access token? |
 | **MCPToolGuard** | `gateway/config.yaml` + server/proxy guard | For **server + tool**, what **`required_scope`** applies? Does the token satisfy it? |
 
@@ -53,7 +53,7 @@ Wildcards: `flights:*`, `docs:*`, or `*` match any scope in that resource ([gate
 
 Direct **user → scope** assignments work for demos; production should use **roles or groups → scopes**:
 
-```
+```text
 Role: flight-readers   →  flights:read, docs:read
 Role: kb-editors       →  docs:read, docs:write
 Role: platform-admin   →  flights:*, docs:*
@@ -69,7 +69,7 @@ Details: [identity.md → Scopes vs roles](identity.md#scopes-vs-roles-how-admin
 
 **Diagrams and component map:** [ARCHITECTURE.md](ARCHITECTURE.md) (system context, sequence per turn, policy, IdP, today vs proxy).
 
-```
+```text
 Browser tab (Vite + WebLLM)
 ├── WebLLM              ← local LLM (not the MCP caller)
 ├── Agent loop          ← ui/src/agent.ts
@@ -89,7 +89,7 @@ The **MCP caller** is `mcp-client.ts`, not WebLLM. WebLLM proposes tool JSON; th
 Full diagrams: [ARCHITECTURE.md](ARCHITECTURE.md#three-observability-planes-demo-ui).
 
 | Plane | Source | Question | Trust |
-|-------|--------|----------|-------|
+| ----- | ------ | -------- | ----- |
 | **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? Model preview? Outcome before/after guard? | Debug only |
 | **Agent attempts** | `ToolGuard` in browser | Which tool and scopes? Client pre-check allow/deny? | Debug only |
 | **Server enforcement** | `GET /audit` on flight | What reached MCP? JWT valid? Final allow/deny? | **Authoritative** |
@@ -102,10 +102,10 @@ For compliance and production dashboards, use **server** guard JSON (Tier 2 → 
 
 Agent observability often spans **metrics** (latency, tokens, error rates), **traces** (step-by-step model and tool calls), and **logs/events** (discrete decisions and failures). MCPToolGuard focuses on the **tool boundary** — not a full “glass box” for the LLM.
 
-**What we answer**
+### What we answer
 
 | Question | Signal type | How |
-|----------|-------------|-----|
+| -------- | ----------- | --- |
 | Which tool did the agent try? | Logs / events | Client agent-attempt audit |
 | How was the turn routed (heuristic vs LLM)? | Logs / events | Agent trace panel (demo UI) |
 | Did it reach MCP? Allow or deny? | Logs / events | Server guard audit (`GET /audit`) |
@@ -114,13 +114,13 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 
 **Pitch:** MCPToolGuard observability answers *which tools were attempted, with what token, allow or deny, and did the server agree?* For model latency, token usage, and reasoning chains, use your existing APM or LLM platform; ship **server** guard JSON into that stack (Tier 2).
 
-**In scope (this repo)**
+### In scope (this repo)
 
 - Structured allow/deny per `tools/call`
 - Correlation IDs across client SDK → MCP → server
 - Three audit sections in the demo UI (agent trace, agent attempts, server — teaching aid)
 
-**Out of scope (0.x demo)**
+### Out of scope (0.x demo)
 
 - Full LLM platform observability (token/latency dashboards, prompt registry)
 - Full OpenTelemetry span trees for every model hop
@@ -137,7 +137,7 @@ Agent observability often spans **metrics** (latency, tokens, error rates), **tr
 **Canonical:** [`gateway/config.yaml`](../gateway/config.yaml) — per-server `url` + `tools` → `required_scope` (guard / proxy; vendor MCP never reads this file).
 
 | File | Used by |
-|------|---------|
+| ---- | ------- |
 | `gateway/config.yaml` | Client `ToolGuard` (UI imports at build), **guard proxy** (#12) on Render |
 | `servers/flight/guard_config.yaml` | **Demo only** — embedded guard on flight MCP until proxy; must match `servers.flight` in gateway yaml (CI: `npm run check:demo-policy`) |
 | `ui/src/guard-config.ts` | Imports gateway yaml + demo `TOOL_DESCRIPTIONS` (LLM hints, not policy) |
@@ -160,7 +160,7 @@ Wildcards: `flights:*` or `*`.
 Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server) and [NEXT-STEPS](NEXT-STEPS.md) track hardening; Tier 2 covers IdP, proxy, and observability sinks.
 
 | Concern | Demo (now) | Production (later) |
-|---------|------------|---------------------|
+| ------- | ---------- | ------------------ |
 | Enforcement | Server on flight MCP + client SDK pre-check | Same pattern on every MCP hop |
 | Audit storage | In-memory + UI panel | Log shipper → Loki/Datadog/etc. |
 | Dashboards | In-browser sections | Grafana / SIEM |
@@ -169,9 +169,9 @@ Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#releas
 ## Current limitations (demo)
 
 | Limitation | Detail |
-|------------|--------|
+| ---------- | ------ |
 | Guard | Server enforces every `tools/call`; client pre-check is UX + intent audit only when MCP is public |
-| Server audit | In-memory (`GET /audit`); resets on cold start; **unauthenticated** on public deploy; intermittent on Vercel serverless (see [NEXT-STEPS](NEXT-STEPS.md)) |
+| Server audit | Authoritative path is the Render guard proxy `GET /audit` with Bearer auth; recent rows persist in KV when configured. Flight Vercel audit remains demo scaffolding only. |
 | CORS | Defaults to demo UI + local Vite; not `*` on flight server (0.2.0+) |
 | Policy | One canonical yaml; flight `guard_config.yaml` is temporary demo scaffolding |
 | MCP surface | `initialize` / `tools/list` unguarded; no prompts, elicitation, or resources |
@@ -197,23 +197,23 @@ Agents often call MCP tools on **someone else’s origin** (e.g. Slack, GitHub).
 ### Two meanings of “remote”
 
 | Kind | Example | Who runs MCP |
-|------|---------|--------------|
+| ---- | ------- | ------------ |
 | **Remote, yours** | Flight on Vercel | You — server guard + `/audit` |
 | **Remote, unowned** | Vendor MCP URL | Vendor — **guard proxy** on Render enforces; wire vendor URL in `config.prod.yaml` |
 
 ### Capability by deployment
 
 | Goal | Client SDK | Your flight + KV | Guard proxy (Tier 2) |
-|------|------------|------------------|----------------------|
+| ---- | ---------- | ---------------- | -------------------- |
 | Scope pre-check | Yes | N/A | Yes — authoritative |
 | Authoritative enforce on vendor | No | No | Yes |
 | Authoritative audit | No | Your flight only | Yes — proxy log |
 
 **Client-only** multi-server ([ROADMAP #9](ROADMAP.md#release-030--hardening--multi-server)) = intent audit, not tamper-proof. **KV** on flight does not audit vendor MCP — see [identity.md](identity.md).
 
-**Implementation order:** [cursor-guide.md](cursor-guide.md) — **Track 1** KV registry (**done**), **Track 2** GitHub MCP + `upstream_token` (**done** — [track2-github-proof.md](track2-github-proof.md)), **Track 3** approval queue for on-demand scope. KV key sketches: [kv-design.md](kv-design.md).
+**Implementation status:** [cursor-guide.md](cursor-guide.md) — **Track 1** KV registry (**done**), **Track 2** GitHub MCP + `upstream_token` (**done** — [track2-github-proof.md](track2-github-proof.md)), **Track 3** approval queue (**done** — [track3-approval-queue-proof.md](track3-approval-queue-proof.md)). KV key sketches: [kv-design.md](kv-design.md).
 
-```
+```text
 Unowned MCP (production):  Browser → YOUR guard proxy → vendor MCP
                                     ↑ JWKS + scopes + audit (KV/Loki)
 ```
@@ -223,7 +223,7 @@ Unowned MCP (production):  Browser → YOUR guard proxy → vendor MCP
 Product pitch: **bring your IdP** — we validate JWT scopes at `tools/call`.
 
 | Topic | Doc |
-|-------|-----|
+| ----- | --- |
 | Auth0 vs Keycloak, Path A vs audit secret | [identity.md](identity.md) |
 | Auth0 dashboard checklist | [auth0-setup.md](auth0-setup.md) |
 | Env template | [auth0-env.example](auth0-env.example) |
@@ -232,8 +232,8 @@ Product pitch: **bring your IdP** — we validate JWT scopes at `tools/call`.
 
 ### Guest vs signed-in
 
-| | Guest | Auth0 |
-|--|-------|-------|
+| Guest mode | Guest | Auth0 |
+| ---------- | ----- | ----- |
 | UX | Scope dropdown (today) | Login button |
 | Token | `demo-tokens.json` | Access token |
 | Verify | Demo PEM | JWKS + iss/aud |
@@ -245,7 +245,7 @@ Details: [identity.md → Guest demo](identity.md#guest-demo-existing-jwts--auth
 ### Files
 
 | Path | Purpose | Committed? |
-|------|---------|------------|
+| ---- | ------- | ---------- |
 | `keys/demo-private.pem` | Signs demo JWTs | No |
 | `ui/public/demo-public.pem` | Verify in browser + server (local/CI) | Yes (public key only) |
 | `ui/public/demo-tokens.json` | `read_only`, `booking`, `admin` JWTs | Yes (demo credentials) |
@@ -261,7 +261,7 @@ Regenerate: `make keys` or `npm run generate-keys`. **Guest mode** keeps these J
 ### Demo profiles (guest dropdown = role bundles)
 
 | UI key | Scopes (guest JWT) | Search | Book | Cancel |
-|--------|-------------------|--------|------|--------|
+| ------ | ------------------ | ------ | ---- | ------ |
 | `read_only` | `flights:read` | Yes | No | No |
 | `booking` | + `flights:write` | Yes | Yes | No |
 | `admin` | + `flights:delete` | Yes | Yes | Yes |
@@ -270,7 +270,7 @@ Additional domains (e.g. `docs:read`) use the same pattern when `gateway/config.
 
 ### Enforcement flow (demo)
 
-```
+```text
 Agent → ToolGuard.authorize (client audit) → mcp.callTool → server middleware (server audit) → tool handler
 ```
 

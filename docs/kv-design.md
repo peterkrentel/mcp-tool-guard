@@ -9,7 +9,7 @@ Serverless flight MCP runs in **stateless** Vercel functions. In-memory audit an
 All keys use optional prefix `MCP_KV_PREFIX` (default `mcp-tool-guard:`).
 
 | Prefix | Key pattern | Value | Access | TTL |
-|--------|-------------|-------|--------|-----|
+| ------ | ----------- | ----- | ------ | --- |
 | **audit** | `{prefix}audit:recent` | Redis list of JSON entries | `LPUSH` + `LTRIM` (append) / `LRANGE` (read) | none (trimmed to 100) |
 | **audit** | `{prefix}audit:session:{session_id}` | Redis list of JSON entries | same | none (trimmed to 100) |
 | **booking** | `{prefix}booking:{booking_id}` | JSON booking blob | `SET` / `GET` | 7 days (`EX`) |
@@ -60,14 +60,14 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 ## Guard proxy KV (agent gateway) {#guard-proxy-kv-agent-gateway}
 
-**Status:** implemented (Track 1) — servers + agents on Upstash REST; audit lists still in-memory until a follow-up.
+**Status:** implemented — servers, agents, recent audit rows, and distributed rate-limit counters use Upstash REST when KV is configured.
 
 | Key pattern | Value | Purpose |
-|-------------|-------|---------|
+| ----------- | ----- | ------- |
 | `{prefix}gateway:servers:{id}` | JSON `{ url, scopes }` | MCP registry (extends yaml seed) |
 | `{prefix}gateway:agents:{id}` | JSON agent record | Source of truth for [Auth0 sync](NEXT-STEPS.md#agent-registry-auth0-sync-sketch) |
-| `{prefix}gateway:audit:recent` | Redis list | Proxy + agent + mcp audit rows |
-| `{prefix}gateway:audit:session:{session_id}` | Redis list | Session-filtered audit |
+| `{prefix}gateway:audit:recent` | JSON array / ring buffer | Persisted recent proxy audit rows (best-effort, capped to 500) |
+| `{prefix}gateway:ratelimit:{ip}:{minute}` | integer counter | Distributed fixed-window rate limiting |
 
 **Agent record shape (sketch):**
 
@@ -92,16 +92,16 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 ## Approval queue (Track 3, planned) {#approval-queue-track-3-planned}
 
-**Status:** not implemented — spec in [cursor-guide.md → Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope). Requires Track 1 KV client.
+**Status:** implemented — pending requests, approval tokens, and poll/retry flow are live on the proxy and exercised by [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
 | Key pattern | Value | Purpose |
-|-------------|-------|---------|
+| ----------- | ----- | ------- |
 | `{prefix}gateway:pending:{id}` | JSON `PendingRequest` | One scope-elevation request (`status`: pending / approved / denied) |
 | `{prefix}gateway:pending:index` | Redis list of ids | Append-only index; filter by `status` in app code |
 
-**Audit:** extend `decision` with `"pending"` when `MCP_APPROVAL_QUEUE=true` and scope mismatch → `202` + `pending_id` (hard-deny unchanged when flag off).
+**Audit:** `decision` includes `"pending"` for approval-queue handoff; approved retries and upstream completion generate follow-on allow rows under the same `trace_id`.
 
-**Prerequisite (UI):** Gemini runner uses native `tools` parameter before agent retry on approval — see [cursor-guide LLM note](cursor-guide.md#llm-note-for-the-agent).
+**UI path:** `/agents.html` lists pending requests and can approve or deny them; agents poll `GET /pending/:id` and retry with `X-Approval-Token` when approved.
 
 ## Related
 

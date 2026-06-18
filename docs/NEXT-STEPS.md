@@ -58,29 +58,29 @@ Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADM
 **For Cursor / contributors:** [cursor-guide.md](cursor-guide.md) — complete **Track 1 → 2 → 3** before starting the next. Key designs already live in [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway) and [CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp); the guide references them instead of duplicating.
 
 | Track | Focus | Why this order |
-|-------|--------|----------------|
+| ----- | ----- | -------------- |
 | **1 — KV-persist registry + agents** | `gateway/kv.ts`, `GET /agents`, startup load, `kv_enabled` on `/health` | Without KV, `POST /servers` (and GitHub) is lost on every Render redeploy |
 | **2 — Wire GitHub MCP** | `upstream_token` on `ServerConfig`, policy in yaml, curl deny demo | First vendor MCP you don't control — credibility jump beyond flight |
 | **3 — Approval queue** | `pending-store.ts`, `MCP_APPROVAL_QUEUE`, `/pending/*`, admin UI | On-demand ephemeral scope + human-in-the-loop; **prerequisite:** Gemini native function-calling (not `parseToolCallFromText`) for reliable agent retry on `202` |
 
-**Demo surfaces:** [Flight demo `/`](../ui/index.html) — **Server enforcement** audit panel (canonical enforce story). [`/agents.html`](../ui/agents.html) — operator provisioning GUI; approval panel lands in Track 3.
+**Demo surfaces:** [Flight demo `/`](../ui/index.html) — **Server enforcement** audit panel (canonical enforce story). [`/agents.html`](../ui/agents.html) — operator provisioning GUI plus shipped approval queue panel.
 
 ### Production hardening priorities (review)
 
-Highest leverage next (Track 3 and hardening):
+Highest leverage next (post-Track-3 hardening):
 
 | Priority | Item | Effort | Notes |
-|----------|------|--------|-------|
+| -------- | ---- | ------ | ----- |
 | ✅ | **Admin auth** (`gateway:admin` on control plane) | **Done** | `POST/DELETE /servers`, `/agents`, `POST /token` — gated when IdP trust + guard on |
 | ✅ | **Gate `POST /token`** | **Done** | Same `gateway:admin` Bearer as other control-plane routes |
 | ✅ | **Track 1 — KV registry + agents** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 | ✅ | **Track 2 — GitHub MCP** | **Done** | [track2-github-proof.md](track2-github-proof.md) |
 | ✅ | **Track 3 — Approval queue** | **Done** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) · [kv-design](kv-design.md#approval-queue-track-3-planned) |
-| 🟡 | **Gemini native function-calling** | **Done** | Required for reliable Track 3 retry flow |
+| ✅ | **Gateway LLM proxy / Gemini path** | **Done** | `POST /llm/complete`; keeps `GEMINI_API_KEY` off the browser |
 | 🟡 | **Upstream error handling** | ~1 hr | Structured `upstream_unavailable` on connect/discovery failures — partial in proxy |
-| 🟡 | **Proxy audit persistence (KV)** | ~1–2 hrs | Persist `gateway:audit:*` so `/audit` survives Render restart/redeploy |
-| 🟡 | **Distributed rate limiting** | ~2–3 hrs | Replace in-memory limiter with KV-backed counters/sliding window |
-| 🟡 | **Backend agent example (Python)** | ~1 hr | Minimal server-side agent proof against proxy for enterprise viability demo |
+| ✅ | **Proxy audit persistence (KV)** | **Done** | Recent proxy audit rows persist and load from KV when configured |
+| ✅ | **Distributed rate limiting** | **Done** | KV-backed fixed-window counter complements in-memory limiter |
+| ✅ | **Backend agent example (Python)** | **Done** | `examples/python-agent/agent.py` shows pending approval + retry loop |
 | 🟡 | **SDK packaging path** | ~1 hr | Prepare/publish gateway guard package workflow (npm distribution) |
 | 🟡 | **Audit sink integration** | ~2–4 hrs | Add webhook/OTel sink path for SIEM/Grafana ingestion |
 
@@ -89,14 +89,14 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 ### Tasks
 
 | # | Task | Status | Touch | Acceptance |
-|---|------|--------|-------|------------|
+| - | ---- | ------ | ----- | ---------- |
 | — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
 | — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
 | — | **Agent gateway admin auth** | **Done** | `gateway/admin-auth.ts`, `gateway/proxy-server.ts`, `ui/agents-main.ts` — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD + `/token`; M2M agents unchanged on `tools/call` |
 | — | **Agent gateway KV persistence (Track 1)** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |
 | — | **Wire GitHub MCP (Track 2)** | **Done** | [track2-github-proof.md](track2-github-proof.md) · [demo-proxy Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream) | Prod smoke: curl `get_file_contents` allow + Render proxy/mcp logs; `GITHUB_MCP_TOKEN` + Auth0 `repo:*` |
 | — | **Approval queue (Track 3)** | **Done** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) | `202` + admin approve/deny + approval token; agent polls + retries; Gemini native function-calling |
-| — | **Approval queue backend scaffold (Track 3 kickoff)** | **Done** | `gateway/pending-store.ts`, `gateway/proxy-server.ts` | Merged into Track 3 Done above |
+| — | **Approval queue backend scaffold** | **Done** | `gateway/pending-store.ts`, `gateway/proxy-server.ts` | Merged into Track 3 Done above |
 | — | **Agent registry + Auth0 sync** | **Open** (part of Track 1) | [sketch](#agent-registry-auth0-sync-sketch) | App store is source of truth; unique Auth0 app names; optional reuse |
 | 7 | Max request body size | **Done** | [`servers/flight/guard_middleware.py`](../servers/flight/guard_middleware.py) | Oversized POST rejected before JSON parse (1 MiB) |
 | — | Gate `POST /token` | **Done** | `gateway/proxy-server.ts`, `ui/proxy-api.ts` | `gateway:admin` Bearer required when `control_plane_auth` |
@@ -112,14 +112,14 @@ When IdP trust is configured (`MCP_JWT_*`) and guard is enabled, the **control p
 **Target — two planes:**
 
 | Plane | Identity | Today | Target |
-|-------|----------|-------|--------|
+| ----- | -------- | ----- | ------ |
 | **Control** | Human operator | No auth on admin routes | Auth0 SPA login + `gateway:admin` (or finer permissions) |
 | **Runtime** | M2M agent | Scoped JWT on `tools/call` | Unchanged |
 
 **Proposed API permissions** (same audience `https://mcp-tool-guard`, separate from tool scopes like `flights:read`):
 
 | Permission | Routes (v1) |
-|------------|----------------|
+| ---------- | ----------- |
 | `gateway:admin` | `POST/DELETE /servers`, `POST/DELETE /agents`, `POST /token` (or remove public token route) |
 | `audit:read` | `GET /audit` (optional; may overlap flight demo) |
 
@@ -153,7 +153,7 @@ Example: `mcp-agent-test-flight-flight-a1b2c3d4`. Optional `app_metadata`: `agen
 **KV keys** (Render / Upstash — see [kv-design.md](kv-design.md#guard-proxy-kv-agent-gateway)):
 
 | Key | Value |
-|-----|--------|
+| --- | ----- |
 | `gateway:servers:{id}` | MCP registry entry (url, tool scopes) |
 | `gateway:agents:{id}` | `{ name, serverId, scopes[], auth0ClientId, auth0AppName, status, createdAt }` |
 | `gateway:audit:…` | Proxy three-layer audit (same pattern as flight) |
@@ -183,11 +183,11 @@ Store `clientSecret` encrypted at create time only (Auth0 shows it once); never 
 - [ ] Second create with same logical agent + scopes reuses credential (no new Auth0 app) — or documents template-only path.
 - [ ] Document Auth0 tenant client limits; cleanup via Revoke + dashboard.
 
-### Not in 0.3.x
+### Still open after 0.3.x
 
-- Real vendor MCP without **deployed guard proxy** — proxy is live; wire vendor URL next ([CONCEPT → unowned MCP](CONCEPT.md#third-party--unowned-mcp))
-- **Agent gateway admin auth** — control plane gated by human login ([sketch](#agent-gateway-admin-auth-sketch))
-- **Agent registry + Auth0 sync** — KV agent list, naming, reuse ([sketch](#agent-registry-auth0-sync-sketch))
+- **Agent registry + Auth0 sync** — KV agent list exists; remaining work is naming, reuse, reconciliation, and tenant-quota hygiene ([sketch](#agent-registry-auth0-sync-sketch))
+- Audit export / SIEM sink — today the proxy persists recent rows locally in KV, but not to an external observability system
+- SDK packaging / distribution — proxy and guard are working code, but packaging path remains a follow-on task
 
 ### Tier 2 (later)
 
@@ -200,16 +200,16 @@ Store `clientSecret` encrypted at create time only (Auth0 shows it once); never 
 ## Known limitations
 
 | Topic | Detail |
-|-------|--------|
+| ----- | ------ |
 | WebLLM (1B) | May still mis-route; heuristics shipped (#11) — prefer explicit `book FL505 for …` / `Cancel booking BK-…` |
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
-| Prod proxy audit | In-memory on Render process; resets on redeploy / spin-down |
-| Approval queue flow | End-to-end: `202` → agent polls `/pending/:id` → admin approves → agent retries with `x-approval-token`; no admin UI panel yet (curl/API only) |
+| Prod proxy audit | Recent rows persist in KV when configured; this is not yet a full external audit sink |
+| Approval queue flow | End-to-end: `202` → agent polls `/pending/:id` → admin approves/denies in `/agents.html` → agent retries with `x-approval-token` |
 | Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Agent gateway control plane | **`gateway:admin`** Bearer when IdP trust + guard on — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
-| Agent list | **`GET /agents`** from proxy/KV after refresh; browser cards still local until full registry UI sync |
+| Agent list | **`GET /agents`** reloads persisted agent metadata; session tokens still live in browser session storage until re-vended |
 | Auth0 client quota | Each **Create agent** = new Application; free tenant `too_many_entities` — reuse/revoke ([registry sketch](#agent-registry-auth0-sync-sketch)) |
 | Auth0 app names | Duplicate `mcp-agent-${name}` per click — use suffixed names ([registry sketch](#agent-registry-auth0-sync-sketch)) |
 | Flight seat counts | In-memory seed; only **bookings** use KV |
