@@ -67,6 +67,7 @@ export async function addServer(input: {
   id: string;
   url: string;
   scopes: Record<string, string[]>;
+  upstream_token_env?: string;
 }): Promise<void> {
   const res = await proxyFetch("/servers", {
     method: "POST",

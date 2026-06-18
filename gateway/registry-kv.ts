@@ -6,6 +6,7 @@ const SERVER_PREFIX = "gateway:servers:";
 export interface KvServerEntry {
   url: string;
   scopes: Record<string, string[]>;
+  upstream_token_env?: string;
 }
 
 function serverKey(id: string): string {
@@ -32,7 +33,12 @@ export async function loadServersFromKv(
     if (!id || seedIds.has(id)) continue;
     const entry = await kvGet<KvServerEntry>(relativeKey);
     if (!entry?.url) continue;
-    const result = registry.add({ id, url: entry.url, scopes: entry.scopes ?? {} });
+    const result = registry.add({
+      id,
+      url: entry.url,
+      scopes: entry.scopes ?? {},
+      upstream_token_env: entry.upstream_token_env,
+    });
     if (result.ok) loaded += 1;
   }
   return loaded;

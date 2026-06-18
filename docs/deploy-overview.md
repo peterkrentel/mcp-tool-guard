@@ -75,7 +75,7 @@ The proxy is a persistent Node service ([`gateway/proxy-server.ts`](../gateway/p
 | `make dev` (one terminal) | Yes | N/A (local only) |
 | Proxy-focused audit UI | Optional branch / stash | N/A until UI PR merged |
 | Agent gateway KV persistence | Yes — when `KV_REST_API_*` set on Render | **Yes** — registry + agents persist |
-| External vendor MCP (GitHub) | Yes — `upstream_token_env` + policy | **Yes** — [track2-github-proof.md](track2-github-proof.md); `slack` remains yaml stub |
+| External vendor MCP (GitHub + runtime vendors) | Yes — `upstream_token_env` + policy | **Yes** — [track2-github-proof.md](track2-github-proof.md); GitHub in yaml, temporary vendors via `POST /servers` |
 
 ---
 

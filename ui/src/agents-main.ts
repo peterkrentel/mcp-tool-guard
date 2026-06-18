@@ -424,8 +424,10 @@ addMcpForm.addEventListener("submit", (e) => {
     if (!tool || !scopePart) continue;
     scopes[tool] = scopePart.split(",").map((s) => s.trim()).filter(Boolean);
   }
+  const upstreamTokenEnv =
+    ((form.elements.namedItem("mcp-upstream-token-env") as HTMLInputElement)?.value ?? "").trim() || undefined;
   const serverId = slugify(name) || slugify(url);
-  void addServer({ id: serverId, url, scopes })
+  void addServer({ id: serverId, url, scopes, upstream_token_env: upstreamTokenEnv })
     .then(() => {
       form.reset();
       statusEl.textContent = `MCP registered: ${serverId}`;

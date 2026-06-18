@@ -12,6 +12,13 @@ const HOP_BY_HOP = new Set([
   "upgrade",
 ]);
 
+// When we re-stream fetch body chunks, these can become invalid for the forwarded
+// response and trigger downstream parser errors (e.g. Vite dev proxy).
+const UNSAFE_STREAMED_RESPONSE_HEADERS = new Set([
+  "content-length",
+  "content-encoding",
+]);
+
 const MCP_CAPTURE_MAX = 2048;
 
 function header(
@@ -117,7 +124,8 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
 
   res.statusCode = upstream.status;
   upstream.headers.forEach((value, key) => {
-    if (!HOP_BY_HOP.has(key.toLowerCase())) {
+    const normalized = key.toLowerCase();
+    if (!HOP_BY_HOP.has(normalized) && !UNSAFE_STREAMED_RESPONSE_HEADERS.has(normalized)) {
       res.setHeader(key, value);
     }
   });
@@ -131,14 +139,12 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
   }
 
   const reader = upstream.body.getReader();
-  const chunks: Uint8Array[] = [];
   let captured = "";
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
       res.write(value);
       if (captured.length < MCP_CAPTURE_MAX) {
         captured += Buffer.from(value).toString("utf8");

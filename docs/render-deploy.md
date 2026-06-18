@@ -78,7 +78,7 @@ In the Render service → **Environment**, add:
 
 **`MCP_PROXY_CONFIG` path:** The start command runs from the `gateway/` workspace package directory. Use `config.prod.yaml` (file lives in `gateway/`). If you see `ENOENT` on start, verify the path relative to the process cwd — do not use `gateway/config.prod.yaml` unless cwd is the repo root.
 
-Verify GitHub upstream: `curl …/health` → `"upstream_auth_missing": []` when `GITHUB_MCP_TOKEN` is set.
+Verify upstream auth: `curl …/health` → `"upstream_auth_missing": []` when required upstream env vars are set.
 
 ### Agent gateway env (Render + Vercel) {#agent-gateway-env-render--vercel}
 
@@ -109,9 +109,7 @@ Redeploy **both** Render and Vercel after env changes.
 
 [`gateway/config.prod.yaml`](../gateway/config.prod.yaml) mirrors `config.yaml` with `servers.flight.url` pointing at the Vercel flight deployment. Local dev uses `config.yaml` (`localhost:8000`).
 
-**Slack** entry is a policy stub only (`https://mcp.slack.com` is not a real MCP endpoint for this demo).
-
-**GitHub** is wired in prod yaml (`https://api.githubcopilot.com/mcp/`) but requires `GITHUB_MCP_TOKEN` on Render — without it, `POST /github/mcp` returns 503 and `/health` lists `"upstream_auth_missing": ["GITHUB_MCP_TOKEN"]`. Flight demo still uses **`POST /mcp`** (default server `flight`).
+**GitHub** is wired in prod yaml (`https://api.githubcopilot.com/mcp/`) and requires `GITHUB_MCP_TOKEN` on Render. Temporary vendor MCP servers (for example Slack) should be added at runtime with `POST /servers` and an `upstream_token_env` field. If a required upstream env var is missing, its route returns 503 and `/health` includes the missing env names under `upstream_auth_missing`. Flight demo still uses **`POST /mcp`** (default server `flight`).
 
 ---
 
@@ -222,10 +220,10 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 ## Verification checklist
 
 - [ ] `GET /health` → `guard_enabled: true`, `service: mcp-tool-guard-proxy`
-- [ ] `servers` lists `flight`, **`github`** (live with `GITHUB_MCP_TOKEN`), `slack` (policy stub)
+- [ ] `servers` lists `flight`, `github` (+ any runtime-added servers)
 - [ ] `POST /mcp` `tools/call` with valid JWT + correct scope → allowed, forwarded to flight
 - [ ] `POST /github/mcp` `get_file_contents` with M2M `repo:read` → allow — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream)
-- [ ] `upstream_auth_missing: []` when `GITHUB_MCP_TOKEN` is set
+- [ ] `upstream_auth_missing: []` when all configured upstream env vars are set
 - [ ] `POST /mcp` `tools/call` with missing/wrong scope → `error.code: -32001`
 - [ ] `GET /audit` → `"source": "guard-proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`

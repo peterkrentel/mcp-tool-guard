@@ -39,6 +39,9 @@
           <label>Tool scopes (one per line: tool=scope)
             <textarea name="mcp-tools" rows="4" placeholder="get_file_contents=repo:read&#10;create_or_update_file=repo:write"></textarea>
           </label>
+          <label>Upstream token env var <small>(optional — env var name set on proxy host, e.g. SLACK_MCP_TOKEN)</small>
+            <input name="mcp-upstream-token-env" placeholder="VENDOR_MCP_TOKEN" />
+          </label>
           <button type="submit">Add MCP</button>
         </form>
         <div id="mcp-list" class="card-list"></div>
