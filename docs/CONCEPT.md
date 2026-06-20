@@ -155,6 +155,40 @@ tools:
 
 Wildcards: `flights:*` or `*`.
 
+### Temporary / runtime MCPs
+
+**Canonical config (`gateway/config.yaml`)** contains persistent, vetted MCPs (flight, GitHub). For **temporary vendors** (e.g. Slack MCP during a pilot) that are **not** checked into the repo, use **runtime registration** via `POST /servers` (requires `gateway:admin` Bearer when control plane auth is enabled).
+
+**Lifecycle:**
+
+1. **Register at runtime** — `POST /servers` with server id, upstream URL, tool scopes, and optional `upstream_token_env` (e.g. `SLACK_MCP_TOKEN`)
+2. **Persist to KV** — when `KV_REST_API_*` are configured on the proxy, the registration survives proxy restarts
+3. **Fetch tools** — `GET /servers/{serverId}/tools` discovers the tool list from the upstream
+4. **Enforce scopes** — same JWT scope checks as canonical MCPs
+5. **Clean up** — `DELETE /servers/{serverId}` removes the entry from KV; de-registering a temporary MCP does not affect policy for other servers
+
+**When to use runtime registration:**
+
+- Pilot / evaluation of a vendor MCP (Slack, Jira, etc.)
+- Temporary credentials (demo tokens, ephemeral GitHub PAT)
+- Dynamic MCP endpoints (customer-provided URLs)
+
+**When to use canonical config:**
+
+- Persistent internal MCPs (flight, documents, customer data)
+- MCPs checked into CI/CD
+- Scopes that are part of your policy baseline
+
+**Difference from canonical:**
+
+| Aspect | Canonical | Runtime |
+| ------ | --------- | ------- |
+| Definition | `gateway/config.yaml` (repo) | `POST /servers` (client API call) |
+| Persistence | Always available | Only when KV enabled; lost if not persisted |
+| Scope policy | Part of policy baseline (CI checks) | Supplied per-call (no CI gate) |
+| Upstream auth | Env var on proxy host | Env var name in `upstream_token_env` field |
+| Lifecycle | Long-lived | Temporary (admin can delete anytime) |
+
 ## Demo vs production
 
 Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server) and [NEXT-STEPS](NEXT-STEPS.md) track hardening; Tier 2 covers IdP, proxy, and observability sinks.

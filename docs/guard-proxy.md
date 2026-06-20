@@ -53,13 +53,24 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`**; KV delete when configured |
 | `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
 
+### Approval queue (when `MCP_APPROVAL_QUEUE=true`)
+
+| Method | Path | Purpose |
+|--------|------|----------|
+| `GET` | `/pending` | List pending requests (status: pending/approved/denied) — **`gateway:admin`** when control plane auth enabled |
+| `GET` | `/pending/:id` | Read one pending request + approval token if approved — **no auth** (ID is unguessable) |
+| `POST` | `/pending/:id/approve` | Admin approves request, generates one-time token — **`gateway:admin`** |
+| `POST` | `/pending/:id/deny` | Admin denies request — **`gateway:admin`** |
+
+**Approval token flow:** Agent tool call denied for missing scope → proxy returns `202` with `pending_id` → agent polls `GET /pending/:id` → admin approves → proxy generates opaque, single-use approval token (TTL 1 hour, bound to server+tool) → agent retries with token in `X-Approval-Token` header → proxy validates and allows `tools/call` → audit logs both deny (initial) and allow (approval override).
+
 ### Audit + health
 
 | Method | Path | Purpose |
-|--------|------|---------|
+|--------|------|----------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
 | `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check |
-| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `auth0_mgmt_configured` |
+| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `auth0_mgmt_configured`, `approval_queue_enabled` |
 
 ## Environment
 
@@ -83,6 +94,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `GITHUB_MCP_TOKEN` | GitHub PAT for `servers.github` upstream auth only — never sent to browsers |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
 | `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
+| `MCP_APPROVAL_QUEUE` | `true` enables approval queue (pending → admin approve → one-time token override); `202` on scope-denied `tools/call` when enabled |
+| Upstream token env vars | Any env var name prefixed on server config (e.g., `SLACK_MCP_TOKEN`, `CUSTOM_MCP_TOKEN`) — proxy resolves at registration time and sends as Bearer to vendor MCP; caller JWT scope still enforced separately |
 
 See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
 
@@ -94,6 +107,32 @@ VITE_MCP_URL=http://localhost:8787/mcp
 ```
 
 Audit panel resolves `http://localhost:8787/audit` from that URL.
+
+## Troubleshooting
+
+### Streaming response parse error (Vite dev proxy)
+
+**Error:** `Parse Error: Data after Connection: close` or `ERR_STREAM_WRITE_AFTER_END`
+
+**Cause:** Upstream MCP returns streaming response (e.g., SSE from GitHub) with `content-length` and `content-encoding` headers. Vite's dev proxy re-streams these headers, which confuses the downstream parser.
+
+**Fix:** Proxy strips `content-length` and `content-encoding` when re-streaming to clients (see [gateway/mcp-upstream.ts](../gateway/mcp-upstream.ts)). If you see this in production, ensure your HTTP gateway (nginx, etc.) is not re-adding these headers.
+
+### Upstream token not found
+
+**Error:** `Upstream credential not configured — set GITHUB_MCP_TOKEN on the proxy` (or similar env var)
+
+**Cause:** Server config specifies `upstream_token_env` (e.g., `GITHUB_MCP_TOKEN`), but the proxy environment does not define that variable.
+
+**Fix:** Set the env var on the proxy host before starting; on Render, add to **Environment** tab. See [render-deploy.md](render-deploy.md).
+
+### Approval token rejected
+
+**Error:** `Approval token invalid` or `Approval token invalid or expired`
+
+**Cause:** Token was already used (one-time use), expired (>1 hour), or bound to a different server+tool combination.
+
+**Fix:** Approval tokens cannot be reused. If a retry is needed after approval, request a new approval. Tokens expire after 1 hour; a pending request can be re-approved if needed.
 
 ## Production
 

@@ -183,6 +183,99 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.source'
 
 ---
 
+## Demo 7 — Approval queue (end-to-end on `/agents.html`) {#demo-7--approval-queue-end-to-end}
+
+**Prerequisites:** `MCP_APPROVAL_QUEUE=true` on Render; at least one agent with limited scope (e.g. `flights:read` only on flight, or `repo:read` on GitHub).
+
+**This demo proves on-demand scope escalation + human approval:**
+
+### Step 1: Agent with limited scope
+
+1. Open [`/agents.html`](../ui/agents.html).
+2. On **Approval queue** panel (left), note **Refresh** button.
+3. Create or use an agent with read-only scopes (e.g., `repo:read` on GitHub).
+4. Initialize with that agent.
+
+### Step 2: Attempt escalated tool (expect pending approval)
+
+```bash
+PROXY=https://mcp-tool-guard-proxy.onrender.com
+TOKEN="<M2M agent JWT with repo:read only>"
+
+curl -s -X POST "$PROXY/github/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{"owner":"USER","repo":"REPO","path":"test.txt","content":"Hello from approval"}}}'
+```
+
+**Expected:** HTTP 202 response with `pending_id`:
+
+```json
+{
+  "result": {
+    "status": "pending",
+    "pending_id": "pr_abc123xyz"
+  }
+}
+```
+
+**Audit panel (left):** New entry under **Approval queue** → **Pending tool calls awaiting human approval.**
+
+### Step 3: Admin approves
+
+Click **Approve** on the pending entry in the Approval queue panel.
+
+**Render logs:** `[MCPToolGuard] allow create_or_update_file … Pending request approved (pr_abc123xyz)`.
+
+### Step 4: Retry with approval token (agent polls + retries automatically)
+
+In browser agent, the retry happens in the background via `retryApprovedTool()` polling loop ([ui/src/gateway-agent.ts](../ui/src/gateway-agent.ts#L165)).
+
+For curl (manual), fetch the approval token:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/pending/pr_abc123xyz" | jq '.approval_token'
+# → "at_xyz123…"
+```
+
+Then retry with `X-Approval-Token` header:
+
+```bash
+APPROVAL_TOKEN="<paste token from above>"
+
+curl -s -X POST "$PROXY/github/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Approval-Token: $APPROVAL_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{"owner":"USER","repo":"REPO","path":"test.txt","content":"Hello from approval"}}}'
+```
+
+**Expected:** Successful response from GitHub MCP (SSE format):
+
+```
+data: {"jsonrpc":"2.0","id":2,"result":{"content":"...","message":"File updated"}}
+```
+
+**Render logs:** `[MCPToolGuard] allow create_or_update_file … Approved via token (pr_abc123xyz)` followed by `[MCPToolGuard MCP] allow` with GitHub response.
+
+### Audit trail
+
+In **Proxy decisions** audit section:
+
+1. First attempt: DENY `create_or_update_file` — "Missing required scope 'repo:write'"
+2. Pending record created — "Awaiting approval (pr_abc123xyz)"
+3. Admin approval logged — "Pending request approved (pr_abc123xyz)"
+4. Retry with token: ALLOW — "Approved via token (pr_abc123xyz)"
+5. Upstream MCP allow — "create_or_update_file returned OK"
+
+**Talking point:** Token is opaque, single-use, and bound to this specific server + tool. Scope does not change on the JWT; the approval is a one-time override. Approval tokens expire after 1 hour.
+
+**Related proof:** [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
+
+---
+
 ## Code review path (after the demo)
 
 Read in this order to understand the flow:
