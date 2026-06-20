@@ -69,7 +69,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | Method | Path | Purpose |
 |--------|------|----------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
-| `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check |
+| `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check (**demo mode:** unauthenticated ingest; treat as non-authoritative evidence unless protected behind trusted network/auth) |
 | `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `auth0_mgmt_configured`, `approval_queue_enabled` |
 
 ## Environment
