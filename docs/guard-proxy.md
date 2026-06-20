@@ -44,7 +44,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/servers` | List registered MCP servers (yaml seed + KV-backed runtime entries) |
-| `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on); persisted to KV when `KV_REST_API_*` set |
+| `POST` | `/servers` | Register MCP — **`gateway:admin`** Bearer when `control_plane_auth` (IdP + guard on); persisted to KV when `KV_REST_API_*` set. Supports optional `upstream_token_env` for vendor auth. |
 | `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`**; KV delete when configured |
 | `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
 | `GET` | `/agents` | List agents from KV (metadata only; secrets never exposed) |

@@ -83,6 +83,7 @@ Highest leverage next (post-Track-3 hardening):
 | ✅ | **Backend agent example (Python)** | **Done** | `examples/python-agent/agent.py` shows pending approval + retry loop |
 | 🟡 | **SDK packaging path** | ~1 hr | Prepare/publish gateway guard package workflow (npm distribution) |
 | 🟡 | **Audit sink integration** | ~2–4 hrs | Add webhook/OTel sink path for SIEM/Grafana ingestion |
+| 🔵 | **GUI-managed upstream secrets** | ~1 day | Replace env-var-name pattern with GUI secret entry → encrypted KV storage → proxy resolves at runtime. Foundation already in `gateway/agent-secrets.ts` (encrypted KV). Eliminates need to set vendor tokens directly on proxy host. |
 
 Agent-vs-chat UI and external SDK agents are optional polish; they do not change the authoritative enforcement story.
 

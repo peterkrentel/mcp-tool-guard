@@ -4,12 +4,14 @@ export interface RegisteredServerView {
   id: string;
   url: string;
   scopes: Record<string, string[]>;
+  upstream_token_env?: string;
 }
 
 export interface AddServerInput {
   id: string;
   url: string;
   scopes: Record<string, string[]>;
+  upstream_token_env?: string;
 }
 
 function scopesToTools(scopes: Record<string, string[]>): Record<string, ToolConfig> {
@@ -70,6 +72,7 @@ export class ServerRegistry {
       id,
       url: cfg.url,
       scopes: toolsToScopes(cfg.tools),
+      ...(cfg.upstream_token_env ? { upstream_token_env: cfg.upstream_token_env } : {}),
     }));
   }
 
@@ -86,7 +89,18 @@ export class ServerRegistry {
     if (Object.keys(tools).length === 0) {
       return { ok: false, error: "scopes must include at least one tool with a scope" };
     }
-    this.servers.set(id, { url, tools });
+    const upstreamTokenEnv = input.upstream_token_env?.trim();
+    if (upstreamTokenEnv && !/^[A-Z][A-Z0-9_]*$/.test(upstreamTokenEnv)) {
+      return { ok: false, error: "upstream_token_env must be an env var name like VENDOR_MCP_TOKEN" };
+    }
+
+    const token = upstreamTokenEnv ? process.env[upstreamTokenEnv]?.trim() : undefined;
+    this.servers.set(id, {
+      url,
+      tools,
+      ...(upstreamTokenEnv ? { upstream_token_env: upstreamTokenEnv } : {}),
+      ...(token ? { upstream_token: token } : {}),
+    });
     return { ok: true, id };
   }
 

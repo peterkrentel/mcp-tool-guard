@@ -8,6 +8,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Runtime vendor MCP registration** — `POST /servers` accepts optional `upstream_token_env` field; proxy resolves token from env at registration time; KV persistence carries `upstream_token_env` across restarts; GUI "External MCPs" form gains optional upstream token env var field; `proxy-api.ts` `addServer` updated to forward the field
+- **Proxy stream header fix** — `gateway/mcp-upstream.ts` strips `content-length` and `content-encoding` from upstream streaming responses to prevent downstream parse errors (e.g. Vite dev proxy `ERR_STREAM_WRITE_AFTER_END`)
+- **Docs accuracy pass** — remove stale Slack stub references; `config.yaml`/`config.prod.yaml` Slack blocks removed (runtime-registered instead); deploy/arch docs updated to reflect runtime vendor MCP model; `NEXT-STEPS.md` adds GUI-managed upstream secrets as future item
+
 - **Tier-2 hardening** — `gateway/llm-proxy.ts`: `POST /llm/complete` proxies Gemini server-side (`GEMINI_API_KEY` on Render, never in browser bundle); `GeminiRunner` calls proxy instead of Google directly; `gemini_configured` on `/health`; KV audit persistence (`gateway:audit:recent`, ring buffer 500, loaded at startup); distributed rate limiting (`kvRateLimitExceeded` fixed-window KV counter per IP per minute, complements in-memory sliding window); `kvSet` gains optional `ttlSec`; `examples/python-agent/agent.py` stdlib-only backend agent with approval retry loop
 - **Track 3 — Approval queue (end-to-end)** — `gateway/pending-store.ts`, `MCP_APPROVAL_QUEUE=true` gate, `202` pending response, admin `/pending/*` resolve routes, time-bound approval tokens bound to tool+server, `x-approval-token` bypass path, Gemini native function-calling, agent polls `/pending/:id` and retries with token; audit decision type includes `"pending"`
 - **Track 3 prod proof** — [track3-approval-queue-proof.md](docs/track3-approval-queue-proof.md): `repo:read` agent → approval queue → admin approves → one-time token → retry → GitHub file created; Render logs + commit link

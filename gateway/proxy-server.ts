@@ -669,7 +669,12 @@ async function main(): Promise<void> {
         ) {
           return;
         }
-        const body = await readJson<{ id: string; url: string; scopes: Record<string, string[]> }>(
+        const body = await readJson<{
+          id: string;
+          url: string;
+          scopes: Record<string, string[]>;
+          upstream_token_env?: string;
+        }>(
           req,
         );
         const result = registry.add(body);
@@ -677,7 +682,13 @@ async function main(): Promise<void> {
           sendJson(res, 400, { error: result.error });
           return;
         }
-        await persistServer(result.id, { url: body.url.trim(), scopes: body.scopes ?? {} });
+        await persistServer(result.id, {
+          url: body.url.trim(),
+          scopes: body.scopes ?? {},
+          ...(body.upstream_token_env?.trim()
+            ? { upstream_token_env: body.upstream_token_env.trim() }
+            : {}),
+        });
         syncGuardConfig(guard, registry);
         sendJson(res, 201, result);
         return;

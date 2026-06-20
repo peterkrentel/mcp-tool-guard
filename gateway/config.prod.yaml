@@ -28,14 +28,6 @@ servers:
         alert: true
         log_level: verbose
 
-  slack:
-    url: https://mcp.slack.com
-    tools:
-      read_channel:
-        required_scope: slack:read
-      send_message:
-        required_scope: slack:write
-
   github:
     url: https://api.githubcopilot.com/mcp/
     upstream_token_env: GITHUB_MCP_TOKEN
