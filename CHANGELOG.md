@@ -22,6 +22,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - **Post–Track 2 docs hygiene** — ROADMAP, ARCHITECTURE, deploy-overview, render-deploy, CONCEPT, identity, auth0-setup (`repo:read`/`repo:write`), cursor-guide, NEXT-STEPS limitations, README gateway-first pivot, vercel-deploy, `immediate-nest-step.md`
+- **Docs + proxy hardening follow-up** — documented demo trust caveats for `POST /audit/agent` and `GET /pending/:id`; updated Demo 7 GitHub example to base64-encode file content; moved Gemini upstream auth from URL query to `x-goog-api-key` header and aligned env docs to server-side `GEMINI_API_KEY` usage.
 
 ### Fixed
 

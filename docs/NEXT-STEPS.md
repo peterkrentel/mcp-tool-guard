@@ -77,6 +77,8 @@ Highest leverage next (post-Track-3 hardening):
 | ✅ | **Track 2 — GitHub MCP** | **Done** | [track2-github-proof.md](track2-github-proof.md) |
 | ✅ | **Track 3 — Approval queue** | **Done** | [cursor-guide Track 3](cursor-guide.md#track-3--approval-queue-on-demand-scope) · [kv-design](kv-design.md#approval-queue-track-3-planned) |
 | ✅ | **Gateway LLM proxy / Gemini path** | **Done** | `POST /llm/complete`; keeps `GEMINI_API_KEY` off the browser |
+| 🟡 | **Harden `POST /audit/agent` ingest auth** | ~1–2 hrs | Endpoint is demo-open today; require Bearer (`audit:write` or `gateway:admin`) or trusted-origin signature in hardened mode |
+| 🟡 | **Harden `GET /pending/:id` token disclosure** | ~1–2 hrs | Today unauth by opaque ID; add optional Bearer gate and/or one-time short poll token for agent retry path |
 | 🟡 | **Upstream error handling** | ~1 hr | Structured `upstream_unavailable` on connect/discovery failures — partial in proxy |
 | ✅ | **Proxy audit persistence (KV)** | **Done** | Recent proxy audit rows persist and load from KV when configured |
 | ✅ | **Distributed rate limiting** | **Done** | KV-backed fixed-window counter complements in-memory limiter |
@@ -202,11 +204,13 @@ Store `clientSecret` encrypted at create time only (Auth0 shows it once); never 
 
 | Topic | Detail |
 | ----- | ------ |
+| `POST /audit/agent` | Demo-open ingest endpoint (no auth) allows direct POSTs; use `GET /audit` + proxy/server decisions as authoritative evidence. Track hardening in backlog. |
 | WebLLM (1B) | May still mis-route; heuristics shipped (#11) — prefer explicit `book FL505 for …` / `Cancel booking BK-…` |
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | Recent rows persist in KV when configured; this is not yet a full external audit sink |
 | Approval queue flow | End-to-end: `202` → agent polls `/pending/:id` → admin approves/denies in `/agents.html` → agent retries with `x-approval-token` |
+| `GET /pending/:id` | Endpoint is unauthenticated by design in demo (opaque random ID). If `pending_id` leaks, the entry/token can be polled; avoid external logging of IDs and track hardening in backlog. |
 | Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Agent gateway control plane | **`gateway:admin`** Bearer when IdP trust + guard on — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
