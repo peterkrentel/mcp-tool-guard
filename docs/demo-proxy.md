@@ -239,17 +239,18 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/pending/pr_abc123xyz" | jq '.a
 # → "at_xyz123…"
 ```
 
-Then retry with `X-Approval-Token` header:
+Then retry with `X-Approval-Token` header. **Note:** The `content` field must be base64-encoded:
 
 ```bash
 APPROVAL_TOKEN="<paste token from above>"
+CONTENT_B64=$(echo -n "Hello from approval" | base64)
 
 curl -s -X POST "$PROXY/github/mcp" \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Approval-Token: $APPROVAL_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{"owner":"USER","repo":"REPO","path":"test.txt","content":"Hello from approval"}}}'
+  -d "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"create_or_update_file\",\"arguments\":{\"owner\":\"USER\",\"repo\":\"REPO\",\"path\":\"test.txt\",\"content\":\"$CONTENT_B64\"}}}"
 ```
 
 **Expected:** Successful response from GitHub MCP (SSE format):

@@ -58,7 +58,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | Method | Path | Purpose |
 |--------|------|----------|
 | `GET` | `/pending` | List pending requests (status: pending/approved/denied) — **`gateway:admin`** when control plane auth enabled |
-| `GET` | `/pending/:id` | Read one pending request + approval token if approved — **no auth** (ID is unguessable) |
+| `GET` | `/pending/:id` | Read one pending request + approval token if approved — **no auth** (ID is unguessable; ensure IDs are not logged externally, as leaking them allows anyone to poll the request) |
 | `POST` | `/pending/:id/approve` | Admin approves request, generates one-time token — **`gateway:admin`** |
 | `POST` | `/pending/:id/deny` | Admin denies request — **`gateway:admin`** |
 
@@ -95,7 +95,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
 | `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 | `MCP_APPROVAL_QUEUE` | `true` enables approval queue (pending → admin approve → one-time token override); `202` on scope-denied `tools/call` when enabled |
-| Upstream token env vars | Any env var name prefixed on server config (e.g., `SLACK_MCP_TOKEN`, `CUSTOM_MCP_TOKEN`) — proxy resolves at registration time and sends as Bearer to vendor MCP; caller JWT scope still enforced separately |
+
+**Upstream token environment variables:** When registering an MCP at runtime or in config, set `upstream_token_env` to the name of an environment variable on the proxy host (e.g., `GITHUB_MCP_TOKEN`, `SLACK_MCP_TOKEN`, `CUSTOM_MCP_TOKEN`). The proxy resolves this variable at request time and sends its value as a Bearer token to the vendor MCP. Caller JWT scope enforcement remains separate — upstream credentials do not affect scope policy.
 
 See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
 
