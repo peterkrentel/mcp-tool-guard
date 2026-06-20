@@ -145,7 +145,7 @@ Do **not** use `npm install --prefix=..` (that was for a misconfigured Python pr
 | `VITE_AUTH0_AUDIENCE` | For Auth0 login + agents page JWKS | `https://mcp-tool-guard` |
 | `VITE_PROXY_BASE_URL` | **Agent gateway** | `https://mcp-tool-guard-proxy.onrender.com` (no path suffix) |
 | `VITE_ENABLE_GUEST_DEMO` | No | `true` (default) — show guest JWT dropdown alongside Auth0 |
-| `VITE_GEMINI_API_KEY` | No | Cloud LLM on agents page (more reliable tool JSON than WebLLM 1B) |
+| `GEMINI_API_KEY` | No (set on Render, not Vercel UI) | Used by proxy `POST /llm/complete`; never exposed to browser requests |
 | `VITE_GROQ_API_KEY` | No | Same |
 | `VITE_MISTRAL_API_KEY` | No | Same |
 

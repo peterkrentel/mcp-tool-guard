@@ -64,10 +64,13 @@ export async function geminiComplete(
   const payload = { contents };
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+    "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(payload),
     },
   );

@@ -99,7 +99,7 @@ On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*`):
 |----------|-------|
 | `VITE_PROXY_BASE_URL` | `https://mcp-tool-guard-proxy.onrender.com` (proxy origin only — no `/mcp`) |
 
-Optional cloud LLM keys for reliable tool JSON on the agents page (see [auth0-env.example](auth0-env.example)): `VITE_GEMINI_API_KEY`, `VITE_GROQ_API_KEY`, `VITE_MISTRAL_API_KEY`.
+Optional cloud LLM keys for reliable tool JSON on the agents page (see [auth0-env.example](auth0-env.example)): `GEMINI_API_KEY` on Render (server-side proxy), plus optional browser keys `VITE_GROQ_API_KEY`, `VITE_MISTRAL_API_KEY`.
 
 Redeploy **both** Render and Vercel after env changes.
 

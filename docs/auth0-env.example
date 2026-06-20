@@ -12,9 +12,10 @@ VITE_MCP_URL=http://localhost:5173/mcp
 # VITE_PROXY_BASE_URL=https://mcp-tool-guard-proxy.onrender.com
 
 # Optional cloud LLMs on /agents.html (more reliable than WebLLM 1B)
-# VITE_GEMINI_API_KEY=
 # VITE_GROQ_API_KEY=
 # VITE_MISTRAL_API_KEY=
+
+# Gemini is proxied server-side via POST /llm/complete (set GEMINI_API_KEY on Render).
 
 # Guest demo (default on). Set false to require Auth0 login when Auth0 is configured.
 # VITE_ENABLE_GUEST_DEMO=true
