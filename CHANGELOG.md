@@ -10,9 +10,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Docs: 0.4.0 accuracy complete** — Updated all doc version references and release status; ROADMAP, NEXT-STEPS, CONCEPT, vercel-deploy, identity, auth0-setup, kv-design now reflect 0.4.0 as shipped with all three tracks complete
+- **Docs: ARCHITECTURE.md comprehensive refresh** — Added GatewayAgent flow (`agents-main.ts` → `proxy-api.ts` → `token-vendor.ts` → `gateway-agent.ts`); expanded component map with agent provisioning; updated system context diagram to show both FlightAgent and GatewayAgent paths; clarified "Today vs next" table with separate rows for FlightAgent (demo) vs GatewayAgent (M2M) with approval queue support
 
 ### Fixed
+
+- **ARCHITECTURE.md endpoint reference** — Corrected `POST /agents` endpoint location: `gateway/proxy-api.ts` (non-existent) → `gateway/proxy-server.ts` (actual location)
 
 ### Removed
 
