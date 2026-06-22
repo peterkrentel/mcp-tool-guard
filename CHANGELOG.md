@@ -10,7 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Docs: 0.4.0 accuracy complete** — Updated all doc version references and release status; ROADMAP, NEXT-STEPS, CONCEPT, vercel-deploy, identity, auth0-setup, kv-design now reflect 0.4.0 as shipped with all three tracks complete
+- **Docs: ARCHITECTURE.md accuracy** — Updated "post-Track-3 hardening" to "Post-0.4.0" (all three tracks now shipped); corrected NEXT-STEPS anchor link to post-040 backlog
 
 ### Fixed
 

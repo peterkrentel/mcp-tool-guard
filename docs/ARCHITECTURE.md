@@ -208,6 +208,6 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md) | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Build order:** post-Track-3 hardening — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-030), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
+**Build order:** Post-0.4.0 (all three tracks shipped) — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-040), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
 Design tradeoffs and limitations: [CONCEPT.md](CONCEPT.md).
