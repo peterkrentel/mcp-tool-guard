@@ -10,52 +10,75 @@ One-page view of how the demo fits together: local proxy path, Vercel prod today
 
 ```mermaid
 flowchart TB
-  subgraph demo ["Demo today — browser"]
-    User[User]
-    WebLLM[WebLLM in-browser]
-    Agent[FlightAgent ui/agent.ts]
-    TG[ToolGuard SDK gateway/guard.ts]
-    Trace[Agent trace panel]
-    MCPc[McpHttpClient]
-    User --> Agent
-    Agent --> WebLLM
-    Agent --> Trace
-    Agent --> TG
+  subgraph demo ["Demo browser — two agent paths"]
+    User[User / curl]
+    FlightDemo["Flight demo `/` — FlightAgent<br/>WebLLM in-browser"]
+    AgentGateway["/agents.html — GatewayAgent<br/>M2M provisioning + Gemini/Groq/Mistral"]
+    User --> FlightDemo
+    User --> AgentGateway
+  end
+
+  subgraph flight_path ["Flight agent path"]
+    FlightAgent["FlightAgent ui/agent.ts<br/>heuristics + WebLLM + tool execution"]
+    TG["ToolGuard SDK<br/>gateway/guard.ts"]
+    Trace["Agent trace panel<br/>ui/src/agent-trace.ts"]
+    MCPc["MCP client<br/>ui/src/mcp-client.ts"]
+    FlightDemo --> FlightAgent
+    FlightAgent --> WebLLM["WebLLM<br/>in-browser"]
+    FlightAgent --> Trace
+    FlightAgent --> TG
     TG --> MCPc
   end
 
-  subgraph policy ["Policy — single source"]
-    YAML[gateway/config.yaml]
-    YAML --> TG
-    YAML -.->|demo copy| FlightYaml[servers/flight/guard_config.yaml]
+  subgraph gateway_path ["Gateway agent path"]
+    GatewayUI["Create agent form<br/>ui/src/agents-main.ts~220"]
+    CreateAgent["POST /agents<br/>gateway/proxy-api.ts"]
+    VendToken["POST /agents/:id/token<br/>gateway/token-vendor.ts"]
+    Auth0Client["Auth0 M2M client<br/>gateway/auth0-mgmt.ts"]
+    GatewayAgent["GatewayAgent<br/>ui/src/gateway-agent.ts"]
+    Gemini["Gemini/Groq/Mistral<br/>gateway/llm-proxy.ts"]
+    AgentGateway --> GatewayUI
+    GatewayUI --> CreateAgent
+    CreateAgent --> Auth0Client
+    GatewayUI --> VendToken
+    VendToken --> GatewayAgent
+    GatewayAgent --> Trace
+    GatewayAgent --> Gemini
+    GatewayAgent --> MCPc
   end
 
-  subgraph proxy ["Guard HTTP proxy — local + prod target"]
-    Proxy[proxy-server.ts :8787]
-    ProxyAudit[GET /audit guard-proxy]
+  subgraph policy ["Policy — single source"]
+    YAML["gateway/config.yaml<br/>(proof canonical)"]
+    YAML --> TG
+    YAML --> MCPc
+    YAML -.->|demo copy| FlightYaml["servers/flight/guard_config.yaml<br/>(demo only)"]
+  end
+
+  subgraph proxy ["Guard HTTP proxy — authoritative enforce"]
+    Proxy["proxy-server.ts :8787<br/>(local make dev)"]
+    ProxyAudit["GET /audit<br/>guard-proxy"]
     MCPc -->|Bearer + X-Trace-Id| Proxy
     Proxy --> YAML
     Proxy --> ProxyAudit
   end
 
   subgraph flight ["Flight MCP upstream"]
-    MW[JwtToolGuardMiddleware demo embed]
-    Tools[tools/call handlers]
-    FlightAudit[GET /audit flight]
+    MW["JwtToolGuardMiddleware<br/>demo embed"]
+    Tools["tools/call handlers"]
+    FlightAudit["GET /audit<br/>flight"]
     Proxy --> MW
     MW --> Tools
     MW --> FlightAudit
     FlightYaml --> MW
   end
 
-  subgraph vendor ["Target — vendor MCP"]
-    Vendor[Vendor MCP e.g. Slack]
-    ExtAgent[External agent SDK]
-    ExtAgent --> Proxy
-    Proxy --> Vendor
+  subgraph vendor ["Target — vendor MCP (Track 2 shipped)"]
+    GitHub["GitHub MCP<br/>read/write scopes"]
+    Proxy --> GitHub
   end
 
-  IdP[Auth0 / guest PEM] -.-> TG
+  IdP["Auth0 / guest PEM"] -.-> TG
+  IdP -.-> VendToken
   IdP -.-> Proxy
   IdP -.-> MW
 ```
@@ -68,16 +91,16 @@ flowchart TB
 
 ---
 
-## One user message (demo browser)
+## One tool call (FlightAgent demo path)
 
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant A as FlightAgent
+  participant A as FlightAgent<br/>agent.ts
   participant H as Heuristics
   participant L as WebLLM
   participant T as Agent trace
-  participant G as ToolGuard client
+  participant G as ToolGuard client<br/>guard.ts
   participant M as Flight MCP
   participant S as Server guard
 
@@ -185,12 +208,16 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 
 | Component | Path | Responsibility |
 | --------- | ---- | -------------- |
-| Agent loop | `ui/src/agent.ts` | WebLLM + heuristics + tool execution |
-| Agent trace | `ui/src/agent-trace.ts` | Per-turn routing log |
+| **Flight agent** | `ui/src/agent.ts` | Browser WebLLM + heuristics + tool execution (demo UI `/`) |
+| **Gateway agent** | `ui/src/gateway-agent.ts` | M2M LLM agent (Gemini/Groq/Mistral) on `/agents.html`; manage servers + scope, request approval |
+| **Create agent UI** | `ui/src/agents-main.ts` | Form for M2M agent provisioning (line ~220 `createAgentForm` → `createAgent()` + `vendToken()`) |
+| **Create agent endpoint** | `gateway/proxy-api.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
+| **Token vendor** | `gateway/token-vendor.ts` | `POST /agents/:id/token` — exchange client credentials for JWT |
+| Agent trace | `ui/src/agent-trace.ts` | Per-turn routing log (both FlightAgent and GatewayAgent) |
 | Audit UI | `ui/src/audit-view.ts` | Server + client + trace panels |
 | Client guard | `gateway/guard.ts` | JWT verify + scope check |
 | MCP client | `ui/src/mcp-client.ts` | JSON-RPC `tools/call`, trace headers |
-| Guard proxy | `gateway/proxy-server.ts` | Authoritative enforce + forward + proxy audit |
+| Guard proxy | `gateway/proxy-server.ts` | Authoritative enforce + forward + proxy audit (routes all agents) |
 | Server guard | `servers/flight/guard.py` | Demo embedded enforce + audit store on flight |
 | Middleware | `servers/flight/guard_middleware.py` | Intercept `tools/call` on flight |
 
@@ -203,10 +230,13 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | MCP path | UI → proxy → flight or `/{id}/mcp` | UI/curl → Render proxy → flight or **GitHub MCP** | More vendor MCPs; backend agent examples |
 | Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
 | `/audit` source | `guard-proxy` | `guard-proxy` on Render | Audit export / OTel sink |
-| Agent | Browser WebLLM / gateway agent | Same + M2M agents + approval queue | SDK agents + packaged gateway integrations |
+| **FlightAgent** (demo `/`) | Browser WebLLM + heuristics | Same — guest or Auth0 login | Deferred or replaced |
+| **GatewayAgent** (`/agents.html`) | M2M agents (Gemini/Groq/Mistral) + approval queue | Same + prod servers | SDK agents + packaged gateway integrations |
 | Multi-server | `/agents.html` per-server routing; `/` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md) | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
+
+**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:id/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) ~220 and [token-vendor.ts](../gateway/token-vendor.ts).
 
 **Build order:** Post-0.4.0 (all three tracks shipped) — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-040), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
