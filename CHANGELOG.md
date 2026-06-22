@@ -8,6 +8,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.4.0] - 2026-06-22
+
+### Added
+
 - **Runtime vendor MCP registration** — `POST /servers` accepts optional `upstream_token_env` field; proxy resolves token from env at registration time; KV persistence carries `upstream_token_env` across restarts; GUI "External MCPs" form gains optional upstream token env var field; `proxy-api.ts` `addServer` updated to forward the field
 - **Proxy stream header fix** — `gateway/mcp-upstream.ts` strips `content-length` and `content-encoding` from upstream streaming responses to prevent downstream parse errors (e.g. Vite dev proxy `ERR_STREAM_WRITE_AFTER_END`)
 - **Docs accuracy pass** — remove stale Slack stub references; `config.yaml`/`config.prod.yaml` Slack blocks removed (runtime-registered instead); deploy/arch docs updated to reflect runtime vendor MCP model; `NEXT-STEPS.md` adds GUI-managed upstream secrets as future item
