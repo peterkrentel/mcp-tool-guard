@@ -191,7 +191,7 @@ Wildcards: `flights:*` or `*`.
 
 ## Demo vs production
 
-Reference demo, not a hosted security product. [ROADMAP 0.3.0](ROADMAP.md#release-030--hardening--multi-server) and [NEXT-STEPS](NEXT-STEPS.md) track hardening; Tier 2 covers IdP, proxy, and observability sinks.
+Reference demo, not a hosted security product. [ROADMAP 0.4.0](ROADMAP.md) and [NEXT-STEPS](NEXT-STEPS.md) track hardening; Tier 2 covers IdP, proxy, and observability sinks.
 
 | Concern | Demo (now) | Production (later) |
 | ------- | ---------- | ------------------ |
