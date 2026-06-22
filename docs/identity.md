@@ -1,6 +1,6 @@
 # Identity — demo tokens, IdP, and `/audit` auth
 
-**Navigation:** [Auth0 setup](auth0-setup.md) · [CONCEPT → JWT](CONCEPT.md#jwt--demo-tokens) · [Roadmap 0.3](ROADMAP.md#release-030--hardening--multi-server) · [Next steps](NEXT-STEPS.md)
+**Navigation:** [Auth0 setup](auth0-setup.md) · [CONCEPT → JWT](CONCEPT.md#jwt--demo-tokens) · [Roadmap](ROADMAP.md) · [Next steps](NEXT-STEPS.md)
 
 MCPToolGuard’s product pitch: **bring your identity provider; we enforce JWT scopes at the MCP tool layer.** This doc compares the two ways to close the public **`GET /audit`** gap and how **Auth0** (demo) vs **Keycloak** (enterprise) fit the same code path.
 
@@ -56,7 +56,7 @@ Implementation backlog: [NEXT-STEPS → Agent gateway admin auth](NEXT-STEPS.md#
 
 ---
 
-## Current state (0.3.0)
+## Current state (shipped)
 
 | Piece | Today |
 |-------|--------|
@@ -71,7 +71,7 @@ Implementation backlog: [NEXT-STEPS → Agent gateway admin auth](NEXT-STEPS.md#
 
 ## Two directions for `/audit` + hygiene
 
-### Path A — Real IdP (**chosen for 0.3**)
+### Path A — Real IdP (**chosen for shipped release**)
 
 Use the **same access token** for MCP and `/audit` (optional `audit:read` permission). Demonstrates the product; no throwaway secret.
 
@@ -102,7 +102,7 @@ Use the **same access token** for MCP and `/audit` (optional `audit:read` permis
 
 The **enforcement code is issuer-agnostic**. Configure issuer URL, audience, and JWKS; scope namespaces (`flights:*`, `docs:*`, …) come from your API permissions and policy yaml.
 
-| | **Auth0** (0.3 demo) | **Keycloak** (later / enterprise) |
+| | **Auth0** (current demo) | **Keycloak** (later / enterprise) |
 |--|----------------------|-------------------------------------|
 | **Speed** | Fast — hosted, free tier, SPA + API wizard | You run realm; you know it |
 | **Demo story** | “Login → scoped agent” in minutes | “Same app, your Keycloak realm” |
@@ -110,13 +110,13 @@ The **enforcement code is issuer-agnostic**. Configure issuer URL, audience, and
 | **Audience (`aud`)** | Auth0 API identifier | Client audience / resource |
 | **Scopes** | API permissions | Client roles / mappers → `scope` |
 | **UI login** | Auth0 SPA SDK (PKCE) | Keycloak JS adapter or generic OIDC |
-| **When to use** | **Now** — ship 0.3 identity | Second environment; customer slide |
+| **When to use** | **Now** — shipped identity layer | Second environment; customer slide |
 
 Swap IdP = change env vars + issuer dashboard — **no change** to scope middleware or tool policy YAML.
 
 ---
 
-## Target architecture (0.3.0)
+## Target architecture (current)
 
 ```
 User → Auth0 login (PKCE) → access token (aud + scopes)
@@ -185,7 +185,7 @@ When `MCP_JWT_*` unset, flight uses **PEM mode only** (guest demo / CI). Set all
 
 ---
 
-## Code (0.3.0 — shipped)
+## Code (shipped)
 
 | Area | Change |
 |------|--------|

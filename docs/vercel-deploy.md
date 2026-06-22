@@ -1,4 +1,4 @@
-# Deploy to Vercel (0.3.0)
+# Deploy to Vercel (0.4.0)
 
 **Navigation:** [Deploy overview](deploy-overview.md) · [Quick start](../README.md) · [Guard proxy](guard-proxy.md) · [NEXT-STEPS](NEXT-STEPS.md) · [Design (CONCEPT)](CONCEPT.md) · [Roadmap](ROADMAP.md)
 
@@ -219,17 +219,20 @@ Optional flight env:
 
 ---
 
-## 0.3.0 checklist
+## 0.4.0 checklist
 
+- [x] **Track 1 — KV persistence** — Server registry + agents survive Render restart
+- [x] **Track 2 — GitHub MCP** — External upstream with `upstream_token_env` + scope enforcement
+- [x] **Track 3 — Approval queue** — Human-in-the-loop on-demand scope, opaque single-use tokens
+- [x] **Gemini server-side proxy** — `POST /llm/complete` on Render, keeps key off browser
 - [x] Flight: `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` (Auth0)
-- [x] UI: `VITE_MCP_URL` + `VITE_AUTH0_*`
-- [ ] UI: `VITE_PROXY_BASE_URL` + Render `AUTH0_MGMT_*` for `/agents.html` prod smoke
-- [x] Auth0 SPA callbacks include UI origin + `http://localhost:5173`
-- [x] Smoke: guest scope deny + Auth0 login + `/audit` with Bearer
-- [x] Flight: Vercel KV linked → `/health` → `kv_enabled: true`
-- [x] Tag `v0.3.0` on `main` per [RELEASE.md](RELEASE.md)
+- [x] Proxy: Render `GEMINI_API_KEY`, `KV_REST_API_*`, `AUTH0_MGMT_*`, GitHub `upstream_token_env` if using GitHub MCP
+- [x] UI: `VITE_MCP_URL` → Render proxy; `VITE_PROXY_BASE_URL` for `/agents.html`
+- [x] Smoke: guest + Auth0 login, book/search allow+deny, approval queue with admin approval
+- [x] All three tracks live on prod ([track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md))
+- [x] Tag `v0.4.0` on `main` per [RELEASE.md](RELEASE.md)
 
-## 0.2.0 checklist (done)
+## 0.3.0 checklist (shipped)
 
 - [x] Flight deployed; `/health` returns `guard_enabled: true`
 - [x] `MCP_GUARD_PUBLIC_KEY_PEM` on flight project

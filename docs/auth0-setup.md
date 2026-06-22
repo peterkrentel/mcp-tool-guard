@@ -1,4 +1,4 @@
-# Auth0 setup (0.3)
+# Auth0 setup (0.4.0)
 
 **Navigation:** [Identity overview](identity.md) · [Env template](auth0-env.example) · [Next steps](NEXT-STEPS.md) · [Screenshots folder](images/auth0/README.md)
 
