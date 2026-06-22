@@ -8,6 +8,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Demo deck refresh: updated `docs/overview.pptx` for the latest product walkthrough
+
 ### Changed
 
 - **Docs: ARCHITECTURE.md comprehensive refresh** — Added GatewayAgent flow (`agents-main.ts` → `proxy-api.ts` → `token-vendor.ts` → `gateway-agent.ts`); expanded component map with agent provisioning; updated system context diagram to show both FlightAgent and GatewayAgent paths; clarified "Today vs next" table with separate rows for FlightAgent (demo) vs GatewayAgent (M2M) with approval queue support
