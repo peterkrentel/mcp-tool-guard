@@ -10,6 +10,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs: 0.4.0 accuracy complete** — Updated all doc version references and release status; ROADMAP, NEXT-STEPS, CONCEPT, vercel-deploy, identity, auth0-setup, kv-design now reflect 0.4.0 as shipped with all three tracks complete
+
 ### Fixed
 
 ### Removed
