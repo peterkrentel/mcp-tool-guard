@@ -4,7 +4,7 @@
 
 Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md) · [CONCEPT.md](CONCEPT.md).
 
-**Current release:** `0.3.1` shipped — WebLLM heuristics + read-only demo docs (tag `v0.3.1`). Prior release: `0.3.0`.
+**Current release:** `0.4.0` shipped — KV persistence, GitHub MCP upstream, approval queue (tag `v0.4.0`). Prior release: `0.3.1`.
 
 **Implementation status:** Tracks 1–3 are shipped on `main` — KV registry + agents, GitHub MCP upstream, and approval queue ([track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 

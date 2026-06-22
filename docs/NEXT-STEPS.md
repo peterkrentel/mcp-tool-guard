@@ -1,8 +1,8 @@
-# Next steps (post–0.3.0)
+# Next steps (post–0.4.0)
 
 **Navigation:** [Deploy overview](deploy-overview.md) · [Roadmap](ROADMAP.md) · [**Cursor guide**](cursor-guide.md) · [Identity](identity.md) · [Auth0 setup](auth0-setup.md) · [Release process](RELEASE.md) · [Vercel deploy](vercel-deploy.md) · [Render deploy](render-deploy.md) · [Guard proxy](guard-proxy.md) · [Demo script](demo-proxy.md) · [CONCEPT](CONCEPT.md)
 
-Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, Vercel KV for server audit + bookings. Tag: [RELEASE.md](RELEASE.md).
+Shipped in **v0.4.0** (2026-06-22): KV persistence for server registry, GitHub MCP with upstream token auth, approval queue with human-in-the-loop, Gemini server-side proxy. See [CHANGELOG.md](../CHANGELOG.md) and [track2-github-proof.md](track2-github-proof.md) / [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
 ---
 
@@ -35,19 +35,26 @@ Shipped in **v0.3.0** (2026-06-02): Auth0 + guest dual trust, Bearer `/audit`, V
 - [x] Read-only Auth0 scope demo on prod (`demo-read@…` — search ALLOW, book client DENY)
 - [x] Demo screenshots: [prod-scope-deny-read-only](images/demo/prod-scope-deny-read-only.png), [read-only jwt.io](images/demo/auth0-access-token-read-only-jwtio.png)
 
-### On `main` ([Unreleased](../CHANGELOG.md#unreleased))
+## 0.4.0 — done
 
+### Three tracks + hardening
+
+- [x] **Track 1 — KV persistence** — `gateway/kv.ts`, server registry + agents survive Render restart, `GET /agents` from server, kv_enabled health check
+- [x] **Track 2 — GitHub MCP** — First real external upstream with `upstream_token_env` substitution, proxy scope enforcement, curl write deny proof ([track2-github-proof.md](track2-github-proof.md), [demo-proxy Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream))
+- [x] **Track 3 — Approval queue** — Opaque single-use tokens, human-in-the-loop, agent retry path, operator approval panel on `/agents.html` ([track3-approval-queue-proof.md](track3-approval-queue-proof.md))
+- [x] **Gemini server-side proxy** — `POST /llm/complete` keeps `GEMINI_API_KEY` off browser; `x-goog-api-key` header pattern
 - [x] **#8** UI policy from `gateway/config.yaml`; `check:demo-policy` for demo flight embedded guard
 - [x] **Agent trace** panel — collapsible audit section, correlated by `trace_id`
 - [x] **#12** Guard HTTP proxy — `gateway/proxy-server.ts`, local `make proxy`, Vite dev proxy to `:8787` ([guard-proxy.md](guard-proxy.md))
 - [x] **Deploy guard proxy to prod** — Render ([render-deploy.md](render-deploy.md)); UI `VITE_MCP_URL` → proxy; curl deny proof ([demo-proxy.md](demo-proxy.md))
-- [x] **Agent gateway (stage 1)** — in-memory registry, Auth0 M2M lifecycle, token vending, three-layer audit, [`/agents.html`](../ui/agents.html) UI, LLM selector (WebLLM + Gemini/Groq/Mistral). Prod env: [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel)
+- [x] **Agent gateway (stage 1)** — KV-backed registry, Auth0 M2M lifecycle, token vending, three-layer audit, [`/agents.html`](../ui/agents.html) UI, LLM selector (WebLLM + Gemini/Groq/Mistral). Prod env: [render-deploy.md § Agent gateway](render-deploy.md#agent-gateway-env-render--vercel)
+- [x] **Documentation accuracy pass** — guard-proxy, demo-proxy, CONCEPT, identity, auth0-setup, render-deploy, vercel-deploy, ROADMAP updated; demo trust caveats documented
 
 ---
 
-## Implementation backlog (post-0.3.0) {#implementation-backlog-post-030}
+## Implementation backlog (post-0.4.0) {#implementation-backlog-post-040}
 
-Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADMAP numbers in [ROADMAP.md](ROADMAP.md#release-030--hardening--multi-server).
+Branch per task; update `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md). ROADMAP reference: [ROADMAP.md](ROADMAP.md).
 
 **Deploy map:** [deploy-overview.md](deploy-overview.md) — local `make dev` vs prod UI → Render proxy → Vercel flight.
 
