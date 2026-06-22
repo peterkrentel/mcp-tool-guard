@@ -62,9 +62,9 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
 | [auth0-setup.md](docs/auth0-setup.md) | **Auth0** — full walkthrough + troubleshooting ([screenshots](docs/images/auth0/README.md)) |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.3 Auth0 + hardening](docs/ROADMAP.md#release-030--hardening--multi-server) |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.4 multi-track completion](docs/ROADMAP.md) |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **What to build next** — Phase A–D |
-| [CHANGELOG.md](CHANGELOG.md) | What shipped (`0.2.0`) and [Unreleased](CHANGELOG.md#unreleased) |
+| [CHANGELOG.md](CHANGELOG.md) | What shipped in [0.4.0](CHANGELOG.md#040---2026-06-22) and [Unreleased](CHANGELOG.md#unreleased) |
 | [docs/RELEASE.md](docs/RELEASE.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Releases and PR workflow |
 
 ## Quick start
@@ -149,7 +149,7 @@ uv export --directory servers/flight --no-hashes -o servers/flight/requirements.
 
 Feature branch + PR; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Tracks 1–2 **done** ([track2-github-proof](docs/track2-github-proof.md)); **Track 3** approval queue next. Backlog: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
+**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Tracks 1–3 **complete** in [0.4.0](CHANGELOG.md#040---2026-06-22) ([track2-github-proof](docs/track2-github-proof.md), [track3-approval-queue-proof](docs/track3-approval-queue-proof.md)). Next: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
 
 ## License
 
