@@ -1,6 +1,6 @@
 # Vercel KV data model (Phase B)
 
-**Navigation:** [NEXT-STEPS](NEXT-STEPS.md) · [ROADMAP #6](ROADMAP.md#release-030--hardening--multi-server) · [Cursor guide](cursor-guide.md) · [Vercel deploy](vercel-deploy.md)
+**Navigation:** [NEXT-STEPS](NEXT-STEPS.md) · [ROADMAP](ROADMAP.md) · [Cursor guide](cursor-guide.md) · [Vercel deploy](vercel-deploy.md)
 
 Serverless flight MCP runs in **stateless** Vercel functions. In-memory audit and bookings split across cold starts. Phase B persists both via **Vercel KV** (Upstash Redis REST).
 
@@ -90,7 +90,7 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 **Local dev:** in-memory fallback when KV env unset (same as flight).
 
-## Approval queue (Track 3, planned) {#approval-queue-track-3-planned}
+## Approval queue (Track 3, shipped) {#approval-queue-track-3-shipped}
 
 **Status:** implemented — pending requests, approval tokens, and poll/retry flow are live on the proxy and exercised by [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
