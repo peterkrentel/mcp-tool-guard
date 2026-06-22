@@ -32,7 +32,7 @@ flowchart TB
 
   subgraph gateway_path ["Gateway agent path"]
     GatewayUI["Create agent form<br/>ui/src/agents-main.ts~220"]
-    CreateAgent["POST /agents<br/>gateway/proxy-api.ts"]
+    CreateAgent["POST /agents<br/>gateway/proxy-server.ts"]
     VendToken["POST /agents/:id/token<br/>gateway/token-vendor.ts"]
     Auth0Client["Auth0 M2M client<br/>gateway/auth0-mgmt.ts"]
     GatewayAgent["GatewayAgent<br/>ui/src/gateway-agent.ts"]
@@ -211,7 +211,7 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | **Flight agent** | `ui/src/agent.ts` | Browser WebLLM + heuristics + tool execution (demo UI `/`) |
 | **Gateway agent** | `ui/src/gateway-agent.ts` | M2M LLM agent (Gemini/Groq/Mistral) on `/agents.html`; manage servers + scope, request approval |
 | **Create agent UI** | `ui/src/agents-main.ts` | Form for M2M agent provisioning (line ~220 `createAgentForm` → `createAgent()` + `vendToken()`) |
-| **Create agent endpoint** | `gateway/proxy-api.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
+| **Create agent endpoint** | `gateway/proxy-server.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
 | **Token vendor** | `gateway/token-vendor.ts` | `POST /agents/:id/token` — exchange client credentials for JWT |
 | Agent trace | `ui/src/agent-trace.ts` | Per-turn routing log (both FlightAgent and GatewayAgent) |
 | Audit UI | `ui/src/audit-view.ts` | Server + client + trace panels |
@@ -236,7 +236,7 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md) | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:id/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) ~220 and [token-vendor.ts](../gateway/token-vendor.ts).
+**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:id/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) line ~220 and [token-vendor.ts](../gateway/token-vendor.ts); endpoint in [proxy-server.ts](../gateway/proxy-server.ts).
 
 **Build order:** Post-0.4.0 (all three tracks shipped) — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-040), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
