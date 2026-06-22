@@ -62,7 +62,7 @@ fastmcp==3.4.2
     # via flight-mcp
 fastmcp-slim==3.4.2
     # via fastmcp
-griffelib==2.0.2
+griffelib==2.1.0
     # via fastmcp-slim
 h11==0.16.0
     # via
