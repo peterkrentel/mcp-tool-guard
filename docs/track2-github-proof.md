@@ -175,6 +175,5 @@ curl -s -X POST https://mcp-tool-guard-proxy.onrender.com/github/mcp \
 
 ## Next
 
-- **Product pivot:** lead demos with this proof + agent gateway, not flight WebLLM chat — see [NEXT-STEPS](NEXT-STEPS.md).
-- **Track 3:** [approval queue](cursor-guide.md#track-3--approval-queue-on-demand-scope).
-- **UI fix:** MCP server dropdown reset on `/agents.html` (preserve selection on refresh).
+- **Product pivot:** lead demos with Track 2 + Track 3 proofs + agent gateway — see [NEXT-STEPS](NEXT-STEPS.md).
+- **Post-0.4 hardening:** [NEXT-STEPS → backlog](NEXT-STEPS.md#implementation-backlog-post-040).

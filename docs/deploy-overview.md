@@ -24,7 +24,7 @@ Policy for proxy + UI client: [`gateway/config.yaml`](../gateway/config.yaml). P
 
 ```
 Browser → Vite :5173 → Guard proxy :8787 → Flight :8000
-              ↑ dev-only proxy        ↑ enforcement + /audit (source: guard-proxy)
+              ↑ dev-only proxy        ↑ enforcement + /audit (proxy `source` on entries)
 ```
 
 - Vite dev server proxies `/mcp`, `/audit`, `/servers`, `/agents`, `/token` to `:8787` ([`ui/vite.config.ts`](../ui/vite.config.ts)).
@@ -48,7 +48,7 @@ Browser → Render guard proxy → Flight Vercel
 - Flight demo: `VITE_MCP_URL` → `https://mcp-tool-guard-proxy.onrender.com/mcp`.
 - Agent gateway: `VITE_PROXY_BASE_URL` → `https://mcp-tool-guard-proxy.onrender.com` (admin API + `/{serverId}/mcp`).
 - Render: `AUTH0_MGMT_*` for M2M create + token vending on `/agents.html`.
-- Audit panel fetches proxy `/audit` (`source: guard-proxy`). Header may still say **Server enforcement** — cosmetic.
+- Audit panel fetches proxy `/audit` (`entries` with `source`: `proxy` / `mcp` / `agent`). Header may still say **Server enforcement** — cosmetic.
 - Deploy steps: [render-deploy.md](render-deploy.md). Live demo script: [demo-proxy.md](demo-proxy.md).
 
 ---
@@ -69,7 +69,7 @@ The proxy is a persistent Node service ([`gateway/proxy-server.ts`](../gateway/p
 
 | Piece | Code on `main` | Deployed to prod |
 |-------|----------------|------------------|
-| Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` `source: guard-proxy` | **Yes** — Render |
+| Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` three-layer entries | **Yes** — Render |
 | Agent gateway stage 1 | Yes — `/agents.html`, registry, M2M, three-layer audit | **Needs env** — `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel |
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
 | `make dev` (one terminal) | Yes | N/A (local only) |
@@ -96,7 +96,7 @@ Guard proxy is live on Render. Reference:
 
 | Environment | Authoritative `/audit` | UI section title |
 |-------------|------------------------|------------------|
-| Local `make dev` | Proxy `:8787` (`guard-proxy`) | Proxy enforcement (when proxy audit UI is merged) |
+| Local `make dev` | Proxy `:8787` (authoritative `/audit`) | Proxy enforcement (when proxy audit UI is merged) |
 | Vercel + Render prod | Render proxy | Server enforcement (cosmetic label; data from proxy) |
 | Direct flight (legacy) | Flight Vercel | Server enforcement |
 

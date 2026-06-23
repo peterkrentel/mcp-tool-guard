@@ -92,7 +92,7 @@ Full diagrams: [ARCHITECTURE.md](ARCHITECTURE.md#three-observability-planes-demo
 | ----- | ------ | -------- | ----- |
 | **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? Model preview? Outcome before/after guard? | Debug only |
 | **Agent attempts** | `ToolGuard` in browser | Which tool and scopes? Client pre-check allow/deny? | Debug only |
-| **Server enforcement** | `GET /audit` on flight | What reached MCP? JWT valid? Final allow/deny? | **Authoritative** |
+| **Server enforcement** | `GET /audit` on **Render guard proxy** (prod) / local `:8787` | What reached MCP? JWT valid? Final allow/deny? | **Authoritative** |
 
 Correlate with `trace_id` across all three (click a trace id in the audit panel). **No server row after a client deny is expected** — the attempt still appears under Agent trace and Agent attempts.
 
