@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth0/auth0-spa-js": "^2.21.1",
+    "@auth0/auth0-spa-js": "^2.21.2",
     "@mcp-tool-guard/gateway": "*",
     "@mlc-ai/web-llm": "^0.2.84",
     "yaml": "^2.8.0"
