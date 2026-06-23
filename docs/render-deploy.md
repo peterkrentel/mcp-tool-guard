@@ -101,6 +101,17 @@ On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*`):
 
 Optional cloud LLM keys for reliable tool JSON on the agents page (see [auth0-env.example](auth0-env.example)): `GEMINI_API_KEY` on Render (server-side proxy), plus optional browser keys `VITE_GROQ_API_KEY`, `VITE_MISTRAL_API_KEY`.
 
+### OpenTelemetry (optional) {#opentelemetry-optional}
+
+Export spans to Grafana Tempo or any OTLP HTTP collector. **Fully optional** — if unset, the proxy behaves exactly as today. See [otel.md](otel.md).
+
+| Variable | Value |
+|----------|-------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector base URL, e.g. `https://tempo.example.com:4318` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Optional — `Authorization=Basic …,X-Scope-OrgID=…` |
+| `OTEL_SERVICE_NAME` | Optional — default `mcp-tool-guard-proxy` |
+| `OTEL_SDK_DISABLED` | Set `true` to disable even when endpoint is set |
+
 Redeploy **both** Render and Vercel after env changes.
 
 ---

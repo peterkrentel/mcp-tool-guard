@@ -1,5 +1,8 @@
-import type { AuditLogEntry } from "./types.js";
+import { context, type Context } from "@opentelemetry/api";
+
 import type { AuditLogger } from "./logger.js";
+import { recordUpstreamForward } from "./telemetry.js";
+import type { AuditLogEntry } from "./types.js";
 
 const HOP_BY_HOP = new Set([
   "connection",
@@ -76,6 +79,8 @@ export interface ForwardMcpOptions {
   reqHeaders: Record<string, string | string[] | undefined>;
   body: Buffer;
   res: import("node:http").ServerResponse;
+  /** Registry server id — used for OTel when audit block is absent. */
+  serverId?: string;
   /** When set, replaces caller Authorization on the upstream request (vendor PAT). */
   upstreamBearer?: string;
   audit?: {
@@ -87,9 +92,31 @@ export interface ForwardMcpOptions {
   };
 }
 
+function emitUpstreamTelemetry(
+  options: ForwardMcpOptions,
+  traceId: string | undefined,
+  statusCode: number,
+  latencyMs: number,
+  decision: "allow" | "deny",
+  parentCtx: Context,
+): void {
+  recordUpstreamForward(
+    {
+      serverId: options.audit?.serverId ?? options.serverId ?? "unknown",
+      toolName: options.audit?.toolName,
+      traceId: options.audit?.traceId ?? traceId,
+      statusCode,
+      latencyMs,
+      decision,
+    },
+    parentCtx,
+  );
+}
+
 /** Forward POST to upstream MCP; stream response and log MCP-layer audit entry. */
 export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> {
   const { upstreamUrl, reqHeaders, body, res, audit, upstreamBearer } = options;
+  const parentCtx = context.active();
 
   const forwardHeaders: Record<string, string> = {
     "Content-Type": header(reqHeaders, "content-type") ?? "application/json",
@@ -115,10 +142,12 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
       body: new Uint8Array(body),
     });
   } catch (err) {
+    const latencyMs = performance.now() - start;
     if (audit) {
       const message = err instanceof Error ? err.message : String(err);
-      logMcpAudit(audit, 0, message, performance.now() - start, "deny");
+      logMcpAudit(audit, 0, message, latencyMs, "deny");
     }
+    emitUpstreamTelemetry(options, traceId, 0, latencyMs, "deny", parentCtx);
     throw err;
   }
 
@@ -131,9 +160,18 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
   });
 
   if (!upstream.body) {
+    const latencyMs = performance.now() - start;
     if (audit) {
-      logMcpAudit(audit, upstream.status, "", performance.now() - start);
+      logMcpAudit(audit, upstream.status, "", latencyMs);
     }
+    emitUpstreamTelemetry(
+      options,
+      traceId,
+      upstream.status,
+      latencyMs,
+      upstream.status >= 400 ? "deny" : "allow",
+      parentCtx,
+    );
     res.end();
     return;
   }
@@ -152,15 +190,25 @@ export async function forwardMcpPost(options: ForwardMcpOptions): Promise<void> 
     }
   } finally {
     res.end();
+    const latencyMs = performance.now() - start;
+    let mcpDecision: "allow" | "deny" = upstream.status >= 400 ? "deny" : "allow";
     if (audit) {
       const contentType = upstream.headers.get("content-type") ?? "";
       const preview = contentType.includes("text/event-stream")
         ? parseSsePreview(captured)
         : truncate(captured);
-      const hasError =
+      mcpDecision =
         preview.includes("error") || upstream.status >= 400 ? "deny" : "allow";
-      logMcpAudit(audit, upstream.status, preview, performance.now() - start, hasError);
+      logMcpAudit(audit, upstream.status, preview, latencyMs, mcpDecision);
     }
+    emitUpstreamTelemetry(
+      options,
+      traceId,
+      upstream.status,
+      latencyMs,
+      mcpDecision,
+      parentCtx,
+    );
   }
 }
 

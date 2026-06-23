@@ -23,6 +23,8 @@
  *   GET    /health            — status
  */
 
+import "./telemetry.js";
+
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import { resolve, dirname, sep } from "node:path";
@@ -65,6 +67,11 @@ import {
 } from "./pending-store.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
+import {
+  recordAgentIntent,
+  recordProxyDecision,
+  withProxyAllowSpan,
+} from "./telemetry.js";
 import {
   auth0AudienceFromEnv,
   tokenVendorFromEnv,
@@ -274,6 +281,11 @@ async function handleAuditAgentPost(
       token_scopes: raw.token_scopes ?? [],
     };
     guard.logger.log(entry);
+    recordAgentIntent({
+      toolName: entry.tool,
+      decision: entry.decision,
+      traceId: entry.trace_id,
+    });
   }
   sendJson(res, 200, { ok: true, count: items.length });
 }
@@ -320,6 +332,7 @@ async function handleMcp(
       reqHeaders: forwardHeaders,
       body,
       res,
+      serverId,
       upstreamBearer,
     });
     return;
@@ -328,6 +341,17 @@ async function handleMcp(
   const toolName = payload.params?.name ?? "";
   const traceId = header(req, "x-trace-id");
   const sessionId = header(req, "x-session-id");
+
+  let allowSpan:
+    | {
+        toolName: string;
+        serverId: string;
+        agentScopes: string[];
+        traceId?: string;
+        pendingId?: string;
+        approvalViaToken?: boolean;
+      }
+    | undefined;
 
   if (payload.method === "tools/call" && guardEnabled()) {
     const bearer = extractBearer(header(req, "authorization"));
@@ -338,9 +362,17 @@ async function handleMcp(
       source: "proxy",
     });
 
+    const decisionBase = {
+      toolName,
+      serverId,
+      traceId,
+      agentScopes: result.entry.token_scopes,
+    };
+
     if (!result.allowed) {
       // Check for approval token bypass (from admin approval of pending request)
       let approvedViaToken = false;
+      let approvalPendingId: string | undefined;
       if (result.reason?.startsWith("Missing required scope")) {
         const approvalToken = header(req, "x-approval-token");
         if (approvalToken && APPROVAL_QUEUE_ENABLED) {
@@ -360,12 +392,15 @@ async function handleMcp(
                 session_id: sessionId,
                 reason: `Approved via token (${pendingId})`,
               });
-              approvedViaToken = true; // bypass scope denial, fall through to MCP call
+              approvedViaToken = true;
+              approvalPendingId = pendingId;
             } else {
+              recordProxyDecision({ ...decisionBase, decision: "deny" });
               sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
               return;
             }
           } else {
+            recordProxyDecision({ ...decisionBase, decision: "deny" });
             sendJsonRpcError(res, payload.id, "Approval token invalid");
             return;
           }
@@ -394,14 +429,27 @@ async function handleMcp(
             reason: `Awaiting approval (${pending.id})`,
           });
 
+          recordProxyDecision({
+            ...decisionBase,
+            decision: "pending",
+            pendingId: pending.id,
+          });
           sendJsonRpcPending(res, payload.id, pending.id);
           return;
         }
       }
       if (!approvedViaToken) {
+        recordProxyDecision({ ...decisionBase, decision: "deny" });
         sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
         return;
       }
+      allowSpan = {
+        ...decisionBase,
+        pendingId: approvalPendingId,
+        approvalViaToken: true,
+      };
+    } else {
+      allowSpan = decisionBase;
     }
   }
 
@@ -416,15 +464,24 @@ async function handleMcp(
         }
       : undefined;
 
-  try {
+  const forwardOnce = async (): Promise<void> => {
     await forwardMcpPost({
       upstreamUrl: serverCfg.url,
       reqHeaders: forwardHeaders,
       body,
       res,
+      serverId,
       audit: auditMcp,
       upstreamBearer,
     });
+  };
+
+  try {
+    if (allowSpan) {
+      await withProxyAllowSpan(allowSpan, forwardOnce);
+    } else {
+      await forwardOnce();
+    }
   } catch (err) {
     if (res.headersSent) return;
     const body502 = upstreamErrorBody(serverId, err);

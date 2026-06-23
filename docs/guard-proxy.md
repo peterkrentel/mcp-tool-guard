@@ -95,6 +95,7 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
 | `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
 | `MCP_APPROVAL_QUEUE` | `true` enables approval queue (pending → admin approve → one-time token override); `202` on scope-denied `tools/call` when enabled |
+| `OTEL_EXPORTER_OTLP_*` | Optional OpenTelemetry OTLP export — see [otel.md](otel.md) |
 
 **Upstream token environment variables:** When registering an MCP at runtime or in config, set `upstream_token_env` to the name of an environment variable on the proxy host (e.g., `GITHUB_MCP_TOKEN`, `SLACK_MCP_TOKEN`, `CUSTOM_MCP_TOKEN`). The proxy resolves this variable at request time and sends its value as a Bearer token to the vendor MCP. Caller JWT scope enforcement remains separate — upstream credentials do not affect scope policy.
 
