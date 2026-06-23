@@ -31,9 +31,9 @@ flowchart TB
   end
 
   subgraph gateway_path ["Gateway agent path"]
-    GatewayUI["Create agent form<br/>ui/src/agents-main.ts~220"]
+    GatewayUI["Create agent form<br/>ui/src/agents-main.ts~441"]
     CreateAgent["POST /agents<br/>gateway/proxy-server.ts"]
-    VendToken["POST /agents/:id/token<br/>gateway/token-vendor.ts"]
+    VendToken["POST /agents/:clientId/token<br/>gateway/token-vendor.ts"]
     Auth0Client["Auth0 M2M client<br/>gateway/auth0-mgmt.ts"]
     GatewayAgent["GatewayAgent<br/>ui/src/gateway-agent.ts"]
     Gemini["Gemini/Groq/Mistral<br/>gateway/llm-proxy.ts"]
@@ -56,7 +56,7 @@ flowchart TB
 
   subgraph proxy ["Guard HTTP proxy — authoritative enforce"]
     Proxy["proxy-server.ts :8787<br/>(local make dev)"]
-    ProxyAudit["GET /audit<br/>guard-proxy"]
+    ProxyAudit["GET /audit<br/>entries + sources"]
     MCPc -->|Bearer + X-Trace-Id| Proxy
     Proxy --> YAML
     Proxy --> ProxyAudit
@@ -138,7 +138,7 @@ sequenceDiagram
 | ----- | ------ | ------------------- | ----- |
 | **Agent trace** | `ui/src/agent-trace.ts` | Heuristic vs LLM? What did the model return? Outcome before/after guard? | Debug only |
 | **Agent attempts** | `ToolGuard` logger in browser | Which tool, scopes, allow/deny on **client** pre-check? | Debug only |
-| **Proxy / server enforcement** | `GET /audit` on proxy (`guard-proxy`) or flight (Vercel today) | What **reached** MCP? JWT valid? Final allow/deny? | **Authoritative** |
+| **Proxy / server enforcement** | `GET /audit` on **Render guard proxy** (prod) / local `:8787` | What **reached** MCP? JWT valid? Final allow/deny? | **Authoritative** |
 
 Click a **trace id** in the audit panel to highlight rows across all three sections.
 
@@ -210,9 +210,9 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | --------- | ---- | -------------- |
 | **Flight agent** | `ui/src/agent.ts` | Browser WebLLM + heuristics + tool execution (demo UI `/`) |
 | **Gateway agent** | `ui/src/gateway-agent.ts` | M2M LLM agent (Gemini/Groq/Mistral) on `/agents.html`; manage servers + scope, request approval |
-| **Create agent UI** | `ui/src/agents-main.ts` | Form for M2M agent provisioning (line ~220 `createAgentForm` → `createAgent()` + `vendToken()`) |
+| **Create agent UI** | `ui/src/agents-main.ts` | Form for M2M agent provisioning (line ~441 `createAgentForm` submit → `createAgent()` + `vendToken()`) |
 | **Create agent endpoint** | `gateway/proxy-server.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
-| **Token vendor** | `gateway/token-vendor.ts` | `POST /agents/:id/token` — exchange client credentials for JWT |
+| **Token vendor** | `gateway/token-vendor.ts` | `POST /agents/:clientId/token` — exchange client credentials for JWT |
 | Agent trace | `ui/src/agent-trace.ts` | Per-turn routing log (both FlightAgent and GatewayAgent) |
 | Audit UI | `ui/src/audit-view.ts` | Server + client + trace panels |
 | Client guard | `gateway/guard.ts` | JWT verify + scope check |
@@ -229,14 +229,14 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | ------- | ---------------- | ---------------------- | ---- |
 | MCP path | UI → proxy → flight or `/{id}/mcp` | UI/curl → Render proxy → flight or **GitHub MCP** | More vendor MCPs; backend agent examples |
 | Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
-| `/audit` source | `guard-proxy` | `guard-proxy` on Render | Audit export / OTel sink |
+| `/audit` | `entries[]` with `source`: `proxy` / `mcp` / `agent`; response `sources` array | Same on Render | Audit export / OTel sink |
 | **FlightAgent** (demo `/`) | Browser WebLLM + heuristics | Same — guest or Auth0 login | Deferred or replaced |
 | **GatewayAgent** (`/agents.html`) | M2M agents (Gemini/Groq/Mistral) + approval queue | Same + prod servers | SDK agents + packaged gateway integrations |
 | Multi-server | `/agents.html` per-server routing; `/` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md) | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Same | Grafana/Loki sink (Tier 2) |
 
-**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:id/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) line ~220 and [token-vendor.ts](../gateway/token-vendor.ts); endpoint in [proxy-server.ts](../gateway/proxy-server.ts).
+**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:clientId/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) (submit handler ~441) and [token-vendor.ts](../gateway/token-vendor.ts); route in [proxy-server.ts](../gateway/proxy-server.ts).
 
 **Build order:** Post-0.4.0 (all three tracks shipped) — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-040), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 

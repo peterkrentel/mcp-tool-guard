@@ -126,7 +126,7 @@ curl "$PROXY/health"
 
 # Audit — Bearer required when guard enabled
 curl -H "Authorization: Bearer $TOKEN" "$PROXY/audit"
-# → JSON with "source": "guard-proxy"
+# → JSON with "sources": ["agent", "proxy", "mcp"] and entries[].source
 
 # Tool call — scope enforced, forwarded to Vercel flight
 # Accept header is required (curl's default */* breaks SSE forward to flight)
@@ -175,7 +175,7 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 |-------|----------|
 | **DevTools → Network** | `POST` to `https://mcp-tool-guard-proxy.onrender.com/mcp` and `GET` to `…/audit` (not `mcp-tool-guard-flight-server.vercel.app`) |
 | **Chat** | *Search flights from SFO to JFK* with read scope → tool result in chat |
-| **Audit `GET /audit` body** | `"source": "guard-proxy"` in the JSON response |
+| **Audit `GET /audit` body** | `"sources": ["agent", "proxy", "mcp"]`; each entry has `"source": "proxy"` (enforce) or `"mcp"` (upstream) |
 | **Audit panel header (main UI)** | May still say **Server enforcement** — cosmetic; data is from the proxy |
 | **Read-only Auth0 user** | Search → SERVER ALLOW; book → CLIENT DENY (no proxy row) |
 | **Admin book + cancel** | Render logs `[MCPToolGuard] allow …`; cancel may log `[MCPToolGuard ALERT]` |
@@ -206,7 +206,8 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | UI still hits Vercel flight | `VITE_MCP_URL` not updated or UI not **rebuilt** after env change |
 | `GET /audit` → 401 | Expected without Bearer — sign in or pick guest token, then **Initialize** |
 | Tool call succeeds but empty / error from upstream | Flight Vercel down or `servers.flight.url` wrong in `config.prod.yaml` |
-| `POST /slack/mcp` or `/github/mcp` fails | Stubs only — use `POST /mcp` for flight demo |
+| `POST /github/mcp` fails | Check `GITHUB_MCP_TOKEN`, agent scopes, `Accept: application/json, text/event-stream` — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream) |
+| `POST /slack/mcp` fails | Not in yaml — register via `POST /servers` on `/agents.html` or ignore unless added |
 | `/agents.html` → failed to fetch `/servers` | Set `VITE_PROXY_BASE_URL` on Vercel UI and redeploy |
 | Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `auth0_mgmt_configured: false` |
 | `401` / `403` on Add MCP or Create agent | `/health` → `control_plane_auth: true` — sign in on `/agents.html`; token needs `gateway:admin` in `permissions` |
@@ -225,7 +226,7 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 - [ ] `POST /github/mcp` `get_file_contents` with M2M `repo:read` → allow — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream)
 - [ ] `upstream_auth_missing: []` when all configured upstream env vars are set
 - [ ] `POST /mcp` `tools/call` with missing/wrong scope → `error.code: -32001`
-- [ ] `GET /audit` → `"source": "guard-proxy"`
+- [ ] `GET /audit` → `"sources": ["agent", "proxy", "mcp"]`; recent entries include `"source": "proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`
 - [ ] UI chat search/book works end-to-end via proxy
 - [ ] `/health` → `auth0_mgmt_configured: true` (agent gateway)

@@ -100,7 +100,7 @@ Agent-vs-chat UI and external SDK agents are optional polish; they do not change
 
 | # | Task | Status | Touch | Acceptance |
 | - | ---- | ------ | ----- | ---------- |
-| — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` `source: guard-proxy` |
+| — | **Deploy guard proxy to prod** | **Done** | Render: `config.prod.yaml`, env vars, `VITE_MCP_URL` — [render-deploy.md](render-deploy.md) | `GET /health` on proxy; UI chat via proxy; `/audit` entries with `source: proxy` |
 | — | **Agent gateway stage 1** | **Done** | `gateway/proxy-server.ts`, `ui/agents.html`, `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel | Local: search ALLOW + book DENY; prod smoke on `/agents.html` |
 | — | **Agent gateway admin auth** | **Done** | `gateway/admin-auth.ts`, `gateway/proxy-server.ts`, `ui/agents-main.ts` — [sketch](#agent-gateway-admin-auth-sketch) | SPA login on `/agents.html`; `gateway:admin` on registry + agent CRUD + `/token`; M2M agents unchanged on `tools/call` |
 | — | **Agent gateway KV persistence (Track 1)** | **Done** | [cursor-guide Track 1](cursor-guide.md#track-1--kv-persist-the-server-registry) · [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) | UI-added MCPs + agents survive proxy restart; `GET /agents` from server |

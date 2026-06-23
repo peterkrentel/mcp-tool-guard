@@ -177,8 +177,11 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
 ## Demo 5 — Audit API (30 s)
 
 ```bash
-curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.source'
-# → "guard-proxy"
+curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.sources'
+# → ["agent", "proxy", "mcp"]
+
+# Recent enforce rows (proxy + upstream):
+curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:] | map({tool, decision, source, required_scope})'
 ```
 
 ---
@@ -230,7 +233,7 @@ Click **Approve** on the pending entry in the Approval queue panel.
 
 ### Step 4: Retry with approval token (agent polls + retries automatically)
 
-In browser agent, the retry happens in the background via `retryApprovedTool()` polling loop ([ui/src/gateway-agent.ts](../ui/src/gateway-agent.ts#L165)).
+In browser agent, the retry happens in the background via `retryApprovedTool()` polling loop ([ui/src/gateway-agent.ts](../ui/src/gateway-agent.ts#L167)).
 
 For curl (manual), fetch the approval token:
 
