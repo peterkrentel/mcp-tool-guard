@@ -29,6 +29,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFileSync } from "node:fs";
 import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { context } from "@opentelemetry/api";
 import { parse as parseYaml } from "yaml";
 
 import { encryptClientSecret } from "./agent-secrets.js";
@@ -268,6 +269,7 @@ async function handleAuditAgentPost(
   res: ServerResponse,
 ): Promise<void> {
   /** POST /audit/agent — append agent-layer intent entries. Auth: no (demo). */
+  const requestCtx = context.active();
   const body = await readJson<{ entries?: AuditLogEntry[]; entry?: AuditLogEntry }>(req);
   const items = body.entries ?? (body.entry ? [body.entry] : []);
   for (const raw of items) {
@@ -286,7 +288,7 @@ async function handleAuditAgentPost(
       toolName: entry.tool,
       decision: entry.decision,
       traceId: entry.trace_id,
-    });
+    }, requestCtx);
   }
   sendJson(res, 200, { ok: true, count: items.length });
 }
@@ -342,6 +344,7 @@ async function handleMcp(
   const toolName = payload.params?.name ?? "";
   const traceId = header(req, "x-trace-id");
   const sessionId = header(req, "x-session-id");
+  const requestCtx = context.active();
 
   let allowSpan:
     | {
@@ -396,12 +399,12 @@ async function handleMcp(
               approvedViaToken = true;
               approvalPendingId = pendingId;
             } else {
-              recordProxyDecision({ ...decisionBase, decision: "deny" });
+              recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
               sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
               return;
             }
           } else {
-            recordProxyDecision({ ...decisionBase, decision: "deny" });
+            recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
             sendJsonRpcError(res, payload.id, "Approval token invalid");
             return;
           }
@@ -434,13 +437,13 @@ async function handleMcp(
             ...decisionBase,
             decision: "pending",
             pendingId: pending.id,
-          });
+          }, requestCtx);
           sendJsonRpcPending(res, payload.id, pending.id);
           return;
         }
       }
       if (!approvedViaToken) {
-        recordProxyDecision({ ...decisionBase, decision: "deny" });
+        recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
         sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
         return;
       }

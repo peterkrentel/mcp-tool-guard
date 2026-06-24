@@ -115,16 +115,21 @@ export function initTelemetry(): void {
 }
 
 /** Point-in-time span for deny / pending proxy decisions. */
-export function recordProxyDecision(attrs: ProxyDecisionAttrs): void {
+export function recordProxyDecision(attrs: ProxyDecisionAttrs, parentCtx?: Context): void {
   if (!enabled) return;
   const tracer = trace.getTracer(TRACER_NAME);
-  const span = tracer.startSpan("mcp.proxy.tools_call", {
-    attributes: proxySpanAttributes(attrs),
-  });
-  if (attrs.decision === "deny") {
-    span.setStatus({ code: SpanStatusCode.ERROR });
-  }
-  span.end();
+  const ctx = parentCtx ?? context.active();
+  tracer.startActiveSpan(
+    "mcp.proxy.tools_call",
+    { attributes: proxySpanAttributes(attrs) },
+    ctx,
+    (span) => {
+      if (attrs.decision === "deny") {
+        span.setStatus({ code: SpanStatusCode.ERROR });
+      }
+      span.end();
+    },
+  );
 }
 
 /** Active span for allow path — upstream span nests as child. */
@@ -157,18 +162,25 @@ export async function withProxyAllowSpan<T>(
   );
 }
 
-export function recordAgentIntent(attrs: AgentIntentAttrs): void {
+export function recordAgentIntent(attrs: AgentIntentAttrs, parentCtx?: Context): void {
   if (!enabled) return;
   const tracer = trace.getTracer(TRACER_NAME);
-  const span = tracer.startSpan("mcp.agent.intent", {
-    attributes: {
-      "mcp.tool.name": attrs.toolName,
-      "mcp.decision": attrs.decision,
-      source: "agent",
-      ...(attrs.traceId ? { "mcp.trace_id": attrs.traceId } : {}),
+  const ctx = parentCtx ?? context.active();
+  tracer.startActiveSpan(
+    "mcp.agent.intent",
+    {
+      attributes: {
+        "mcp.tool.name": attrs.toolName,
+        "mcp.decision": attrs.decision,
+        source: "agent",
+        ...(attrs.traceId ? { "mcp.trace_id": attrs.traceId } : {}),
+      },
     },
-  });
-  span.end();
+    ctx,
+    (span) => {
+      span.end();
+    },
+  );
 }
 
 /** Request root span for proxy route handling. */
