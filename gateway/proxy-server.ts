@@ -70,6 +70,7 @@ import { ServerRegistry } from "./server-registry.js";
 import {
   recordAgentIntent,
   recordProxyDecision,
+  withHttpRequestSpan,
   withProxyAllowSpan,
 } from "./telemetry.js";
 import {
@@ -547,7 +548,18 @@ async function main(): Promise<void> {
   }
 
   const server = createServer(async (req, res) => {
-    try {
+    const spanPath = (() => {
+      try {
+        return new URL(req.url ?? "/", "http://localhost").pathname;
+      } catch {
+        return req.url ?? "/";
+      }
+    })();
+
+    await withHttpRequestSpan(
+      { method: req.method ?? "UNKNOWN", path: spanPath },
+      async () => {
+        try {
       if (applyCors(req, res)) return;
 
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -951,15 +963,17 @@ async function main(): Promise<void> {
         }
       }
 
-      sendJson(res, 404, { error: "Not found" });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!res.headersSent) {
-        sendJson(res, 500, { error: message });
-      } else {
-        res.end();
+        sendJson(res, 404, { error: "Not found" });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!res.headersSent) {
+          sendJson(res, 500, { error: message });
+        } else {
+          res.end();
+        }
       }
-    }
+      },
+    );
   });
 
   server.listen(port, () => {

@@ -171,6 +171,37 @@ export function recordAgentIntent(attrs: AgentIntentAttrs): void {
   span.end();
 }
 
+/** Request root span for proxy route handling. */
+export async function withHttpRequestSpan<T>(
+  attrs: { method: string; path: string },
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (!enabled) return fn();
+  const tracer = trace.getTracer(TRACER_NAME);
+  return tracer.startActiveSpan(
+    "http.server.request",
+    {
+      attributes: {
+        "http.request.method": attrs.method,
+        "url.path": attrs.path,
+      },
+    },
+    async (span) => {
+      try {
+        return await fn();
+      } catch (err) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      } finally {
+        span.end();
+      }
+    },
+  );
+}
+
 export function recordUpstreamForward(attrs: UpstreamForwardAttrs, parentCtx?: Context): void {
   if (!enabled) return;
   const tracer = trace.getTracer(TRACER_NAME);

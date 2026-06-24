@@ -258,7 +258,7 @@ curl -s -X POST "$PROXY/github/mcp" \
 
 **Expected:** Successful response from GitHub MCP (SSE format):
 
-```
+```text
 data: {"jsonrpc":"2.0","id":2,"result":{"content":"...","message":"File updated"}}
 ```
 
@@ -301,3 +301,163 @@ Read in this order to understand the flow:
 **GitHub request to trace:** curl/agent JWT → `POST /github/mcp` → proxy `authorize(repo:read)` → forward with `GITHUB_MCP_TOKEN` → GitHub MCP → SSE result.
 
 **Flight request to trace:** chat → `agent.ts` authorize → `mcp-client.ts` POST `/mcp` → proxy → flight.
+
+---
+
+## Demo 8 — Slack MCP (local + prod wiring)
+
+Goal: prove Slack MCP server registration, tool-to-scope mapping, and upstream token indirection (`SLACK_MCP_TOKEN`).
+
+### Verify server registration
+
+```bash
+PROXY=https://mcp-tool-guard-proxy.onrender.com
+curl -s "$PROXY/servers" | jq '.servers[] | select(.id=="slack-prop")'
+```
+
+**Expected output:**
+
+```json
+{
+  "id": "slack-prop",
+  "url": "https://mcp.slack.com/mcp",
+  "scopes": {
+    "slack_send_message": ["slack:write"],
+    "slack_read_channel": ["slack:read"],
+    "slack_search_channels": ["slack:read"],
+    "slack_read_thread": ["slack:read"],
+    "slack_search_users": ["slack:read"]
+  },
+  "upstream_token_env": "SLACK_MCP_TOKEN"
+}
+```
+
+**Proof:** `upstream_token_env` field shows token name (never the value itself); this tells the proxy to substitute `SLACK_MCP_TOKEN` at request time for upstream auth only.
+
+### Local development (config.yaml)
+
+Slack is now seeded in `gateway/config.yaml` — no need to re-register on every `make dev` restart:
+
+```bash
+make dev
+# proxy starts with slack-prop already registered
+
+curl -s http://localhost:8787/servers | jq '.servers[] | select(.id=="slack-prop")'
+```
+
+If `SLACK_MCP_TOKEN` env var is not set, `GET /servers/slack-prop/tools` will return `503 Upstream credential not configured`.
+
+### Discover tools from Slack upstream
+
+```bash
+curl -s "$PROXY/servers/slack-prop/tools" | jq '.tools | length'
+# → number of available tools
+```
+
+### GUI path that actually works
+
+On `/agents.html`, the most reliable send path is to paste a raw tool call instead of relying on freeform prompting.
+
+**Validated payload:**
+
+```json
+{"tool":"slack_send_message","arguments":{"channel_id":"CLLTP7U3H","message":"hey from local laptop, hope this works also otel testing"}}
+```
+
+**Why this matters:** Slack MCP accepted `channel_id` + `message`. Earlier attempts using natural language or argument names like `text` produced `no_text` even though the tool call itself reached Slack.
+
+**Observed success result:**
+
+```json
+{
+  "message_link": "https://underbridgeworkspace.slack.com/archives/CLLTP7U3H/p178232939525409",
+  "message_context": {
+    "message_ts": "1782329369.525409"
+  },
+  "channel_id": "CLLTP7U3H"
+}
+```
+
+### Upstream Slack token scope findings
+
+The local proxy did load `SLACK_MCP_TOKEN` correctly. Direct Slack auth checks confirmed the token is valid for the `underbridge` workspace and currently has these scopes:
+
+- `identify`
+- `channels:history`
+- `channels:read`
+- `search:read`
+- `chat:write`
+
+**Implication:**
+
+- `slack_send_message` to a known channel ID can work.
+- `slack_search_users` fails upstream because the token is missing `users:read`.
+
+That failure was validated in the browser and proxy audit as `execution_failed: missing_scopes` from Slack MCP. This is an upstream Slack credential limitation, not a local proxy policy bug.
+
+### Scope enforcement — read-only token
+
+Create or use an agent with **`slack:read`** only (no `slack:write`):
+
+```bash
+TOKEN="<agent JWT with slack:read only>"
+
+# Allow — read tool with read token
+curl -s -X POST "$PROXY/slack-prop/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"slack_read_channel","arguments":{"channel":"general"}}}'
+```
+
+**Expected:** SSE response from Slack MCP (wrapped by proxy).
+
+### Scope enforcement — write tool denied
+
+Same read-only token, attempt a write:
+
+```bash
+curl -s -X POST "$PROXY/slack-prop/mcp" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"slack_send_message","arguments":{"channel":"general","text":"Hello"}}}'
+```
+
+**Expected:** JSON-RPC error `code: -32001`, message `Missing required scope 'slack:write'`. **No call to Slack MCP** — proxy blocks first.
+
+**Render logs:**
+
+```text
+[MCPToolGuard] deny slack_send_message source=proxy reason=Missing required scope 'slack:write'
+```
+
+### Audit snapshot
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-5:] | map({tool, decision, source, required_scope})'
+```
+
+**Talking point:** Same policy enforcement as flight and GitHub — scope is tied to tools, upstream token (Slack credentials) is managed separately on the proxy and never exposed to callers.
+
+### Approval queue proof — `slack_send_message`
+
+Local `/agents.html` also validated the approval queue path for a limited Slack agent. The observed sequence was:
+
+```text
+[MCPToolGuard] deny slack_send_message source=proxy required=slack:write reason=Missing required scope 'slack:write'
+[MCPToolGuard] pending slack_send_message source=proxy required=slack:write reason=Awaiting approval (pr_329f2ac0ce7a)
+[MCPToolGuard] allow slack_send_message source=proxy required=slack:write reason=Pending request approved (pr_329f2ac0ce7a)
+[MCPToolGuard] deny slack_send_message source=proxy required=slack:write reason=Missing required scope 'slack:write'
+[MCPToolGuard] allow slack_send_message source=proxy required=slack:write reason=Approved via token (pr_329f2ac0ce7a)
+[MCPToolGuard] allow slack_send_message source=mcp
+```
+
+**What this proves:**
+
+- First attempt is denied by policy because the agent lacks `slack:write`.
+- Proxy creates a pending approval request.
+- After operator approval, the agent retries with a one-time approval token.
+- Upstream Slack MCP accepts the send and returns a permalink.
+
+This is the best end-to-end proof for the Slack write path: policy deny, human approval, token-based retry, upstream success.

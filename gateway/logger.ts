@@ -11,6 +11,7 @@ function stdoutLine(entry: AuditLogEntry): string {
   const parts = [`${entry.decision} ${entry.tool}`];
   if (entry.source) parts.push(`source=${entry.source}`);
   if (entry.required_scope) parts.push(`required=${entry.required_scope}`);
+  if (entry.trace_id) parts.push(`trace_id=${entry.trace_id}`);
   if (entry.reason) parts.push(`reason=${entry.reason}`);
   return parts.join(" ");
 }
