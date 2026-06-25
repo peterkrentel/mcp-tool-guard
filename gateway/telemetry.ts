@@ -4,7 +4,11 @@
  */
 
 import { context, SpanStatusCode, trace, type Context } from "@opentelemetry/api";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { Resource } from "@opentelemetry/resources";
+import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
 export type ProxyDecision = "allow" | "deny" | "pending";
@@ -37,7 +41,81 @@ export interface UpstreamForwardAttrs {
 const TRACER_NAME = "mcp-tool-guard-proxy";
 
 let sdk: NodeSDK | null = null;
+let loggerProvider: LoggerProvider | null = null;
+let stopConsoleBridge: (() => void) | null = null;
 let enabled = false;
+
+function logsEndpointFromBase(endpoint: string): string {
+  const trimmed = endpoint.trim().replace(/\/+$/, "");
+  if (trimmed.endsWith("/v1/logs")) return trimmed;
+  if (trimmed.endsWith("/v1/traces")) {
+    return `${trimmed.slice(0, -"/v1/traces".length)}/v1/logs`;
+  }
+  return `${trimmed}/v1/logs`;
+}
+
+function stringifyConsoleArgs(args: unknown[]): string {
+  return args
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (part instanceof Error) return part.stack ?? part.message;
+      try {
+        return JSON.stringify(part);
+      } catch {
+        return String(part);
+      }
+    })
+    .join(" ");
+}
+
+function installConsoleBridge(): () => void {
+  const logger = logs.getLogger(TRACER_NAME);
+  const originals = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+  };
+  let emitting = false;
+
+  const wrap = (
+    method: keyof typeof originals,
+    severityNumber: SeverityNumber,
+    severityText: string,
+  ): void => {
+    console[method] = (...args: unknown[]) => {
+      originals[method](...args);
+      if (emitting) return;
+      try {
+        emitting = true;
+        logger.emit({
+          severityNumber,
+          severityText,
+          body: stringifyConsoleArgs(args),
+          attributes: {
+            "log.source": "console",
+          },
+        });
+      } catch {
+        // best-effort log forwarding
+      } finally {
+        emitting = false;
+      }
+    };
+  };
+
+  wrap("log", SeverityNumber.INFO, "INFO");
+  wrap("info", SeverityNumber.INFO, "INFO");
+  wrap("warn", SeverityNumber.WARN, "WARN");
+  wrap("error", SeverityNumber.ERROR, "ERROR");
+
+  return () => {
+    console.log = originals.log;
+    console.info = originals.info;
+    console.warn = originals.warn;
+    console.error = originals.error;
+  };
+}
 
 function parseOtlpHeaders(raw: string | undefined): Record<string, string> | undefined {
   const trimmed = raw?.trim();
@@ -79,36 +157,63 @@ export function initTelemetry(): void {
   if (!process.env.OTEL_SERVICE_NAME?.trim()) {
     process.env.OTEL_SERVICE_NAME = "mcp-tool-guard-proxy";
   }
+  const serviceName = process.env.OTEL_SERVICE_NAME;
 
   const headers = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
+  const sharedResource = new Resource({
+    "service.name": serviceName,
+  });
 
   try {
     const exporter = new OTLPTraceExporter({
       ...(headers ? { headers } : {}),
     });
 
+    const logExporter = new OTLPLogExporter({
+      url: logsEndpointFromBase(endpoint),
+      ...(headers ? { headers } : {}),
+    });
+
+    loggerProvider = new LoggerProvider({ resource: sharedResource });
+    loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
+    logs.setGlobalLoggerProvider(loggerProvider);
+
     sdk = new NodeSDK({
-      serviceName: process.env.OTEL_SERVICE_NAME,
+      serviceName,
+      resource: sharedResource,
       traceExporter: exporter,
     });
 
     sdk.start();
+    stopConsoleBridge = installConsoleBridge();
     enabled = true;
     console.info(
-      `[MCPToolGuard proxy] OpenTelemetry enabled (service=${process.env.OTEL_SERVICE_NAME})`,
+      `[MCPToolGuard proxy] OpenTelemetry enabled (service=${serviceName})`,
     );
 
     const shutdown = (): void => {
-      void sdk
-        ?.shutdown()
-        .catch(() => {
-          /* best-effort flush on Render SIGTERM */
-        });
+      if (stopConsoleBridge) {
+        stopConsoleBridge();
+        stopConsoleBridge = null;
+      }
+      void Promise.all([
+        sdk?.shutdown().catch(() => {
+          /* best-effort trace flush on Render SIGTERM */
+        }),
+        loggerProvider?.shutdown().catch(() => {
+          /* best-effort log flush on Render SIGTERM */
+        }),
+      ]);
     };
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);
   } catch {
     console.warn("[MCPToolGuard proxy] OpenTelemetry init failed — continuing without telemetry");
+    if (stopConsoleBridge) {
+      stopConsoleBridge();
+      stopConsoleBridge = null;
+    }
+    loggerProvider = null;
     sdk = null;
     enabled = false;
   }
