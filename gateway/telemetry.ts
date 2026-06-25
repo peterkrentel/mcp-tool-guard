@@ -39,11 +39,22 @@ export interface UpstreamForwardAttrs {
 }
 
 const TRACER_NAME = "mcp-tool-guard-proxy";
+const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
 
 let sdk: NodeSDK | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let stopConsoleBridge: (() => void) | null = null;
 let enabled = false;
+let shuttingDown = false;
+
+function tracesEndpointFromBase(endpoint: string): string {
+  const trimmed = endpoint.trim().replace(/\/+$/, "");
+  if (trimmed.endsWith("/v1/traces")) return trimmed;
+  if (trimmed.endsWith("/v1/logs")) {
+    return `${trimmed.slice(0, -"/v1/logs".length)}/v1/traces`;
+  }
+  return `${trimmed}/v1/traces`;
+}
 
 function logsEndpointFromBase(endpoint: string): string {
   const trimmed = endpoint.trim().replace(/\/+$/, "");
@@ -163,14 +174,17 @@ export function initTelemetry(): void {
   const sharedResource = new Resource({
     "service.name": serviceName,
   });
+  const tracesUrl = tracesEndpointFromBase(endpoint);
+  const logsUrl = logsEndpointFromBase(endpoint);
 
   try {
     const exporter = new OTLPTraceExporter({
+      url: tracesUrl,
       ...(headers ? { headers } : {}),
     });
 
     const logExporter = new OTLPLogExporter({
-      url: logsEndpointFromBase(endpoint),
+      url: logsUrl,
       ...(headers ? { headers } : {}),
     });
 
@@ -192,18 +206,27 @@ export function initTelemetry(): void {
     );
 
     const shutdown = (): void => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       if (stopConsoleBridge) {
         stopConsoleBridge();
         stopConsoleBridge = null;
       }
-      void Promise.all([
-        sdk?.shutdown().catch(() => {
-          /* best-effort trace flush on Render SIGTERM */
-        }),
-        loggerProvider?.shutdown().catch(() => {
-          /* best-effort log flush on Render SIGTERM */
-        }),
-      ]);
+
+      const flush = Promise.allSettled([
+        sdk?.shutdown(),
+        loggerProvider?.shutdown(),
+      ]).catch(() => {
+        /* best-effort telemetry flush on shutdown */
+      });
+
+      const timeout = new Promise<void>((resolve) => {
+        setTimeout(resolve, SHUTDOWN_FLUSH_TIMEOUT_MS);
+      });
+
+      void Promise.race([flush, timeout]).finally(() => {
+        process.exit(0);
+      });
     };
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);
