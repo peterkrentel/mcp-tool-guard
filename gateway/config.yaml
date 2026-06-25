@@ -74,9 +74,5 @@ servers:
         required_scope: slack:write
       slack_read_channel:
         required_scope: slack:read
-      slack_search_channels:
-        required_scope: slack:read
       slack_read_thread:
-        required_scope: slack:read
-      slack_search_users:
         required_scope: slack:read

@@ -324,9 +324,7 @@ curl -s "$PROXY/servers" | jq '.servers[] | select(.id=="slack-prop")'
   "scopes": {
     "slack_send_message": ["slack:write"],
     "slack_read_channel": ["slack:read"],
-    "slack_search_channels": ["slack:read"],
-    "slack_read_thread": ["slack:read"],
-    "slack_search_users": ["slack:read"]
+    "slack_read_thread": ["slack:read"]
   },
   "upstream_token_env": "SLACK_MCP_TOKEN"
 }
@@ -353,6 +351,16 @@ If `SLACK_MCP_TOKEN` env var is not set, `GET /servers/slack-prop/tools` will re
 curl -s "$PROXY/servers/slack-prop/tools" | jq '.tools | length'
 # → number of available tools
 ```
+
+### Verified Slack tool status (local run)
+
+Based on latest local validation (raw JSON tool calls + three-layer audit):
+
+- Working: `slack_send_message`, `slack_read_channel`, `slack_read_thread`
+- Blocked by upstream Slack scopes: `slack_search_users` (`execution_failed: missing_scopes`)
+- Experimental / not yet confirmed in this demo: `slack_search_channels`
+
+For demos, trust only tool calls that produce real MCP responses in audit logs. Do not treat freeform LLM "tool list" text as authoritative.
 
 ### GUI path that actually works
 
@@ -391,6 +399,7 @@ The local proxy did load `SLACK_MCP_TOKEN` correctly. Direct Slack auth checks c
 **Implication:**
 
 - `slack_send_message` to a known channel ID can work.
+- `slack_read_channel` and `slack_read_thread` can work with valid channel/thread IDs.
 - `slack_search_users` fails upstream because the token is missing `users:read`.
 
 That failure was validated in the browser and proxy audit as `execution_failed: missing_scopes` from Slack MCP. This is an upstream Slack credential limitation, not a local proxy policy bug.
