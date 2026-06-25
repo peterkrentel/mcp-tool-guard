@@ -213,12 +213,22 @@ export function initTelemetry(): void {
         stopConsoleBridge = null;
       }
 
-      const flush = Promise.allSettled([
-        sdk?.shutdown(),
-        loggerProvider?.shutdown(),
-      ]).catch(() => {
-        /* best-effort telemetry flush on shutdown */
-      });
+      const flushPromises: Array<Promise<void>> = [];
+      if (sdk) {
+        flushPromises.push(
+          sdk.shutdown().catch(() => {
+            /* best-effort trace flush on shutdown */
+          }),
+        );
+      }
+      if (loggerProvider) {
+        flushPromises.push(
+          loggerProvider.shutdown().catch(() => {
+            /* best-effort log flush on shutdown */
+          }),
+        );
+      }
+      const flush = Promise.allSettled(flushPromises);
 
       const timeout = new Promise<void>((resolve) => {
         setTimeout(resolve, SHUTDOWN_FLUSH_TIMEOUT_MS);
