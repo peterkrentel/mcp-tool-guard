@@ -1,0 +1,53 @@
+# Exported from Render on 2026-06-24T14:36:44Z
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: mcp-tool-guard-proxy
+      runtime: node
+      repo: https://github.com/peterkrentel/mcp-tool-guard
+      plan: free
+      envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SLACK_MCP_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MCP_APPROVAL_QUEUE
+        sync: false
+      - key: GITHUB_MCP_TOKEN
+        sync: false
+      - key: KV_REST_API_URL
+        sync: false
+      - key: KV_REST_API_TOKEN
+        sync: false
+      - key: AUTH0_AUDIENCE
+        sync: false
+      - key: AUTH0_MGMT_CLIENT_SECRET
+        sync: false
+      - key: AUTH0_MGMT_CLIENT_ID
+        sync: false
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: MCP_JWT_ISSUER
+        sync: false
+      - key: MCP_PROXY_CONFIG
+        sync: false
+      - key: MCP_JWT_AUDIENCE
+        sync: false
+      - key: MCP_GUARD_PUBLIC_KEY_PEM
+        sync: false
+      - key: MCP_CORS_ORIGINS
+        sync: false
+      - key: MCP_PROXY_DEFAULT_SERVER
+        sync: false
+      region: oregon
+      buildCommand: npm ci && npm run build -w @mcp-tool-guard/gateway
+      startCommand: npm run start:proxy -w @mcp-tool-guard/gateway
+      autoDeployTrigger: commit
+      previews:
+        generation: automatic

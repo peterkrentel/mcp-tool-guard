@@ -228,7 +228,10 @@ function logMcpAudit(
     token_scopes: [],
     source: "mcp",
     upstream_status: status,
-    response_preview: preview || undefined,
+    response_preview:
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : preview || undefined,
     duration_ms: Math.round(durationMs),
     trace_id: audit.traceId,
     session_id: audit.sessionId,
