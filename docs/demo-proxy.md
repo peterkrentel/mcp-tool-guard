@@ -479,7 +479,7 @@ Slack:
 
 ```text
 
-{"tool":"slack_send_message","arguments":{"channel_id":"CLLTP7U3H","message":"your message here oy vey"}}
+
 
 "tool":"slack_read_thread","arguments":{"channel_id":"CLLTP7U3H","message_ts":"1782329369.525409"}}
 
