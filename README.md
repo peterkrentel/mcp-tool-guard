@@ -17,6 +17,30 @@
 
 Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Vercel flight (`POST /{serverId}/mcp`). Flight chat UI uses `/mcp` only. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md) · GitHub proof: [docs/track2-github-proof.md](docs/track2-github-proof.md).
 
+![Slack approval queue — pending call approved](docs/images/demo/slack-approval-queue.png)
+
+*Slack agent approval queue in `/agents.html`: pending `slack_send_message` approved, token-based retry, and message delivery result in the chat panel.*
+
+![Slack trace panel — proxy / mcp / agent correlation](docs/images/demo/slack-terminal-trace.png)
+
+*Terminal trace showing `trace_id` correlation across agent, proxy, and MCP allow/deny events for `slack_send_message`.*
+
+![Grafana overview — Slack / OTel proxy telemetry](docs/images/demo/slack-grafana-overview.png)
+
+*Grafana dashboard overview for the guard proxy: request rate, tool call traffic, latency, and deny/pending behavior during Slack validation.*
+
+![Grafana latency and deny spikes](docs/images/demo/slack-grafana-latency-denials.png)
+
+*Latency panel capturing `slack_send_message` spikes alongside proxy deny/pending activity.*
+
+![Grafana pending-denied tool calls](docs/images/demo/slack-grafana-denied-pending.png)
+
+*Denied / pending calls panel showing the Slack write-path approvals and trace IDs for the recent validation.*
+
+![Slack channel success message](docs/images/demo/slack-channel-success.png)
+
+*Slack message posted successfully in the channel after approval and token-based retry.*
+
 ![MCPToolGuard on Vercel — Auth0 sign-in, chat, server audit ALLOW](docs/images/demo/prod-ui-audit-success.png)
 
 *Signed-in Auth0 user, tool call in chat, **Server enforcement** audit rows, `/mcp` + `/audit` in Network tab.*
@@ -62,6 +86,7 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
 | [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
 | [auth0-setup.md](docs/auth0-setup.md) | **Auth0** — full walkthrough + troubleshooting ([screenshots](docs/images/auth0/README.md)) |
+| [backlog.md](backlog.md) | **Canonical open backlog** — active and deferred work tracked in one place |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.4 multi-track completion](docs/ROADMAP.md) |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **What to build next** — Phase A–D |
 | [CHANGELOG.md](CHANGELOG.md) | What shipped in [0.4.0](CHANGELOG.md#040---2026-06-22) and [Unreleased](CHANGELOG.md#unreleased) |
@@ -149,7 +174,7 @@ uv export --directory servers/flight --no-hashes -o servers/flight/requirements.
 
 Feature branch + PR; update [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Tracks 1–3 **complete** in [0.4.0](CHANGELOG.md#040---2026-06-22) ([track2-github-proof](docs/track2-github-proof.md), [track3-approval-queue-proof](docs/track3-approval-queue-proof.md)). Next: [NEXT-STEPS](docs/NEXT-STEPS.md#cursor-guide-three-tracks).
+**Implementation order (Cursor / agents):** [docs/cursor-guide.md](docs/cursor-guide.md) — Tracks 1–3 **complete** in [0.4.0](CHANGELOG.md#040---2026-06-22) ([track2-github-proof](docs/track2-github-proof.md), [track3-approval-queue-proof](docs/track3-approval-queue-proof.md)). Active priorities now live in [backlog.md](backlog.md).
 
 ## License
 

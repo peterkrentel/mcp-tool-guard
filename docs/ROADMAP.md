@@ -6,6 +6,8 @@ Planned work and release tasks. Shipped changes: [CHANGELOG.md](../CHANGELOG.md)
 
 **Current release:** `0.4.0` shipped — KV persistence, GitHub MCP upstream, approval queue (tag `v0.4.0`). Prior release: `0.3.1`.
 
+> Canonical open-work tracker: [backlog.md](../backlog.md). Use this doc for roadmap context and release framing.
+
 **Implementation status:** Tracks 1–3 are shipped on `main` — KV registry + agents, GitHub MCP upstream, and approval queue ([track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md)). Summary: [NEXT-STEPS → three tracks](NEXT-STEPS.md#cursor-guide-three-tracks). **Deferred:** #9/#10.
 
 **Next focus:** post-Track-3 hardening — Auth0 registry hygiene, audit export, SDK packaging, and broader backend-agent deployment patterns.

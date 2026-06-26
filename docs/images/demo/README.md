@@ -4,6 +4,12 @@ Production UI captures referenced from the repo docs (not Auth0 dashboard walkth
 
 | File | Used in | What it shows |
 |------|---------|---------------|
+| `slack-approval-queue.png` | [README Live demo](../../README.md#live-demo) | Slack approval queue in `/agents.html` — pending `slack_send_message` approved and retried |
+| `slack-terminal-trace.png` | [README Live demo](../../README.md#live-demo) | Terminal trace with agent / proxy / MCP `trace_id` correlation for Slack validation |
+| `slack-grafana-overview.png` | [README Live demo](../../README.md#live-demo) | Grafana proxy telemetry overview for Slack / OTel validation |
+| `slack-grafana-latency-denials.png` | [README Live demo](../../README.md#live-demo) | Grafana latency panel showing Slack request spikes and deny activity |
+| `slack-grafana-denied-pending.png` | [README Live demo](../../README.md#live-demo) | Grafana denied/pending calls panel with Slack approval flow trace IDs |
+| `slack-channel-success.png` | [README Live demo](../../README.md#live-demo) | Slack channel success message after approval and token-based retry |
 | `prod-ui-audit-success.png` | [README Live demo](../../README.md#live-demo) | Prod UI + audit panel after successful Auth0 + MCP flow |
 | `auth0-access-token-jwtio.png` | [README Live demo](../../README.md#live-demo) | Decoded access token — admin `permissions` (`flights:*`) |
 | `auth0-access-token-read-only-jwtio.png` | [README Live demo](../../README.md#live-demo), [auth0-setup](../auth0-setup.md) | Read-only user — `permissions`: `["flights:read"]` only |
