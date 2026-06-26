@@ -470,3 +470,23 @@ Local `/agents.html` also validated the approval queue path for a limited Slack 
 - Upstream Slack MCP accepts the send and returns a permalink.
 
 This is the best end-to-end proof for the Slack write path: policy deny, human approval, token-based retry, upstream success.
+
+### Demo operator notes (verbatim)
+
+```text
+# Actual tool calls for any validation:
+'''
+{"tool":"slack_send_message","arguments":{"channel_id":"CLLTP7U3H","message":"your message here oy vey"}}
+
+"tool":"slack_read_thread","arguments":{"channel_id":"CLLTP7U3H","message_ts":"1782329369.525409"}}
+
+{"tool":"slack_read_channel","arguments":{"channel_id":"CLLTP7U3H"}}
+
+## github
+new file readme-local.md peterkrentel repo mcp-tool-guard, main branch
+
+list tools
+
+get_me
+'''
+```
