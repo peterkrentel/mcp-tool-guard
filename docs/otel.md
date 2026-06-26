@@ -1,4 +1,4 @@
-# OpenTelemetry — guard proxy (feat/otel-telemetry)
+# OpenTelemetry — guard proxy (shipped)
 
 **Navigation:** [Render deploy](render-deploy.md) · [NEXT-STEPS → audit sink](NEXT-STEPS.md) · [ARCHITECTURE](ARCHITECTURE.md)
 
@@ -52,12 +52,12 @@ If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, the SDK is **not** initialized — pr
 
 ## Acceptance (prod / local)
 
-- [ ] Proxy starts with **no** OTel env → identical behavior, no startup noise
-- [ ] Proxy starts with **bad** OTLP endpoint → does **not** crash; export errors swallowed
-- [ ] One `tools/call` turn → spans in Tempo searchable by `mcp.trace_id`
-- [ ] Approval queue → span with `mcp.decision=pending` and `pending_id`
-- [ ] Render redeploy (SIGTERM) → spans flushed (spot-check in collector)
-- [ ] `npm run build -w @mcp-tool-guard/gateway` / CI green
+- [x] Proxy starts with **no** OTel env → identical behavior, no startup noise
+- [x] Proxy starts with **bad** OTLP endpoint → does **not** crash; export errors swallowed
+- [x] One `tools/call` turn → spans in Tempo searchable by `mcp.trace_id`
+- [x] Approval queue → span with `mcp.decision=pending` and `pending_id`
+- [x] Render redeploy (SIGTERM) → spans flushed (spot-check in collector)
+- [x] `npm run build -w @mcp-tool-guard/gateway` / CI green
 
 ---
 
@@ -80,6 +80,6 @@ If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, the SDK is **not** initialized — pr
 
 ---
 
-## Branch
+## Status
 
-`feat/otel-telemetry` — merge via PR after acceptance checks.
+Shipped on the guard proxy. OTel traces and logs are live in Grafana for proxy decisions, agent intent, upstream forwarding, and Gemini latency spans.

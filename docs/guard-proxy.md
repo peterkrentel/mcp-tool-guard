@@ -87,6 +87,7 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `MCP_GUARD_ENABLED` | `false` bypasses enforcement and control-plane auth (dev only) |
 | `MCP_GATEWAY_ADMIN_AUTH` | `false` disables `gateway:admin` on mutating routes even when guard + IdP trust are on (local override) |
 | `MCP_CORS_ORIGINS` | Comma-separated origins or `*` |
+| `GEMINI_API_KEY` | Server-side Gemini key used by `POST /llm/complete` (kept off browser clients) |
 | `AUTH0_DOMAIN` | Auth0 tenant (agent gateway — M2M create + token vending) |
 | `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |
 | `AUTH0_MGMT_CLIENT_SECRET` | Mgmt app secret |
@@ -98,6 +99,15 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `OTEL_EXPORTER_OTLP_*` | Optional OpenTelemetry OTLP export — see [otel.md](otel.md) |
 
 **Upstream token environment variables:** When registering an MCP at runtime or in config, set `upstream_token_env` to the name of an environment variable on the proxy host (e.g., `GITHUB_MCP_TOKEN`, `SLACK_MCP_TOKEN`, `CUSTOM_MCP_TOKEN`). The proxy resolves this variable at request time and sends its value as a Bearer token to the vendor MCP. Caller JWT scope enforcement remains separate — upstream credentials do not affect scope policy.
+
+### Rate limiting
+
+The proxy enforces request throttling with a two-layer strategy:
+
+- In-memory sliding window limiter per instance (default 60 requests per 60 seconds).
+- KV-backed fixed-window counter (`gateway:ratelimit:{ip}:{minute}`) when `KV_REST_API_*` is configured, so limits apply across multiple Render instances.
+
+`GET /audit` and `GET /pending*` polls are intentionally exempt from throttling. `POST /mcp`, per-server `/{id}/mcp`, and LLM proxy routes are rate limited.
 
 See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
 
