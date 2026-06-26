@@ -1,3 +1,5 @@
+import { withGeminiSpan } from "./telemetry.js";
+
 /**
  * Server-side LLM proxy — Gemini Flash via gateway.
  * Keeps API key off the browser. Rate-limited by the main proxy rate limiter.
@@ -63,44 +65,46 @@ export async function geminiComplete(
 
   const payload = { contents };
 
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
+  return withGeminiSpan(async () => {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    },
-  );
+    );
 
-  if (!res.ok) {
-    throw new Error(`Gemini API ${res.status}: ${await res.text()}`);
-  }
-
-  const data = (await res.json()) as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
-    }>;
-  };
-
-  const text = data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "";
-
-  // Parse tool call from JSON text ({"tool":"<name>","arguments":{...}})
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed) as { tool?: string; arguments?: Record<string, unknown> };
-      if (parsed.tool) {
-        return { toolCall: { name: parsed.tool, arguments: parsed.arguments ?? {} } };
-      }
-    } catch {
-      // Not JSON — fall through to plain text
+    if (!res.ok) {
+      throw new Error(`Gemini API ${res.status}: ${await res.text()}`);
     }
-  }
 
-  return { text };
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+    };
+
+    const text = data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "";
+
+    // Parse tool call from JSON text ({"tool":"<name>","arguments":{...}})
+    const trimmed = text.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as { tool?: string; arguments?: Record<string, unknown> };
+        if (parsed.tool) {
+          return { toolCall: { name: parsed.tool, arguments: parsed.arguments ?? {} } };
+        }
+      } catch {
+        // Not JSON — fall through to plain text
+      }
+    }
+
+    return { text };
+  });
 }
 
 function buildToolSystemPrompt(tools: LlmToolSchema[]): string {

@@ -65,3 +65,14 @@ servers:
         required_scope: repo:write
       create_branch:
         required_scope: repo:write
+
+  slack-prop:
+    url: https://mcp.slack.com/mcp
+    upstream_token_env: SLACK_MCP_TOKEN
+    tools:
+      slack_send_message:
+        required_scope: slack:write
+      slack_read_channel:
+        required_scope: slack:read
+      slack_read_thread:
+        required_scope: slack:read

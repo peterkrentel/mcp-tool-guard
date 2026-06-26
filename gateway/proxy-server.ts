@@ -23,10 +23,13 @@
  *   GET    /health            — status
  */
 
+import "./telemetry.js";
+
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { context } from "@opentelemetry/api";
 import { parse as parseYaml } from "yaml";
 
 import { encryptClientSecret } from "./agent-secrets.js";
@@ -65,6 +68,12 @@ import {
 } from "./pending-store.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
+import {
+  recordAgentIntent,
+  recordProxyDecision,
+  withHttpRequestSpan,
+  withProxyAllowSpan,
+} from "./telemetry.js";
 import {
   auth0AudienceFromEnv,
   tokenVendorFromEnv,
@@ -260,6 +269,7 @@ async function handleAuditAgentPost(
   res: ServerResponse,
 ): Promise<void> {
   /** POST /audit/agent — append agent-layer intent entries. Auth: no (demo). */
+  const requestCtx = context.active();
   const body = await readJson<{ entries?: AuditLogEntry[]; entry?: AuditLogEntry }>(req);
   const items = body.entries ?? (body.entry ? [body.entry] : []);
   for (const raw of items) {
@@ -274,6 +284,11 @@ async function handleAuditAgentPost(
       token_scopes: raw.token_scopes ?? [],
     };
     guard.logger.log(entry);
+    recordAgentIntent({
+      toolName: entry.tool,
+      decision: entry.decision,
+      traceId: entry.trace_id,
+    }, requestCtx);
   }
   sendJson(res, 200, { ok: true, count: items.length });
 }
@@ -320,6 +335,7 @@ async function handleMcp(
       reqHeaders: forwardHeaders,
       body,
       res,
+      serverId,
       upstreamBearer,
     });
     return;
@@ -328,6 +344,18 @@ async function handleMcp(
   const toolName = payload.params?.name ?? "";
   const traceId = header(req, "x-trace-id");
   const sessionId = header(req, "x-session-id");
+  const requestCtx = context.active();
+
+  let allowSpan:
+    | {
+        toolName: string;
+        serverId: string;
+        agentScopes: string[];
+        traceId?: string;
+        pendingId?: string;
+        approvalViaToken?: boolean;
+      }
+    | undefined;
 
   if (payload.method === "tools/call" && guardEnabled()) {
     const bearer = extractBearer(header(req, "authorization"));
@@ -338,9 +366,17 @@ async function handleMcp(
       source: "proxy",
     });
 
+    const decisionBase = {
+      toolName,
+      serverId,
+      traceId,
+      agentScopes: result.entry.token_scopes,
+    };
+
     if (!result.allowed) {
       // Check for approval token bypass (from admin approval of pending request)
       let approvedViaToken = false;
+      let approvalPendingId: string | undefined;
       if (result.reason?.startsWith("Missing required scope")) {
         const approvalToken = header(req, "x-approval-token");
         if (approvalToken && APPROVAL_QUEUE_ENABLED) {
@@ -360,12 +396,15 @@ async function handleMcp(
                 session_id: sessionId,
                 reason: `Approved via token (${pendingId})`,
               });
-              approvedViaToken = true; // bypass scope denial, fall through to MCP call
+              approvedViaToken = true;
+              approvalPendingId = pendingId;
             } else {
+              recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
               sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
               return;
             }
           } else {
+            recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
             sendJsonRpcError(res, payload.id, "Approval token invalid");
             return;
           }
@@ -394,14 +433,27 @@ async function handleMcp(
             reason: `Awaiting approval (${pending.id})`,
           });
 
+          recordProxyDecision({
+            ...decisionBase,
+            decision: "pending",
+            pendingId: pending.id,
+          }, requestCtx);
           sendJsonRpcPending(res, payload.id, pending.id);
           return;
         }
       }
       if (!approvedViaToken) {
+        recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
         sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
         return;
       }
+      allowSpan = {
+        ...decisionBase,
+        pendingId: approvalPendingId,
+        approvalViaToken: true,
+      };
+    } else {
+      allowSpan = decisionBase;
     }
   }
 
@@ -416,15 +468,24 @@ async function handleMcp(
         }
       : undefined;
 
-  try {
+  const forwardOnce = async (): Promise<void> => {
     await forwardMcpPost({
       upstreamUrl: serverCfg.url,
       reqHeaders: forwardHeaders,
       body,
       res,
+      serverId,
       audit: auditMcp,
       upstreamBearer,
     });
+  };
+
+  try {
+    if (allowSpan) {
+      await withProxyAllowSpan(allowSpan, forwardOnce);
+    } else {
+      await forwardOnce();
+    }
   } catch (err) {
     if (res.headersSent) return;
     const body502 = upstreamErrorBody(serverId, err);
@@ -490,7 +551,18 @@ async function main(): Promise<void> {
   }
 
   const server = createServer(async (req, res) => {
-    try {
+    const spanPath = (() => {
+      try {
+        return new URL(req.url ?? "/", "http://localhost").pathname;
+      } catch {
+        return req.url ?? "/";
+      }
+    })();
+
+    await withHttpRequestSpan(
+      { method: req.method ?? "UNKNOWN", path: spanPath },
+      async () => {
+        try {
       if (applyCors(req, res)) return;
 
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -894,15 +966,17 @@ async function main(): Promise<void> {
         }
       }
 
-      sendJson(res, 404, { error: "Not found" });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!res.headersSent) {
-        sendJson(res, 500, { error: message });
-      } else {
-        res.end();
+        sendJson(res, 404, { error: "Not found" });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!res.headersSent) {
+          sendJson(res, 500, { error: message });
+        } else {
+          res.end();
+        }
       }
-    }
+      },
+    );
   });
 
   server.listen(port, () => {
