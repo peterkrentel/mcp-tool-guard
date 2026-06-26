@@ -4,6 +4,8 @@
 
 Shipped in **v0.4.0** (2026-06-22): KV persistence for server registry, GitHub MCP with upstream token auth, approval queue with human-in-the-loop, Gemini server-side proxy. See [CHANGELOG.md](../CHANGELOG.md) and [track2-github-proof.md](track2-github-proof.md) / [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 
+> Canonical open-work tracker: [backlog.md](../backlog.md). Use this doc for context and design notes; track active status in backlog.
+
 ---
 
 ## 0.3.0 — done
