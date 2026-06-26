@@ -11,8 +11,6 @@ projects:
       repo: https://github.com/peterkrentel/mcp-tool-guard
       plan: free
       envVars:
-      - key: NODE_ENV
-        value: production
       - key: SLACK_MCP_TOKEN
         sync: false
       - key: GEMINI_API_KEY
