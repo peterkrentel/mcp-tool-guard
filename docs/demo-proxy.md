@@ -473,20 +473,27 @@ This is the best end-to-end proof for the Slack write path: policy deny, human a
 
 ### Demo operator notes (verbatim)
 
+Actual tool calls for any validation:
+
+Slack:
+
 ```text
-# Actual tool calls for any validation:
-'''
+
 {"tool":"slack_send_message","arguments":{"channel_id":"CLLTP7U3H","message":"your message here oy vey"}}
 
 "tool":"slack_read_thread","arguments":{"channel_id":"CLLTP7U3H","message_ts":"1782329369.525409"}}
 
 {"tool":"slack_read_channel","arguments":{"channel_id":"CLLTP7U3H"}}
+```
 
-## github
+GitHub:
+
+```text
+
 new file readme-local.md peterkrentel repo mcp-tool-guard, main branch
 
 list tools
 
 get_me
-'''
+
 ```
