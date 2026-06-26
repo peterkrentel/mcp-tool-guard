@@ -72,6 +72,20 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Vendor secrets entered via UI and resolved from encrypted KV at runtime
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
+- BL-010
+  priority: P1
+  status: todo
+  item: Remove embedded flight guard from hosted demo path
+  acceptance: Flight is treated as plain MCP behind proxy in prod path; docs and config clearly mark embedded server guard as local/demo-only tech debt
+  owner: unassigned
+  source: discussion 2026-06-26
+- BL-011
+  priority: P1
+  status: todo
+  item: Add session_id attribute on proxy spans
+  acceptance: OTel proxy spans include `session_id` (when present) so agent sessions correlate with trace/audit records in Grafana
+  owner: unassigned
+  source: discussion 2026-06-26
 
 ## Deferred
 
@@ -94,3 +108,27 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 - Historical planning context remains in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
 - New open work should be added here first.
+
+## Completed in this PR (pending release note)
+
+- BL-012
+  priority: P1
+  status: done
+  item: Add `GEMINI_API_KEY` to [docs/guard-proxy.md](docs/guard-proxy.md) environment table
+  acceptance: Env table includes Gemini server-side key usage for `POST /llm/complete`
+  owner: docs
+  source: docs audit 2026-06-26
+- BL-013
+  priority: P1
+  status: done
+  item: Remove raw dev notes from EOF of [docs/demo-proxy.md](docs/demo-proxy.md)
+  acceptance: No pasted ad-hoc tool-call notes remain in published demo script
+  owner: docs
+  source: docs audit 2026-06-26
+- BL-014
+  priority: P1
+  status: done
+  item: Update [docs/otel.md](docs/otel.md) acceptance and stale branch wording
+  acceptance: Acceptance checklist is checked and branch-pending note replaced with shipped status text
+  owner: docs
+  source: docs audit 2026-06-26
