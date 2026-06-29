@@ -1,10 +1,8 @@
 # MCPToolGuard
 
-> A browser-native firewall for AI agent tool calls.
-> JWT scope enforcement, audit logging, and telemetry —
-> no cloud required, no data leaves your perimeter.
->
-> Prove it with one scoped JWT, one denied tool call, and one `/audit` query — not chat quality. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
+**MCPToolGuard** is a browser-native firewall for AI agent tool calls. It sits between your AI agent and any MCP server, enforcing JWT scope policies — so an agent with a read-only token literally cannot invoke a write tool, even if it tries. Every tool call is logged to an audit trail and emits OpenTelemetry traces, with no data leaving your perimeter. Sensitive operations can be held for human approval before reaching the MCP server, and the proxy works with any MCP-compatible server — local or third-party.
+
+Prove it with one scoped JWT, one denied tool call, and one `/audit` query — not chat quality. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md).
 
 ## Live demo
 
