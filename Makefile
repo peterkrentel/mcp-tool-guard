@@ -1,4 +1,4 @@
-.PHONY: setup dev flight proxy ui keys stop
+.PHONY: setup install-hooks dev flight proxy ui keys stop
 
 FLIGHT_PORT ?= 8000
 PROXY_PORT ?= 8787
@@ -9,6 +9,11 @@ setup:
 	uv sync --directory servers/flight
 	npm install
 	npm run generate-keys
+
+# Install local git hooks for workflow policy checks
+install-hooks:
+	@chmod +x scripts/install-git-hooks.sh
+	@./scripts/install-git-hooks.sh
 
 # Stop dev servers (no-op if ports are free)
 stop:

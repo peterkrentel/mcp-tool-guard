@@ -18,11 +18,36 @@ jobs:
             echo "Dependabot PR — changelog optional (maintainer may consolidate on merge)."
             exit 0
           fi
+
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
+
+          # PR-level requirement: CHANGELOG must be part of the overall diff.
           if git diff --name-only "$BASE" "$HEAD" | grep -qx 'CHANGELOG.md'; then
             echo "CHANGELOG.md updated."
-            exit 0
+          else
+            echo "::error::This PR must update CHANGELOG.md under [Unreleased]. See CONTRIBUTING.md."
+            exit 1
           fi
-          echo "::error::This PR must update CHANGELOG.md under [Unreleased]. See CONTRIBUTING.md."
-          exit 1
+
+          # Commit-level requirement: every non-Dependabot commit in the PR range must touch CHANGELOG.md.
+          missing=""
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            author="$(git show -s --format='%an' "$sha")"
+            if [ "$author" = "dependabot[bot]" ]; then
+              continue
+            fi
+            if ! git show --name-only --pretty='' "$sha" | grep -qx 'CHANGELOG.md'; then
+              missing="$missing $sha"
+            fi
+          done <<EOF
+$(git rev-list --reverse --no-merges "$BASE..$HEAD")
+EOF
+
+          if [ -n "$missing" ]; then
+            echo "::error::Each non-Dependabot commit in this PR must include CHANGELOG.md. Missing commits:$missing"
+            exit 1
+          fi
+
+          echo "Per-commit changelog policy satisfied."
