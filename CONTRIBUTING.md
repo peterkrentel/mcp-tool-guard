@@ -8,7 +8,7 @@ Thanks for helping improve MCPToolGuard. We use a **branch → PR → main** wor
 
 1. **Always use a PR.** Do not commit or push directly to `main`. Branch → push branch → open pull request in GitHub UI.
 2. **Branch names:** `feature/<name>`, `fix/<name>`, `docs/<name>`, or `release/<version>`
-3. **Update [CHANGELOG.md](CHANGELOG.md)** under `[Unreleased]` for every PR (Added / Changed / Fixed / Removed). CI enforces this (Dependabot PRs are exempt; add a `Changed` deps note when merging if needed).
+3. **Update [CHANGELOG.md](CHANGELOG.md)** under `[Unreleased]` on **every commit and every PR** (Added / Changed / Fixed / Removed). CI enforces both PR-level and per-commit checks (Dependabot commits are exempt; add a `Changed` deps note when merging if needed).
 4. **Roadmap work:** If the PR implements [docs/ROADMAP.md](docs/ROADMAP.md), mention the task number in the PR description and check the box when done.
 5. **Releases:** Follow [docs/RELEASE.md](docs/RELEASE.md) — CHANGELOG section + version bump; optional `git tag` (no GitHub Releases UI).
 
@@ -26,10 +26,21 @@ git push -u origin feature/my-change
 
 ```bash
 make setup          # first time
+make install-hooks  # installs local git hook for changelog policy
 npm run typecheck
 npm run check:demo-policy
 make dev            # flight → proxy → ui (or make flight / make proxy / make ui separately)
 ```
+
+### Changelog hook (recommended)
+
+Install local hooks once:
+
+```bash
+make install-hooks
+```
+
+This configures `.git/hooks/pre-commit` to require staged `CHANGELOG.md` updates on each commit.
 
 ## Docs
 
