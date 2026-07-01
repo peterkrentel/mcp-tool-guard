@@ -86,6 +86,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: OTel proxy spans include `session_id` (when present) so agent sessions correlate with trace/audit records in Grafana
   owner: unassigned
   source: discussion 2026-06-26
+- BL-015
+  priority: P1
+  status: todo
+  item: Refactor gateway HTTP server routing out of proxy-server.ts
+  acceptance: `gateway/proxy-server.ts` is reduced to bootstrap/composition; route groups split into focused modules for agents, servers, pending, audit, LLM, and MCP handling without behavior changes
+  owner: unassigned
+  source: discussion 2026-06-29
 
 ## Deferred
 
