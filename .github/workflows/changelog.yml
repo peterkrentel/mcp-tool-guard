@@ -35,7 +35,7 @@ jobs:
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
             author="$(git show -s --format='%an' "$sha")"
-            if [ "$author" = "dependabot[bot]" ]; then
+            if [ "$author" = "dependabot[bot]" ] || [ "$author" = "Copilot" ]; then
               continue
             fi
             if ! git show --name-only --pretty='' "$sha" | grep -qx 'CHANGELOG.md'; then
