@@ -7,7 +7,7 @@ import { context, SpanStatusCode, trace, type Context } from "@opentelemetry/api
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
@@ -171,7 +171,7 @@ export function initTelemetry(): void {
   const serviceName = process.env.OTEL_SERVICE_NAME;
 
   const headers = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
-  const sharedResource = new Resource({
+  const sharedResource = resourceFromAttributes({
     "service.name": serviceName,
   });
   const tracesUrl = tracesEndpointFromBase(endpoint);
@@ -188,8 +188,10 @@ export function initTelemetry(): void {
       ...(headers ? { headers } : {}),
     });
 
-    loggerProvider = new LoggerProvider({ resource: sharedResource });
-    loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
+    loggerProvider = new LoggerProvider({
+      resource: sharedResource,
+      processors: [new BatchLogRecordProcessor(logExporter)],
+    });
     logs.setGlobalLoggerProvider(loggerProvider);
 
     sdk = new NodeSDK({
