@@ -235,46 +235,35 @@ export class GatewayAgent {
     this.onMessage?.("user", userMessage);
     this.messages.push({ role: "user", content: userMessage });
 
-    // Agentic loop: keep executing tools until LLM returns text
-    let finalResponse = "";
-    try {
-      while (true) {
-        this.onStatus?.("Thinking…");
-        const completion = await runner.complete(this.messages, this.tools);
+    this.onStatus?.("Thinking…");
+    const completion = await runner.complete(this.messages, this.tools);
 
-        if (completion.toolCall) {
-          const { name, arguments: args } = completion.toolCall;
-          const toolResult = await this.executeTool(name, args, userMessage);
-
-          if (toolResult.startsWith("Pending approval:")) {
-            this.onStatus?.("Awaiting approval…");
-            this.messages.push({ role: "assistant", content: toolResult });
-            this.onMessage?.("assistant", toolResult);
-            const retryResult = await this.retryApprovedTool(name, args, userMessage);
-            this.messages.push({ role: "assistant", content: retryResult });
-            this.onMessage?.("assistant", retryResult);
-            finalResponse = retryResult;
-            break;
-          }
-
-          // Show tool result to user and feed back to LLM
-          this.onMessage?.("assistant", toolResult);
-          this.messages.push({ role: "user", content: `Tool result: ${toolResult}` });
-          continue;
-        }
-
-        finalResponse = completion.text ?? "(no response)";
-        this.messages.push({ role: "assistant", content: finalResponse });
-        this.onMessage?.("assistant", finalResponse);
-        break;
+    if (completion.toolCall) {
+      const { name, arguments: args } = completion.toolCall;
+      const reply = await this.executeTool(name, args, userMessage);
+      
+      if (reply.startsWith("Pending approval:")) {
+        this.onStatus?.("Awaiting approval…");
+        this.messages.push({ role: "assistant", content: reply });
+        this.onMessage?.("assistant", reply);
+        // Poll for admin approval, then retry with approval token
+        const retryResult = await this.retryApprovedTool(name, args, userMessage);
+        this.messages.push({ role: "assistant", content: retryResult });
+        this.onMessage?.("assistant", retryResult);
+        this.onStatus?.("Ready");
+        return retryResult;
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      finalResponse = `LLM error: ${message}`;
-      this.onMessage?.("assistant", finalResponse);
+      
+      this.messages.push({ role: "assistant", content: reply });
+      this.onMessage?.("assistant", reply);
+      this.onStatus?.("Ready");
+      return reply;
     }
 
+    const text = completion.text ?? "(no response)";
+    this.messages.push({ role: "assistant", content: text });
+    this.onMessage?.("assistant", text);
     this.onStatus?.("Ready");
-    return finalResponse;
+    return text;
   }
 }
