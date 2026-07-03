@@ -13,6 +13,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs: client-readiness accuracy pass** — `MCP_APPROVAL_QUEUE=true` callout added to CONCEPT.md (limitations table) and README.md (quick start); `POST /llm/complete` route added to guard-proxy.md; ARCHITECTURE.md gains rate limiter, `POST /audit/agent`, `POST /llm/complete`, and `POST /token` in component map; demo-proxy.md Demo 8 gains prod runtime-registration callout for Slack.
+
+### Changed
+
 - **Workflow hardening (changelog policy)** — enforce changelog updates on every non-Dependabot commit in PR CI, add local pre-commit hook install path (`make install-hooks`) and CONTRIBUTING guidance so changelog compliance is proactive instead of last-minute.
 - **Demo deck follow-up (PR #115)** — refined `docs/overview.pptx` content/flow for the current proxy enforcement walkthrough.
 - **Changelog compliance (docs/post-otel-doc-cleanup)** — add required `Unreleased` entry to satisfy PR changelog check for non-Dependabot contributions.

@@ -53,6 +53,12 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`**; KV delete when configured |
 | `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
 
+### LLM proxy
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/llm/complete` | Gemini completion — server-side proxy (requires `GEMINI_API_KEY`); keeps API key off browser clients; used by `GatewayAgent` via `GeminiRunner` |
+
 ### Approval queue (when `MCP_APPROVAL_QUEUE=true`)
 
 | Method | Path | Purpose |

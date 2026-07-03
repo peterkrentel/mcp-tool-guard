@@ -308,6 +308,8 @@ Read in this order to understand the flow:
 
 Goal: prove Slack MCP server registration, tool-to-scope mapping, and upstream token indirection (`SLACK_MCP_TOKEN`).
 
+> **Prod note:** Slack is seeded in `gateway/config.yaml` for local dev but is **not** in `config.prod.yaml`. On the Render proxy, register Slack at runtime via `POST /servers` (requires `gateway:admin` Bearer) before running this demo. See [CONCEPT.md → Runtime registration](CONCEPT.md#temporary--runtime-mcps).
+
 ### Verify server registration
 
 ```bash
