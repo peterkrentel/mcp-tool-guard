@@ -111,6 +111,7 @@ Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click
 - **Auth0 on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` + `AUTH0_MGMT_*` (servers don't read `ui/.env.local`).
 - **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).
 - **Agent gateway:** open [http://localhost:5173/agents.html](http://localhost:5173/agents.html) after `make dev`. Prod: `VITE_PROXY_BASE_URL` on Vercel — [render-deploy.md § Agent gateway](docs/render-deploy.md#agent-gateway-env-render--vercel).
+- **Approval queue:** requires `MCP_APPROVAL_QUEUE=true` on the proxy host (Render **Environment** tab) — the queue is silently inactive when unset. Demo: [docs/demo-proxy.md#demo-7](docs/demo-proxy.md#demo-7--approval-queue-end-to-end).
 - **Stuck processes:** `make stop`
 
 <details>

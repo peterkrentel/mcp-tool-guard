@@ -212,6 +212,7 @@ Reference demo, not a hosted security product. [ROADMAP 0.4.0](ROADMAP.md) and [
 | Data | Mock in-memory flights/bookings |
 | Multi-server | `/` flight chat only; `/agents.html` routes per selected agent (`/github/mcp`, …) |
 | Demo tokens | Guest JWTs in repo + Auth0 login — [identity.md](identity.md#guest-demo-existing-jwts--auth0) |
+| Approval queue | Opt-in feature — requires `MCP_APPROVAL_QUEUE=true` on the proxy host; silently inactive when unset (no 202 responses, all scope mismatches hard-deny instead) |
 
 ## Remote deployment
 
