@@ -26,6 +26,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Changelog policy (CI workflow)** — Fix YAML syntax error in `changelog.yml`: heredoc `<<EOF` with unindented `$(...)` content broke the YAML block scalar parser; replaced with `<<<` here-string fed from a variable
 - **OpenTelemetry 0.219.0 API migration** — Updated `gateway/telemetry.ts` for OTel SDK breaking changes: `new Resource()` → `resourceFromAttributes()` (resources v2.8.0), LoggerProvider `addLogRecordProcessor()` → inline `processors` array (sdk-logs 0.219.0)
 - **Changelog policy (CI workflow)** — Exempt Copilot from per-commit CHANGELOG requirement to allow IDE-assisted fixes on Dependabot PRs without blocking
 - **Starlette CVE-2026-54282** — Regenerated `servers/flight/uv.lock` to pin Starlette ≥1.3.1 (unvalidated request path handling in authority)
