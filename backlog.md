@@ -94,6 +94,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: discussion 2026-06-29
 
+- BL-016
+  priority: P2
+  status: todo
+  item: Tamper-evident audit receipts (signed/hashed execution records)
+  acceptance: After a tool executes, a hash of the audit record (who, tool, result, timestamp) is signed with a private key and stored alongside the record; a verification endpoint allows security teams to prove the log has not been altered
+  owner: unassigned
+  source: discussion 2026-07-03 — enterprise clients need proof of audit integrity, not just logs
+
 ## Deferred
 
 - BL-008
