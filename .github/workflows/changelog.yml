@@ -32,6 +32,7 @@ jobs:
 
           # Commit-level requirement: every non-Dependabot commit in the PR range must touch CHANGELOG.md.
           missing=""
+          shas="$(git rev-list --reverse --no-merges "$BASE..$HEAD")"
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
             author="$(git show -s --format='%an' "$sha")"
@@ -41,9 +42,7 @@ jobs:
             if ! git show --name-only --pretty='' "$sha" | grep -qx 'CHANGELOG.md'; then
               missing="$missing $sha"
             fi
-          done <<EOF
-$(git rev-list --reverse --no-merges "$BASE..$HEAD")
-EOF
+          done <<< "$shas"
 
           if [ -n "$missing" ]; then
             echo "::error::Each non-Dependabot commit in this PR must include CHANGELOG.md. Missing commits:$missing"
