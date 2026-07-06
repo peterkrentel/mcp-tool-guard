@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Team deck: added `docs/MCPToolGuard-Team-Overview.pptx` for internal project walkthroughs
 - Demo deck refresh: updated `docs/overview.pptx` for the latest product walkthrough
 - **OpenTelemetry (guard proxy)** — optional OTLP HTTP export via `gateway/telemetry.ts`; manual spans for proxy `tools/call` decisions (allow/deny/pending), `POST /audit/agent`, MCP upstream forward, Gemini LLM; gated on `OTEL_EXPORTER_OTLP_ENDPOINT`; [otel.md](docs/otel.md)
 

@@ -12,3 +12,4 @@ scripts/dev.env
 __pycache__/
 *.pyc
 slack-mcp.env
+.DS_Store
