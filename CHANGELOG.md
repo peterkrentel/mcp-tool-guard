@@ -37,6 +37,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Duplicate Flight manifest cleanup — removed stale `servers/flight/servers/flight/requirements.txt` (accidental nested export path)
+
 ## [0.4.0] - 2026-06-22
 
 ### Added
