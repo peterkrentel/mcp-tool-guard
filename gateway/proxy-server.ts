@@ -40,7 +40,12 @@ import {
   listAgents,
   saveAgent,
 } from "./agent-store.js";
-import { adminAuthRequired, requireGatewayAdmin } from "./admin-auth.js";
+import {
+  adminAuthRequired,
+  GATEWAY_ADMIN_SCOPE,
+  identifyBearer,
+  requireGatewayAdmin,
+} from "./admin-auth.js";
 import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.js";
 import { kvEnabled } from "./kv.js";
@@ -754,15 +759,40 @@ async function main(): Promise<void> {
           sendJson(res, 400, { error: result.error });
           return;
         }
-        await persistServer(result.id, {
-          url: body.url.trim(),
-          scopes: body.scopes ?? {},
-          ...(body.upstream_token_env?.trim()
-            ? { upstream_token_env: body.upstream_token_env.trim() }
-            : {}),
-        });
+        const persisted = kvEnabled();
+        if (persisted) {
+          try {
+            await persistServer(result.id, {
+              url: body.url.trim(),
+              scopes: body.scopes ?? {},
+              ...(body.upstream_token_env?.trim()
+                ? { upstream_token_env: body.upstream_token_env.trim() }
+                : {}),
+            });
+          } catch (err) {
+            registry.remove(result.id);
+            sendJson(res, 500, {
+              error: "kv_persist_failed",
+              detail: err instanceof Error ? err.message : String(err),
+            });
+            return;
+          }
+        }
         syncGuardConfig(guard, registry);
-        sendJson(res, 201, result);
+        const actor = await identifyBearer(guard, req);
+        guard.logger.log({
+          timestamp: new Date().toISOString(),
+          decision: "allow",
+          server: result.id,
+          tool: "__registry:add__",
+          required_scope: GATEWAY_ADMIN_SCOPE,
+          token_scopes: [],
+          reason: persisted
+            ? `MCP server registered by ${actor}`
+            : `MCP server registered by ${actor} — KV disabled, NOT durable across a restart`,
+          source: "proxy",
+        });
+        sendJson(res, 201, { ...result, persisted });
         return;
       }
 
@@ -783,6 +813,17 @@ async function main(): Promise<void> {
         }
         await removeServerFromKv(removedId);
         syncGuardConfig(guard, registry);
+        const actor = await identifyBearer(guard, req);
+        guard.logger.log({
+          timestamp: new Date().toISOString(),
+          decision: "allow",
+          server: removedId,
+          tool: "__registry:remove__",
+          required_scope: GATEWAY_ADMIN_SCOPE,
+          token_scopes: [],
+          reason: `MCP server removed by ${actor}`,
+          source: "proxy",
+        });
         sendJson(res, 200, { ok: true });
         return;
       }
