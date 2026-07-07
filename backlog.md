@@ -93,6 +93,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: `gateway/proxy-server.ts` is reduced to bootstrap/composition; route groups split into focused modules for agents, servers, pending, audit, LLM, and MCP handling without behavior changes
   owner: unassigned
   source: discussion 2026-06-29
+- BL-018
+  priority: P1
+  status: todo
+  item: Add browser CORS regression test for pending poll token
+  acceptance: Automated test covers cross-origin `/agents.html` approval polling using `X-Pending-Token` and fails if proxy CORS `Access-Control-Allow-Headers` omits `X-Pending-Token`; include end-to-end deny -> pending -> approve -> retry success path in browser context
+  owner: unassigned
+  source: production smoke finding 2026-07-07
 
 - BL-016
   priority: P2
