@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs: approval queue polling auth update** — corrected manual Demo 7 curl flow in `docs/demo-proxy.md` to use `pending_poll_token` via `X-Pending-Token` for `GET /pending/:id`; aligned `docs/cursor-guide.md` wording with hardened pending endpoint behavior (`X-Pending-Token` or `gateway:admin` fallback when enabled)
 - **Backlog: BL-017 acceptance clarity** — clarified that admin/control-plane events (`__registry:add__`, `__registry:remove__`, agent lifecycle) belong in a dedicated admin/compliance view, while the default "Server enforcement" panel stays focused on runtime tool-call decisions
 - **Backlog: admin/compliance events page (BL-017)** — added P2 backlog item to surface session-less admin actions (registry mutations, agent create/revoke) in a dedicated view, discovered while validating the server-registry audit hardening
 - **Backlog: tamper-evident audit receipts (BL-016)** — added P2 backlog item for signed/hashed execution receipts; enterprise roadmap item for audit integrity proof

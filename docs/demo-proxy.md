@@ -218,7 +218,8 @@ curl -s -X POST "$PROXY/github/mcp" \
 {
   "result": {
     "status": "pending",
-    "pending_id": "pr_abc123xyz"
+    "pending_id": "pr_abc123xyz",
+    "pending_poll_token": "pt_abc123xyz"
   }
 }
 ```
@@ -238,9 +239,16 @@ In browser agent, the retry happens in the background via `retryApprovedTool()` 
 For curl (manual), fetch the approval token:
 
 ```bash
-curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/pending/pr_abc123xyz" | jq '.approval_token'
+PENDING_ID="pr_abc123xyz"
+POLL_TOKEN="pt_abc123xyz"
+
+curl -s \
+  -H "X-Pending-Token: $POLL_TOKEN" \
+  "$PROXY/pending/$PENDING_ID" | jq '.approval_token'
 # → "at_xyz123…"
 ```
+
+If you are operating with a `gateway:admin` bearer token, that token can also read `GET /pending/:id` when control-plane auth is enabled.
 
 Then retry with `X-Approval-Token` header. **Note:** The `content` field must be base64-encoded:
 
