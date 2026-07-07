@@ -31,6 +31,7 @@ interface CreatePendingInput {
 const memPending = new Map<string, PendingRequest>();
 const memApprovalTokens = new Map<string, { pendingId: string; serverId: string; tool: string; expiresAt: number }>();
 const memPendingTokens = new Map<string, string>(); // pendingId -> token
+const memPollTokens = new Map<string, { pendingId: string; expiresAt: number }>();
 
 const PENDING_PREFIX = "gateway:pending:";
 const PENDING_INDEX_KEY = "gateway:pending:index";
@@ -130,11 +131,19 @@ export async function resolvePendingRequest(
 const APPROVAL_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const APPROVAL_TOKEN_PREFIX = "gateway:approval-token:";
 const PENDING_APPROVAL_TOKEN_PREFIX = "gateway:pending:approval-token:";
+const POLL_TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const PENDING_POLL_TOKEN_PREFIX = "gateway:pending:poll-token:";
+const POLL_TOKEN_INDEX_PREFIX = "gateway:poll-token:";
 
 interface ApprovalTokenRecord {
   pendingId: string;
   serverId: string;
   tool: string;
+  expiresAt: number;
+}
+
+interface PollTokenRecord {
+  pendingId: string;
   expiresAt: number;
 }
 
@@ -191,4 +200,42 @@ export async function getApprovalTokenForPending(pendingId: string): Promise<str
   if (!kvEnabled()) return memPendingTokens.get(pendingId) ?? null;
   const key = `${PENDING_APPROVAL_TOKEN_PREFIX}${pendingId}`;
   return kvGet<string>(key);
+}
+
+/** Generate a short-lived poll token bound to a specific pending request id. */
+export async function generatePendingPollToken(pendingId: string): Promise<string> {
+  const tokenId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`).replace(/-/g, "").slice(0, 12);
+  const token = `pt_${tokenId}`;
+  const record: PollTokenRecord = {
+    pendingId,
+    expiresAt: Date.now() + POLL_TOKEN_TTL_MS,
+  };
+  if (kvEnabled()) {
+    await kvSet(`${POLL_TOKEN_INDEX_PREFIX}${token}`, record, Math.ceil(POLL_TOKEN_TTL_MS / 1000));
+    await kvSet(`${PENDING_POLL_TOKEN_PREFIX}${pendingId}`, token, Math.ceil(POLL_TOKEN_TTL_MS / 1000));
+  } else {
+    memPollTokens.set(token, record);
+  }
+  return token;
+}
+
+/** Validate a pending poll token for a specific pending request id. */
+export async function validatePendingPollToken(
+  token: string,
+  pendingId: string,
+): Promise<boolean> {
+  if (!token.startsWith("pt_")) return false;
+  if (!kvEnabled()) {
+    const record = memPollTokens.get(token);
+    if (!record) return false;
+    if (Date.now() > record.expiresAt) {
+      memPollTokens.delete(token);
+      return false;
+    }
+    return record.pendingId === pendingId;
+  }
+  const record = await kvGet<PollTokenRecord>(`${POLL_TOKEN_INDEX_PREFIX}${token}`);
+  if (!record) return false;
+  if (Date.now() > record.expiresAt) return false;
+  return record.pendingId === pendingId;
 }

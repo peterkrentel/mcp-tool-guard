@@ -64,19 +64,19 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | Method | Path | Purpose |
 |--------|------|----------|
 | `GET` | `/pending` | List pending requests (status: pending/approved/denied) — **`gateway:admin`** when control plane auth enabled |
-| `GET` | `/pending/:id` | Read one pending request + approval token if approved — **no auth** (ID is unguessable; ensure IDs are not logged externally, as leaking them allows anyone to poll the request) |
+| `GET` | `/pending/:id` | Read one pending request + approval token if approved — **requires `X-Pending-Token` (from 202 pending response) or `gateway:admin` when control-plane auth is enabled** |
 | `POST` | `/pending/:id/approve` | Admin approves request, generates one-time token — **`gateway:admin`** |
 | `POST` | `/pending/:id/deny` | Admin denies request — **`gateway:admin`** |
 
-**Approval token flow:** Agent tool call denied for missing scope → proxy returns `202` with `pending_id` → agent polls `GET /pending/:id` → admin approves → proxy generates opaque, single-use approval token (TTL 1 hour, bound to server+tool) → agent retries with token in `X-Approval-Token` header → proxy validates and allows `tools/call` → audit logs both deny (initial) and allow (approval override).
+**Approval token flow:** Agent tool call denied for missing scope → proxy returns `202` with `pending_id` + `pending_poll_token` → agent polls `GET /pending/:id` with `X-Pending-Token` → admin approves → proxy generates opaque, single-use approval token (TTL 1 hour, bound to server+tool) → agent retries with token in `X-Approval-Token` header → proxy validates and allows `tools/call` → audit logs both deny (initial) and allow (approval override).
 
 ### Audit + health
 
 | Method | Path | Purpose |
 |--------|------|----------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
-| `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check (**demo mode:** unauthenticated ingest; treat as non-authoritative evidence unless protected behind trusted network/auth) |
-| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `auth0_mgmt_configured`, `approval_queue_enabled` |
+| `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check — **requires Bearer with `audit:write` or `gateway:admin`**, unless explicit trusted demo mode (`MCP_AUDIT_AGENT_TRUSTED_MODE=true`) |
+| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `audit_agent_trusted_mode`, `auth0_mgmt_configured`, `approval_queue_enabled` |
 
 ## Environment
 
@@ -92,6 +92,7 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` | Auth0 / IdP dual trust |
 | `MCP_GUARD_ENABLED` | `false` bypasses enforcement and control-plane auth (dev only) |
 | `MCP_GATEWAY_ADMIN_AUTH` | `false` disables `gateway:admin` on mutating routes even when guard + IdP trust are on (local override) |
+| `MCP_AUDIT_AGENT_TRUSTED_MODE` | `true` permits unauthenticated `POST /audit/agent` in explicit demo/trusted-network mode |
 | `MCP_CORS_ORIGINS` | Comma-separated origins or `*` |
 | `GEMINI_API_KEY` | Server-side Gemini key used by `POST /llm/complete` (kept off browser clients) |
 | `AUTH0_DOMAIN` | Auth0 tenant (agent gateway — M2M create + token vending) |

@@ -225,7 +225,7 @@ export async function denyPendingRequest(id: string, resolvedBy?: string): Promi
 export async function postAgentAudit(entries: AuditLogEntry[]): Promise<void> {
   await proxyFetch("/audit/agent", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ entries }),
   });
 }

@@ -24,6 +24,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Gateway tests
+        run: npm run test -w @mcp-tool-guard/gateway
+
       - name: Demo embedded guard matches gateway policy
         run: npm run check:demo-policy
 
