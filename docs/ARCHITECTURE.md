@@ -214,7 +214,7 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | **Create agent endpoint** | `gateway/proxy-server.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
 | **Token vendor** | `gateway/token-vendor.ts` | `POST /token` + `POST /agents/:clientId/token` — vend JWTs for M2M agents |
 | LLM proxy | `gateway/llm-proxy.ts` | `POST /llm/complete` — Gemini completion proxy; keeps `GEMINI_API_KEY` server-side |
-| Agent audit ingest | `gateway/proxy-server.ts` | `POST /audit/agent` — browser SDK pre-check rows appended to proxy audit store (non-authoritative) |
+| Agent audit ingest | `gateway/proxy-server.ts` | `POST /audit/agent` — browser SDK pre-check rows appended to proxy audit store (non-authoritative); requires Bearer (`audit:write` or `gateway:admin`) unless trusted mode is explicitly enabled |
 | Rate limiter | `gateway/proxy-server.ts` | Two-layer: in-memory sliding window (60 req/min per IP per instance) + KV fixed-window counter across Render instances when `KV_REST_API_*` set; `/audit` and `/pending*` polls exempt |
 | Agent trace | `ui/src/agent-trace.ts` | Per-turn routing log (both FlightAgent and GatewayAgent) |
 | Audit UI | `ui/src/audit-view.ts` | Server + client + trace panels |

@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs: auth/approval flow consistency pass** — updated summary docs (`demo-proxy`, `cursor-guide`, `kv-design`, `ARCHITECTURE`, `NEXT-STEPS`) to consistently document `pending_poll_token`/`X-Pending-Token` for pending polling, `X-Approval-Token` for approved retry, and bearer requirements on `POST /audit/agent`
 - **Backlog: browser CORS regression coverage (BL-018)** — added P1 backlog item to automate browser-context approval polling regression checks (`X-Pending-Token` preflight/CORS + deny->pending->approve->retry path)
 - **Docs: approval queue polling auth update** — corrected manual Demo 7 curl flow in `docs/demo-proxy.md` to use `pending_poll_token` via `X-Pending-Token` for `GET /pending/:id`; aligned `docs/cursor-guide.md` wording with hardened pending endpoint behavior (`X-Pending-Token` or `gateway:admin` fallback when enabled)
 - **Backlog: BL-017 acceptance clarity** — clarified that admin/control-plane events (`__registry:add__`, `__registry:remove__`, agent lifecycle) belong in a dedicated admin/compliance view, while the default "Server enforcement" panel stays focused on runtime tool-call decisions
