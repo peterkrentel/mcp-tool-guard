@@ -32,6 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **OpenTelemetry 0.220 compatibility** — updated `gateway/telemetry.ts` to use the new `BatchLogRecordProcessor({ exporter })` constructor signature required by `@opentelemetry/sdk-logs` 0.220.0
 - **Changelog policy (CI workflow)** — Fix YAML syntax error in `changelog.yml`: heredoc `<<EOF` with unindented `$(...)` content broke the YAML block scalar parser; replaced with `<<<` here-string fed from a variable
 - **OpenTelemetry 0.219.0 API migration** — Updated `gateway/telemetry.ts` for OTel SDK breaking changes: `new Resource()` → `resourceFromAttributes()` (resources v2.8.0), LoggerProvider `addLogRecordProcessor()` → inline `processors` array (sdk-logs 0.219.0)
 - **Changelog policy (CI workflow)** — Exempt Copilot from per-commit CHANGELOG requirement to allow IDE-assisted fixes on Dependabot PRs without blocking
