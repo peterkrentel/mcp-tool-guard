@@ -101,7 +101,7 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 **Audit:** `decision` includes `"pending"` for approval-queue handoff; approved retries and upstream completion generate follow-on allow rows under the same `trace_id`.
 
-**UI path:** `/agents.html` lists pending requests and can approve or deny them; agents poll `GET /pending/:id` and retry with `X-Approval-Token` when approved.
+**UI path:** `/agents.html` lists pending requests and can approve or deny them; agents poll `GET /pending/:id` using `X-Pending-Token` from the `202` response, then retry with `X-Approval-Token` when approved.
 
 ## Related
 

@@ -212,7 +212,7 @@ curl -s -X POST "$PROXY/github/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_or_update_file","arguments":{"owner":"USER","repo":"REPO","path":"test.txt","content":"Hello from approval"}}}'
 ```
 
-**Expected:** HTTP 202 response with `pending_id`:
+**Expected:** HTTP 202 response with `pending_id` + `pending_poll_token`:
 
 ```json
 {

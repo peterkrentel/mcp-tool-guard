@@ -86,7 +86,7 @@ When IdP trust is configured (`MCP_JWT_*`) and guard is enabled, the **control p
 
 | Plane | Identity | Today | Target |
 | ----- | -------- | ----- | ------ |
-| **Control** | Human operator | No auth on admin routes | Auth0 SPA login + `gateway:admin` (or finer permissions) |
+| **Control** | Human operator | Auth0 SPA login + `gateway:admin` when control-plane auth is enabled | Auth0 SPA login + `gateway:admin` (or finer permissions) |
 | **Runtime** | M2M agent | Scoped JWT on `tools/call` | Unchanged |
 
 **Proposed API permissions** (same audience `https://mcp-tool-guard`, separate from tool scopes like `flights:read`):
@@ -175,7 +175,7 @@ Tiering is tracked in [backlog.md](../backlog.md) with P0/P1/deferred categories
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | Recent rows persist in KV when configured; this is not yet a full external audit sink |
-| Approval queue flow | End-to-end: `202` → agent polls `/pending/:id` → admin approves/denies in `/agents.html` → agent retries with `x-approval-token` |
+| Approval queue flow | End-to-end: `202` (`pending_id` + `pending_poll_token`) → agent polls `/pending/:id` with `X-Pending-Token` → admin approves/denies in `/agents.html` → agent retries with `X-Approval-Token` |
 | `GET /pending/:id` | Requires short-lived poll token (`pending_poll_token` via `X-Pending-Token`) or `gateway:admin` when control-plane auth is enabled. |
 | Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |

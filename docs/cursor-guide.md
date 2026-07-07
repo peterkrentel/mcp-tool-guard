@@ -146,7 +146,7 @@ The proxy now exposes the full pending lifecycle. Listing and resolve routes req
 
 ### Track 3 acceptance
 
-- Agent calls a tool it lacks scope for, receives `202` + `pending_id`, and begins polling.
+- Agent calls a tool it lacks scope for, receives `202` + `pending_id` + `pending_poll_token`, and begins polling with `X-Pending-Token`.
 - Approval UI shows the pending request.
 - Admin approves and the agent retries automatically with a one-time token.
 - Admin denies and the agent surfaces a blocked result.
