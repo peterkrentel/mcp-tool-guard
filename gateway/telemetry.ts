@@ -190,7 +190,7 @@ export function initTelemetry(): void {
 
     loggerProvider = new LoggerProvider({
       resource: sharedResource,
-      processors: [new BatchLogRecordProcessor(logExporter)],
+      processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
     });
     logs.setGlobalLoggerProvider(loggerProvider);
 
