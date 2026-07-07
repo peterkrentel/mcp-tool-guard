@@ -22,14 +22,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 - BL-001
   priority: P0
-  status: todo
+  status: done
   item: Harden agent audit ingest auth (`POST /audit/agent`)
   acceptance: Endpoint requires Bearer (`audit:write` or `gateway:admin`) or trusted mode; demo mode remains explicit
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
 - BL-002
   priority: P0
-  status: todo
+  status: done
   item: Harden pending token disclosure (`GET /pending/:id`)
   acceptance: Optional Bearer gate or short poll token path for retries; docs updated with threat model
   owner: unassigned

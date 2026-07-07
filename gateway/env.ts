@@ -38,6 +38,11 @@ export function guardEnabled(): boolean {
   return process.env.MCP_GUARD_ENABLED?.toLowerCase() !== "false";
 }
 
+/** Explicit demo-mode escape hatch for browser audit ingest. */
+export function auditAgentTrustedMode(): boolean {
+  return process.env.MCP_AUDIT_AGENT_TRUSTED_MODE?.toLowerCase() === "true";
+}
+
 export function jwtTrustFromEnv(): {
   jwtIssuer?: string;
   jwtAudience?: string;

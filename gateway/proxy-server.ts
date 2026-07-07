@@ -51,6 +51,7 @@ import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.j
 import { kvEnabled } from "./kv.js";
 import { loadServersFromKv, persistServer, removeServerFromKv } from "./registry-kv.js";
 import {
+  auditAgentTrustedMode,
   corsAllowOrigins,
   guardEnabled,
   jwtTrustFromEnv,
@@ -64,12 +65,14 @@ import {
 } from "./mcp-upstream.js";
 import {
   createPendingRequest,
+  generatePendingPollToken,
   generateApprovalToken,
   getApprovalTokenForPending,
   getPendingRequest,
   listPendingRequests,
   resolvePendingRequest,
   validateApprovalToken,
+  validatePendingPollToken,
 } from "./pending-store.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
@@ -202,6 +205,7 @@ function sendJsonRpcPending(
   res: ServerResponse,
   requestId: unknown,
   pendingId: string,
+  pendingPollToken: string,
 ): void {
   const body = JSON.stringify({
     jsonrpc: "2.0",
@@ -209,6 +213,7 @@ function sendJsonRpcPending(
     result: {
       status: "pending",
       pending_id: pendingId,
+      pending_poll_token: pendingPollToken,
       message: "Awaiting approval",
     },
   });
@@ -273,7 +278,37 @@ async function handleAuditAgentPost(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  /** POST /audit/agent — append agent-layer intent entries. Auth: no (demo). */
+  /**
+   * POST /audit/agent — append agent-layer intent entries.
+   * Auth: Bearer with `audit:write` or `gateway:admin`, unless explicit trusted demo mode is enabled.
+   */
+  if (guardEnabled() && !auditAgentTrustedMode()) {
+    const bearer = extractBearer(header(req, "authorization"));
+    if (!bearer) {
+      sendJson(res, 401, {
+        error: "Missing Authorization: Bearer (audit:write or gateway:admin required)",
+      });
+      return;
+    }
+
+    try {
+      const { scopes } = await guard.validateToken(bearer);
+      const canWriteAudit =
+        guard.hasScope(scopes, "audit:write") ||
+        guard.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
+      if (!canWriteAudit) {
+        sendJson(res, 403, {
+          error: "Missing required permission 'audit:write' or 'gateway:admin'",
+        });
+        return;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      sendJson(res, 401, { error: `JWT validation failed: ${message}` });
+      return;
+    }
+  }
+
   const requestCtx = context.active();
   const body = await readJson<{ entries?: AuditLogEntry[]; entry?: AuditLogEntry }>(req);
   const items = body.entries ?? (body.entry ? [body.entry] : []);
@@ -443,7 +478,8 @@ async function handleMcp(
             decision: "pending",
             pendingId: pending.id,
           }, requestCtx);
-          sendJsonRpcPending(res, payload.id, pending.id);
+          const pendingPollToken = await generatePendingPollToken(pending.id);
+          sendJsonRpcPending(res, payload.id, pending.id, pendingPollToken);
           return;
         }
       }
@@ -603,6 +639,7 @@ async function main(): Promise<void> {
           guard_enabled: enabled,
           jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
           control_plane_auth: controlPlaneAuth,
+          audit_agent_trusted_mode: auditAgentTrustedMode(),
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           kv_enabled: kvEnabled(),
           approval_queue_enabled: APPROVAL_QUEUE_ENABLED,
@@ -644,8 +681,37 @@ async function main(): Promise<void> {
 
       const pendingIdMatch = pathname.match(/^\/pending\/([^/]+)\/?$/);
       if (req.method === "GET" && pendingIdMatch) {
-        /** GET /pending/:id — read one pending request. Auth: none (ID is unguessable; listing requires admin). */
-        const item = await getPendingRequest(pendingIdMatch[1]);
+        /**
+         * GET /pending/:id — read one pending request.
+         * Auth: short-lived pending poll token (x-pending-token or poll_token query), or gateway:admin when control-plane auth is enabled.
+         */
+        const pendingId = pendingIdMatch[1];
+        const pollToken =
+          header(req, "x-pending-token") ??
+          url.searchParams.get("poll_token") ??
+          undefined;
+
+        let canReadPending = false;
+        if (pollToken && (await validatePendingPollToken(pollToken, pendingId))) {
+          canReadPending = true;
+        }
+
+        if (!canReadPending) {
+          if (controlPlaneAuth) {
+            if (!(await requireGatewayAdmin(guard, req, res, sendJson))) {
+              return;
+            }
+            canReadPending = true;
+          } else {
+            sendJson(res, 401, {
+              error:
+                "Missing or invalid pending poll token (use x-pending-token from pending response)",
+            });
+            return;
+          }
+        }
+
+        const item = await getPendingRequest(pendingId);
         if (!item) {
           sendJson(res, 404, { error: "Pending request not found" });
           return;

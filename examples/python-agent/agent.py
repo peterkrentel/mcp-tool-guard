@@ -97,11 +97,14 @@ def mcp_call(
         raise RuntimeError(f"HTTP {e.code}: {body}") from e
 
 
-def gateway_get(path: str, jwt: str) -> dict:
+def gateway_get(path: str, jwt: str, pending_poll_token: str | None = None) -> dict:
     url = f"{GATEWAY_URL.rstrip('/')}{path}"
+    headers = {"Authorization": f"Bearer {jwt}"}
+    if pending_poll_token:
+        headers["X-Pending-Token"] = pending_poll_token
     req = urllib.request.Request(
         url,
-        headers={"Authorization": f"Bearer {jwt}"},
+        headers=headers,
     )
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())
@@ -110,7 +113,12 @@ def gateway_get(path: str, jwt: str) -> dict:
 # ---------------------------------------------------------------------------
 # Approval polling helper
 # ---------------------------------------------------------------------------
-def wait_for_approval(pending_id: str, jwt: str, timeout: int = 60) -> str | None:
+def wait_for_approval(
+    pending_id: str,
+    jwt: str,
+    pending_poll_token: str | None = None,
+    timeout: int = 60,
+) -> str | None:
     """
     Poll GET /pending/:id until status='approved' and approval_token is present.
     Returns the approval_token or None on timeout/denial.
@@ -119,7 +127,11 @@ def wait_for_approval(pending_id: str, jwt: str, timeout: int = 60) -> str | Non
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            data = gateway_get(f"/pending/{pending_id}", jwt)
+            data = gateway_get(
+                f"/pending/{pending_id}",
+                jwt,
+                pending_poll_token=pending_poll_token,
+            )
         except Exception as exc:
             print(f"[agent] Poll error: {exc}", file=sys.stderr)
             time.sleep(2)
@@ -172,8 +184,13 @@ def run() -> None:
     inner = result.get("result", {})
     if inner.get("status") == "pending":
         pending_id = inner.get("pending_id")
+        pending_poll_token = inner.get("pending_poll_token")
         print(f"[agent] Booking requires approval — pending_id: {pending_id}")
-        approval_token = wait_for_approval(pending_id, jwt)
+        approval_token = wait_for_approval(
+            pending_id,
+            jwt,
+            pending_poll_token=pending_poll_token,
+        )
         if approval_token:
             print("[agent] Retrying create_booking with approval token …")
             retry = mcp_call(

@@ -134,7 +134,7 @@ When approval queue is enabled and the tool is eligible, scope mismatch becomes 
 
 ### 3c. Approval endpoints
 
-The proxy now exposes the full pending lifecycle. Listing and resolve routes require `gateway:admin` when control-plane auth is enabled; `GET /pending/:id` remains available to the agent poll path using the unguessable pending id.
+The proxy now exposes the full pending lifecycle. Listing and resolve routes require `gateway:admin` when control-plane auth is enabled; `GET /pending/:id` requires a short-lived pending poll token (`X-Pending-Token` from the `202` pending response), with `gateway:admin` as an operator fallback when enabled.
 
 ### 3d. Agent retry on approval
 

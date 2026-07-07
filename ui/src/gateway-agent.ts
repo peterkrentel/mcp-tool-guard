@@ -36,7 +36,11 @@ export class GatewayAgent {
   private onStatus?: (status: string) => void;
   private onMessage?: (role: "user" | "assistant" | "system", content: string) => void;
   private onAudit?: () => void;
-  private pendingApprovalState: { pendingId: string; approvalToken?: string } | null = null;
+  private pendingApprovalState: {
+    pendingId: string;
+    pendingPollToken?: string;
+    approvalToken?: string;
+  } | null = null;
 
   constructor(private options: GatewayAgentOptions) {
     this.serverId = options.serverId;
@@ -149,6 +153,10 @@ export class GatewayAgent {
         if (innerResult.status === "pending" && innerResult.pending_id) {
           this.pendingApprovalState = {
             pendingId: innerResult.pending_id as string,
+            pendingPollToken:
+              typeof innerResult.pending_poll_token === "string"
+                ? innerResult.pending_poll_token
+                : undefined,
           };
           return `Pending approval: ${innerResult.pending_id}\nWaiting for admin approval to proceed…`;
         }
@@ -169,7 +177,7 @@ export class GatewayAgent {
       return "No pending approval to retry";
     }
 
-    const { pendingId } = this.pendingApprovalState;
+    const { pendingId, pendingPollToken } = this.pendingApprovalState;
     const maxAttempts = 60; // 60 seconds of polling
     let attempt = 0;
 
@@ -185,7 +193,9 @@ export class GatewayAgent {
           `${base}/pending/${encodeURIComponent(pendingId)}`,
           {
             headers: {
-              Authorization: `Bearer ${this.jwt}`,
+              ...(pendingPollToken
+                ? { "X-Pending-Token": pendingPollToken }
+                : { Authorization: `Bearer ${this.jwt}` }),
             },
           },
         );

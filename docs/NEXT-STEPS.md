@@ -170,13 +170,13 @@ Tiering is tracked in [backlog.md](../backlog.md) with P0/P1/deferred categories
 
 | Topic | Detail |
 | ----- | ------ |
-| `POST /audit/agent` | Demo-open ingest endpoint (no auth) allows direct POSTs; use `GET /audit` + proxy/server decisions as authoritative evidence. Track hardening in backlog. |
+| `POST /audit/agent` | Requires Bearer (`audit:write` or `gateway:admin`) unless explicit trusted mode (`MCP_AUDIT_AGENT_TRUSTED_MODE=true`) is enabled for demo/trusted-network use. |
 | WebLLM (1B) | May still mis-route; heuristics shipped (#11) — prefer explicit `book FL505 for …` / `Cancel booking BK-…` |
 | Guest JWTs in repo | Public demo; Auth0 is the IdP story |
 | Policy | `gateway/config.yaml` canonical; flight `guard_config.yaml` demo-only embedded guard on Vercel |
 | Prod proxy audit | Recent rows persist in KV when configured; this is not yet a full external audit sink |
 | Approval queue flow | End-to-end: `202` → agent polls `/pending/:id` → admin approves/denies in `/agents.html` → agent retries with `x-approval-token` |
-| `GET /pending/:id` | Endpoint is unauthenticated by design in demo (opaque random ID). If `pending_id` leaks, the entry/token can be polled; avoid external logging of IDs and track hardening in backlog. |
+| `GET /pending/:id` | Requires short-lived poll token (`pending_poll_token` via `X-Pending-Token`) or `gateway:admin` when control-plane auth is enabled. |
 | Agent gateway registry | **KV-backed** when `KV_REST_API_*` on Render — UI-added MCPs + agents survive restart; yaml seed always loads |
 | Agents page WebLLM (1B) | Prefer explicit prompts (*Search flights from JFK to MIA*) or cloud LLM API keys; no flight heuristics on `/agents.html` |
 | Agent gateway control plane | **`gateway:admin`** Bearer when IdP trust + guard on — [admin auth sketch](#agent-gateway-admin-auth-sketch) |
