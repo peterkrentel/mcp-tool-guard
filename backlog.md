@@ -106,7 +106,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P2
   status: todo
   item: Admin/compliance events page
-  acceptance: A dedicated view (or GET /audit consumer) surfaces session-less admin actions — e.g. registry mutations (__registry:add__ / __registry:remove__), agent create/revoke — without changing the existing session-scoped filter in handleAudit; gateway:admin only
+  acceptance: Keep `GET /audit` and the main "Server enforcement" panel focused on runtime tool-call decisions; surface control-plane events (e.g. `__registry:add__`, `__registry:remove__`, agent create/revoke) in a dedicated admin/compliance view (or separate audit section/tab) protected by `gateway:admin`; optional debug toggle may include these in unified audit export/view without changing the default session-scoped filter behavior
   owner: unassigned
   source: discussion 2026-07-07 — registry mutation audit entries (added in server-registry hardening) exist server-side but have no dedicated view; session-scoped filter intentionally left unchanged to avoid affecting other audit consumers
 
