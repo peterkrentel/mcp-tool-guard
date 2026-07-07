@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Backlog: browser CORS regression coverage (BL-018)** — added P1 backlog item to automate browser-context approval polling regression checks (`X-Pending-Token` preflight/CORS + deny->pending->approve->retry path)
 - **Docs: approval queue polling auth update** — corrected manual Demo 7 curl flow in `docs/demo-proxy.md` to use `pending_poll_token` via `X-Pending-Token` for `GET /pending/:id`; aligned `docs/cursor-guide.md` wording with hardened pending endpoint behavior (`X-Pending-Token` or `gateway:admin` fallback when enabled)
 - **Backlog: BL-017 acceptance clarity** — clarified that admin/control-plane events (`__registry:add__`, `__registry:remove__`, agent lifecycle) belong in a dedicated admin/compliance view, while the default "Server enforcement" panel stays focused on runtime tool-call decisions
 - **Backlog: admin/compliance events page (BL-017)** — added P2 backlog item to surface session-less admin actions (registry mutations, agent create/revoke) in a dedicated view, discovered while validating the server-registry audit hardening
@@ -33,6 +34,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Approval polling CORS fix** — added `X-Pending-Token` to proxy CORS `Access-Control-Allow-Headers` so browser approval polling from `/agents.html` can call `GET /pending/:id` without preflight failure
 - **BL-001 / BL-002 hardening** — `POST /audit/agent` now requires Bearer with `audit:write` or `gateway:admin` unless explicit trusted demo mode (`MCP_AUDIT_AGENT_TRUSTED_MODE=true`); `GET /pending/:id` now requires a short-lived `pending_poll_token` (or `gateway:admin` when control-plane auth is enabled), with `pending_poll_token` returned in the `202` pending response; approval-poll clients updated accordingly
 - **Gateway PR CI coverage** — added gateway auth integration tests (`gateway/tests/proxy-auth.test.mjs`) and wired them into PR CI (`.github/workflows/ci.yml`) so hardening regressions fail in CI
 - **OpenTelemetry 0.220 compatibility** — updated `gateway/telemetry.ts` to use the new `BatchLogRecordProcessor({ exporter })` constructor signature required by `@opentelemetry/sdk-logs` 0.220.0
