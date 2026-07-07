@@ -34,6 +34,18 @@ export function hasGatewayAdminScope(guard: ToolGuard, scopes: string[]): boolea
   return guard.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
 }
 
+/** Best-effort caller identity for audit entries — never throws. */
+export async function identifyBearer(guard: ToolGuard, req: IncomingMessage): Promise<string> {
+  const bearer = extractBearer(header(req, "authorization"));
+  if (!bearer) return "anonymous";
+  try {
+    const { payload } = await guard.validateToken(bearer);
+    return typeof payload.sub === "string" ? payload.sub : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export type SendJson = (res: ServerResponse, status: number, body: unknown) => void;
 
 /**

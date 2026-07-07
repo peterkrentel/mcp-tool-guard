@@ -272,6 +272,9 @@ async function refreshServers(): Promise<void> {
     btn.addEventListener("click", () => {
       if (!adminOpsEnabled) return;
       const id = (btn as HTMLElement).dataset.removeMcp!;
+      if (!confirm(`Remove MCP server "${id}"? Any agent using it will stop working until it is re-registered.`)) {
+        return;
+      }
       void removeServer(id).then(refreshServers);
     });
   });
