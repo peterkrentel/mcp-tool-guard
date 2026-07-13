@@ -37,10 +37,10 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 - BL-003
   priority: P0
   status: todo
-  item: Agent/Auth0 registry hygiene
-  acceptance: Idempotent agent create, unique naming, reuse strategy, reconciliation notes
+  item: Auth0 registry hygiene (idempotent agent create and reuse)
+  acceptance: Same `(name, serverId, scopes)` returns existing KV record without creating a new Auth0 app; app naming is unique; free-tier limit and cleanup path documented
   owner: unassigned
-  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#agent-registry--auth0-sync-sketch)
+  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#agent-registry--auth0-sync-sketch), post-0.4.0 Track 2 BL-H01
 - BL-004
   priority: P0
   status: todo
@@ -52,9 +52,55 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: External audit sink integration
-  acceptance: Proxy can forward audit/otel events to external observability target
+  acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
-  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
+  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
+- BL-015
+  priority: P0
+  status: todo
+  item: Decompose proxy-server.ts into route modules
+  acceptance: `gateway/proxy-server.ts` reduced to bootstrap/composition; route modules for MCP, agents, servers, pending, audit, LLM, and token; shared HTTP helpers extracted; no route behavior changes for `/health`, `/audit`, `/mcp`, `/:serverId/mcp`, `/agents`, `/servers`, `/pending`, `/token`, `/llm/complete`; preserve CORS, rate limiting, and OTEL wrapping
+  owner: unassigned
+  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01
+- BL-019
+  priority: P0
+  status: todo
+  item: Extract JwtValidator interface from ToolGuard
+  acceptance: `ToolGuard` consumes injected `JwtValidator`; JWT validation removed from `ToolGuard` internals; dual-trust behavior preserved; `authorize()` behavior unchanged
+  owner: unassigned
+  source: post-0.4.0 Track 0 BL-P02
+  depends_on: BL-015
+- BL-020
+  priority: P0
+  status: todo
+  item: IdP adapter interface and Auth0 implementation
+  acceptance: Routes depend on `IdpAdapter` interface; Auth0 implementation preserves existing create/revoke/token behavior; provider wiring and `/health` identity reporting align with trust-model decision from BL-034
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F01
+  depends_on: BL-015, BL-019, BL-034
+- BL-021
+  priority: P0
+  status: todo
+  item: Azure Entra JWT validation and IdP adapter
+  acceptance: Entra roles/scp claims map correctly to scopes; invalid/expired Entra token rejected on `tools/call`; provider wiring supports concurrent trust as defined in BL-034; identity docs updated
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F02
+  depends_on: BL-020, BL-034
+- BL-034
+  priority: P0
+  status: todo
+  item: Decide multi-issuer IdP trust model
+  acceptance: Gateway trust model is explicitly defined for concurrent issuer validation (Auth0 M2M and Entra user identity); env/config shape documented; BL-020/BL-021 acceptance stays aligned with this decision before implementation
+  owner: unassigned
+  source: backlog review 2026-07-13
+  depends_on: BL-019
+- BL-024
+  priority: P0
+  status: todo
+  item: Deployment packaging with Docker and Compose
+  acceptance: `docker build` and `docker run` succeed with minimum config; `docker-compose up` starts with in-memory fallback; image excludes `ui/` and `servers/flight/`; `docs/docker-deploy.md` documents minimum viable setup
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F05
 
 ## P1 (important)
 
@@ -86,13 +132,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: OTel proxy spans include `session_id` (when present) so agent sessions correlate with trace/audit records in Grafana
   owner: unassigned
   source: discussion 2026-06-26
-- BL-015
-  priority: P1
-  status: todo
-  item: Refactor gateway HTTP server routing out of proxy-server.ts
-  acceptance: `gateway/proxy-server.ts` is reduced to bootstrap/composition; route groups split into focused modules for agents, servers, pending, audit, LLM, and MCP handling without behavior changes
-  owner: unassigned
-  source: discussion 2026-06-29
 - BL-018
   priority: P1
   status: todo
@@ -100,6 +139,83 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Automated test covers cross-origin `/agents.html` approval polling using `X-Pending-Token` and fails if proxy CORS `Access-Control-Allow-Headers` omits `X-Pending-Token`; include end-to-end deny -> pending -> approve -> retry success path in browser context
   owner: unassigned
   source: production smoke finding 2026-07-07
+- BL-022
+  priority: P1
+  status: todo
+  item: Keycloak IdP adapter
+  acceptance: Keycloak adapter supports create/delete service-account clients and token vending path; provider wiring and `/health` identity reporting align with trust-model decision from BL-034
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F03
+  depends_on: BL-020, BL-034
+- BL-023
+  priority: P1
+  status: todo
+  item: LLM provider abstraction
+  acceptance: `gemini` path unchanged; `azure-openai` and `anthropic` providers added; `none` disables `/llm/complete` with clean 503; `/health` reports `llm_provider`
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F04
+- BL-025
+  priority: P1
+  status: todo
+  item: Deployment packaging with Helm chart
+  acceptance: `helm install` succeeds on test cluster; policy configurable via values; readiness/liveness probes on `/health`; sensitive config sourced from Kubernetes Secret
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F06
+  depends_on: BL-024
+- BL-026
+  priority: P1
+  status: todo
+  item: Environment rationalization and startup validation
+  acceptance: Required env vars fail fast with clear errors; optional env vars emit one-time feature-disabled info; minimum viable config documented; `/health` reports feature flags
+  owner: unassigned
+  source: post-0.4.0 Track 1 BL-F08
+- BL-027
+  priority: P1
+  status: blocked
+  item: Claude Desktop stdio shim (transport bridge)
+  acceptance: Shim forwards newline JSON-RPC stdin to gateway MCP HTTP and writes stdout responses; `tools/call` includes bearer auth; trace and agent headers added; clean exit on stdin close
+  owner: unassigned
+  source: post-0.4.0 Track 3 BL-L01
+  depends_on: BL-020, BL-021, BL-024, dev meeting decisions
+- BL-028
+  priority: P1
+  status: blocked
+  item: Shim token acquisition via Entra SSO path
+  acceptance: Token acquisition path selected and implemented (desktop token reuse or device flow); per-user identity preserved in gateway auth
+  owner: unassigned
+  source: post-0.4.0 Track 3 BL-L02
+  depends_on: BL-027, BL-021, dev meeting decisions
+- BL-029
+  priority: P1
+  status: blocked
+  item: Entra role-to-scope mapping
+  acceptance: `role_mappings` config supported; Entra roles resolve to scopes; explicit scope grants remain backward compatible; unmapped roles deny by default
+  owner: unassigned
+  source: post-0.4.0 Track 3 BL-L03
+  depends_on: BL-020, BL-021, sample token claims
+- BL-030
+  priority: P1
+  status: blocked
+  item: Per-user audit attribution
+  acceptance: Audit entries include `user_sub` from JWT `sub` or Entra `oid`; M2M uses `client_id` attribution; guest/demo remains distinguishable; sink payload includes `user_sub`
+  owner: unassigned
+  source: post-0.4.0 Track 3 BL-L04
+  depends_on: BL-005, BL-020, BL-021, BL-034, sample token claims
+- BL-031
+  priority: P1
+  status: todo
+  item: Multi-MCP per agent via allowedServers enforcement
+  acceptance: Agent record supports `allowedServers` array with backward-compatible `serverId` input; unauthorized server access denied pre-scope-check and audited as `server_not_allowed`; `/agents.html` supports configuration
+  owner: unassigned
+  source: post-0.4.0 Track 4 BL-S01
+- BL-032
+  priority: P1
+  status: todo
+  item: Cross-agent trace correlation via parent trace header
+  acceptance: `X-Parent-Trace-Id` accepted and propagated; `parent_trace_id` emitted in audit; docs updated with query convention
+  owner: unassigned
+  source: post-0.4.0 Track 4 BL-S02
+  depends_on: BL-031
 
 - BL-016
   priority: P2
@@ -133,6 +249,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Optional owned upstream added for routing-only demo coverage
   owner: unassigned
   source: [docs/ROADMAP.md](docs/ROADMAP.md#release-030--hardening--multi-server)
+- BL-033
+  priority: P3
+  status: deferred
+  item: A2A bridge investigation (no code)
+  acceptance: Investigation doc captures feasibility, exposed operations, identity/trust model, and candidate scope model for running an A2A bridge as an upstream MCP server
+  owner: unassigned
+  source: post-0.4.0 Track 4 BL-S03
 
 ## Notes
 
