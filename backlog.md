@@ -38,7 +38,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: Auth0 registry hygiene (idempotent agent create and reuse)
-  acceptance: Same `(name, serverId, scopes)` returns existing KV record without creating a new Auth0 app; app naming is unique; `GET /agents` is KV-backed; revoke removes KV row plus Auth0 client; free-tier limit and cleanup path documented
+  acceptance: Same `(name, serverId, scopes)` returns existing KV record without creating a new Auth0 app; app naming is unique; free-tier limit and cleanup path documented
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#agent-registry--auth0-sync-sketch), post-0.4.0 Track 2 BL-H01
 - BL-004
@@ -52,7 +52,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: External audit sink integration
-  acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; includes JWT subject attribution for per-user queries; sink failures are non-blocking with error log; existing `/audit` behavior remains
+  acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
 - BL-015
@@ -74,18 +74,26 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: IdP adapter interface and Auth0 implementation
-  acceptance: Routes depend on `IdpAdapter` interface; Auth0 implementation preserves existing create/revoke/token behavior; `MCP_IDP_PROVIDER=auth0` selects provider; `/health` reports `idp_provider`
+  acceptance: Routes depend on `IdpAdapter` interface; Auth0 implementation preserves existing create/revoke/token behavior; provider wiring and `/health` identity reporting align with trust-model decision from BL-034
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F01
-  depends_on: BL-015, BL-019
+  depends_on: BL-015, BL-019, BL-034
 - BL-021
   priority: P0
   status: todo
   item: Azure Entra JWT validation and IdP adapter
-  acceptance: Entra roles/scp claims map correctly to scopes; invalid/expired Entra token rejected on `tools/call`; `MCP_IDP_PROVIDER=entra` selects provider; `/health` reports `idp_provider: entra`; identity docs updated
+  acceptance: Entra roles/scp claims map correctly to scopes; invalid/expired Entra token rejected on `tools/call`; provider wiring supports concurrent trust as defined in BL-034; identity docs updated
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F02
-  depends_on: BL-020
+  depends_on: BL-020, BL-034
+- BL-034
+  priority: P0
+  status: todo
+  item: Decide multi-issuer IdP trust model
+  acceptance: Gateway trust model is explicitly defined for concurrent issuer validation (Auth0 M2M and Entra user identity); env/config shape documented; BL-020/BL-021 acceptance stays aligned with this decision before implementation
+  owner: unassigned
+  source: backlog review 2026-07-13
+  depends_on: BL-019
 - BL-024
   priority: P0
   status: todo
@@ -192,7 +200,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Audit entries include `user_sub` from JWT `sub` or Entra `oid`; M2M uses `client_id` attribution; guest/demo remains distinguishable; sink payload includes `user_sub`
   owner: unassigned
   source: post-0.4.0 Track 3 BL-L04
-  depends_on: BL-005, BL-028
+  depends_on: BL-005, BL-034, sample token claims
 - BL-031
   priority: P1
   status: todo
