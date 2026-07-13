@@ -143,10 +143,10 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P1
   status: todo
   item: Keycloak IdP adapter
-  acceptance: Keycloak adapter supports create/delete service-account clients and token vending path; `MCP_IDP_PROVIDER=keycloak` selects provider; `/health` reports `idp_provider: keycloak`
+  acceptance: Keycloak adapter supports create/delete service-account clients and token vending path; provider wiring and `/health` identity reporting align with trust-model decision from BL-034
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F03
-  depends_on: BL-020
+  depends_on: BL-020, BL-034
 - BL-023
   priority: P1
   status: todo
@@ -200,7 +200,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Audit entries include `user_sub` from JWT `sub` or Entra `oid`; M2M uses `client_id` attribution; guest/demo remains distinguishable; sink payload includes `user_sub`
   owner: unassigned
   source: post-0.4.0 Track 3 BL-L04
-  depends_on: BL-005, BL-034, sample token claims
+  depends_on: BL-005, BL-020, BL-021, BL-034, sample token claims
 - BL-031
   priority: P1
   status: todo

@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Backlog cleanup follow-up** — aligned BL-022 acceptance with BL-034 trust-model decision and restored BL-030 dependency chain to include BL-020/BL-021 implementation prerequisites
 - **Backlog cleanup (post-review)** — trimmed BL-003 acceptance to remaining idempotent-create work, removed BL-005 per-user attribution requirement (moved to BL-030 scope), added BL-034 IdP trust-model decision gate, and aligned BL-020/BL-021/BL-030 dependencies with implementation order
 - **Docs cleanup** — removed redundant local README variants (`readme-local.md`, `readme-peter.md`, `readme-peter99.md`, `readme-pk.md`) to keep the root docs surface canonical
 - **Backlog: post-0.4.0 next-phase intake** — merged Track 0/1/2/3/4 stories into canonical `backlog.md`; promoted BL-015 decomposition to P0 prerequisite; added dependency links and blocked status on dev-meeting-gated local-dev stories
