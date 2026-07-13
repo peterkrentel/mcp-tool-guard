@@ -261,6 +261,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 - Historical planning context remains in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
 - New open work should be added here first.
+- BL-015 execution strategy: ship in small slices (helpers-first), then move one route group at a time with gateway tests and GUI smoke validation after each slice.
 
 ## Completed in this PR (pending release note)
 
