@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Docs cleanup** — removed redundant local README variants (`readme-local.md`, `readme-peter.md`, `readme-peter99.md`, `readme-pk.md`) to keep the root docs surface canonical
 - **Backlog: post-0.4.0 next-phase intake** — merged Track 0/1/2/3/4 stories into canonical `backlog.md`; promoted BL-015 decomposition to P0 prerequisite; added dependency links and blocked status on dev-meeting-gated local-dev stories
 - **Docs: auth/approval flow consistency pass** — updated summary docs (`demo-proxy`, `cursor-guide`, `kv-design`, `ARCHITECTURE`, `NEXT-STEPS`) to consistently document `pending_poll_token`/`X-Pending-Token` for pending polling, `X-Approval-Token` for approved retry, and bearer requirements on `POST /audit/agent`
 - **Backlog: browser CORS regression coverage (BL-018)** — added P1 backlog item to automate browser-context approval polling regression checks (`X-Pending-Token` preflight/CORS + deny->pending->approve->retry path)
