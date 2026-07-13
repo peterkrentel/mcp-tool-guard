@@ -33,6 +33,37 @@ async function waitForHealth() {
   throw new Error("Proxy did not become healthy in time");
 }
 
+async function createPendingRequest() {
+  const readToken = await makeToken(["flights:read"]);
+  const pendingRes = await fetch(`${BASE_URL}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${readToken}`,
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "create_booking_tool",
+        arguments: {
+          flight_id: "FL001",
+          passenger_name: "Ada Lovelace",
+          seat: "12A",
+        },
+      },
+    }),
+  });
+  assert.equal(pendingRes.status, 202);
+  const pendingBody = await pendingRes.json();
+  const pendingId = pendingBody?.result?.pending_id;
+  const pendingPollToken = pendingBody?.result?.pending_poll_token;
+  assert.ok(typeof pendingId === "string" && pendingId.length > 0);
+  assert.ok(typeof pendingPollToken === "string" && pendingPollToken.length > 0);
+  return { pendingId, pendingPollToken };
+}
+
 before(async () => {
   const { publicKey, privateKey: priv } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -107,33 +138,7 @@ test("POST /audit/agent allows audit:write bearer", async () => {
 });
 
 test("GET /pending/:id requires poll token and accepts valid poll token", async () => {
-  const readToken = await makeToken(["flights:read"]);
-  const pendingRes = await fetch(`${BASE_URL}/mcp`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${readToken}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: {
-        name: "create_booking_tool",
-        arguments: {
-          flight_id: "FL001",
-          passenger_name: "Ada Lovelace",
-          seat: "12A",
-        },
-      },
-    }),
-  });
-  assert.equal(pendingRes.status, 202);
-  const pendingBody = await pendingRes.json();
-  const pendingId = pendingBody?.result?.pending_id;
-  const pendingPollToken = pendingBody?.result?.pending_poll_token;
-  assert.ok(typeof pendingId === "string" && pendingId.length > 0);
-  assert.ok(typeof pendingPollToken === "string" && pendingPollToken.length > 0);
+  const { pendingId, pendingPollToken } = await createPendingRequest();
 
   const noTokenRes = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}`);
   assert.equal(noTokenRes.status, 401);
@@ -154,4 +159,24 @@ test("GET /pending/:id requires poll token and accepts valid poll token", async 
     },
   });
   assert.equal(withAdminRes.status, 200);
+});
+
+test("OPTIONS /pending/:id preflight allows X-Pending-Token header", async () => {
+  const { pendingId } = await createPendingRequest();
+  const preflightRes = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "http://127.0.0.1:5173",
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "x-pending-token",
+    },
+  });
+  assert.equal(preflightRes.status, 204);
+
+  const allowHeaders = preflightRes.headers.get("access-control-allow-headers") ?? "";
+  const normalizedAllowHeaders = allowHeaders.toLowerCase();
+  assert.ok(normalizedAllowHeaders.includes("x-pending-token"));
+
+  const allowOrigin = preflightRes.headers.get("access-control-allow-origin") ?? "";
+  assert.ok(allowOrigin === "*" || allowOrigin === "http://127.0.0.1:5173");
 });
