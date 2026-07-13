@@ -134,11 +134,11 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   source: discussion 2026-06-26
 - BL-018
   priority: P1
-  status: todo
+  status: in-progress
   item: Add browser CORS regression test for pending poll token
-  acceptance: Automated test covers cross-origin `/agents.html` approval polling using `X-Pending-Token` and fails if proxy CORS `Access-Control-Allow-Headers` omits `X-Pending-Token`; include end-to-end deny -> pending -> approve -> retry success path in browser context
+  acceptance: Preflight/CORS regression guard is added (`OPTIONS /pending/:id` asserts `X-Pending-Token` in `Access-Control-Allow-Headers`); remaining scope is automated browser-context `/agents.html` deny -> pending -> approve -> retry success path
   owner: unassigned
-  source: production smoke finding 2026-07-07
+  source: production smoke finding 2026-07-07; partial delivered in test/pending-cors-regression PR
 - BL-022
   priority: P1
   status: todo

@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Backlog tracking (BL-018)** — marked BL-018 as in-progress and clarified this PR delivers the preflight/CORS portion while browser-context deny -> pending -> approve -> retry coverage remains
 - **Gateway regression coverage** — added preflight CORS test for `OPTIONS /pending/:id` to assert `X-Pending-Token` remains allowed in `Access-Control-Allow-Headers`, protecting approval polling behavior during route refactors
 - **Backlog cleanup follow-up** — aligned BL-022 acceptance with BL-034 trust-model decision and restored BL-030 dependency chain to include BL-020/BL-021 implementation prerequisites
 - **Backlog cleanup (post-review)** — trimmed BL-003 acceptance to remaining idempotent-create work, removed BL-005 per-user attribution requirement (moved to BL-030 scope), added BL-034 IdP trust-model decision gate, and aligned BL-020/BL-021/BL-030 dependencies with implementation order
