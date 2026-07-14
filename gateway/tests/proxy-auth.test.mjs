@@ -64,6 +64,26 @@ async function createPendingRequest() {
   return { pendingId, pendingPollToken };
 }
 
+async function addServer(serverId, overrides = {}) {
+  const adminToken = await makeToken(["gateway:admin"]);
+  const res = await fetch(`${BASE_URL}/servers`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      id: serverId,
+      url: `https://example.com/${serverId}/mcp`,
+      scopes: {
+        demo_tool: ["demo:read"],
+      },
+      ...overrides,
+    }),
+  });
+  return res;
+}
+
 before(async () => {
   const { publicKey, privateKey: priv } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -190,6 +210,75 @@ test("POST /mcp tools/call rejects missing bearer", async () => {
     String(body?.error?.message ?? ""),
     /(missing bearer token|jwt validation failed)/i,
   );
+});
+
+test("GET /servers lists seeded registry entries without auth", async () => {
+  const res = await fetch(`${BASE_URL}/servers`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.servers));
+  assert.ok(body.servers.some((server) => server.id === "flight"));
+});
+
+test("POST /servers requires admin bearer when control plane auth is enabled", async () => {
+  const res = await fetch(`${BASE_URL}/servers`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: "server-no-auth",
+      url: "https://example.com/server-no-auth/mcp",
+      scopes: { demo_tool: ["demo:read"] },
+    }),
+  });
+  assert.equal(res.status, 401);
+});
+
+test("POST /servers adds server and DELETE /servers/:id removes it", async () => {
+  const serverId = `server-${Date.now()}`;
+  const createRes = await addServer(serverId);
+  assert.equal(createRes.status, 201);
+  const createBody = await createRes.json();
+  assert.equal(createBody.id, serverId);
+  assert.equal(createBody.persisted, false);
+
+  const listRes = await fetch(`${BASE_URL}/servers`);
+  assert.equal(listRes.status, 200);
+  const listBody = await listRes.json();
+  assert.ok(listBody.servers.some((server) => server.id === serverId));
+
+  const noAuthDelete = await fetch(`${BASE_URL}/servers/${encodeURIComponent(serverId)}`, {
+    method: "DELETE",
+  });
+  assert.equal(noAuthDelete.status, 401);
+
+  const adminToken = await makeToken(["gateway:admin"]);
+  const deleteRes = await fetch(`${BASE_URL}/servers/${encodeURIComponent(serverId)}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  });
+  assert.equal(deleteRes.status, 200);
+  const deleteBody = await deleteRes.json();
+  assert.equal(deleteBody.ok, true);
+});
+
+test("GET /servers/:id/tools returns 404 for unknown server and 503 for missing upstream env", async () => {
+  const missingServerRes = await fetch(`${BASE_URL}/servers/unknown-server/tools`);
+  assert.equal(missingServerRes.status, 404);
+
+  const serverId = `server-tools-${Date.now()}`;
+  const createRes = await addServer(serverId, {
+    upstream_token_env: "MISSING_VENDOR_TOKEN",
+  });
+  assert.equal(createRes.status, 201);
+
+  const toolsRes = await fetch(`${BASE_URL}/servers/${encodeURIComponent(serverId)}/tools`);
+  assert.equal(toolsRes.status, 503);
+  const toolsBody = await toolsRes.json();
+  assert.match(String(toolsBody.error ?? ""), /MISSING_VENDOR_TOKEN/);
 });
 
 test("POST /:serverId/mcp tools/call rejects missing bearer", async () => {

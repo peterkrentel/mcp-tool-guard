@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BL-015 slice (servers routes + tests)** — extracted `/servers` route handling into `gateway/proxy-routes-servers.ts`; delegated server list/add/remove/tools endpoints from `gateway/proxy-server.ts`; expanded gateway tests to cover `/servers` list/auth/add/remove and `/servers/:id/tools` error contracts
 - **Backlog tracking (BL-035)** — added P1 item to isolate or explicitly document Render PR preview shared state versus production (KV/Auth0/upstream token scope) after preview validation showed production-shared behavior
 - **BL-015 slice (helpers + routes + tests)** — extracted shared proxy HTTP helpers into `gateway/http-helpers.ts`; moved `/audit` and `/pending` route handling into `gateway/proxy-routes-audit.ts` and `gateway/proxy-routes-pending.ts`; reduced `gateway/proxy-server.ts` monolith by delegating to new route modules; expanded gateway baseline tests for `/health`, `/audit`, MCP deny contracts, and pending admin/poll-token flows
 - **Backlog tracking (BL-015)** — added explicit execution strategy note to deliver route decomposition in small slices (helpers-first, then one route group at a time) with tests and GUI smoke validation after each slice
