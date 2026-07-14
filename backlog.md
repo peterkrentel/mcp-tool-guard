@@ -57,11 +57,11 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
 - BL-015
   priority: P0
-  status: todo
+  status: in-progress
   item: Decompose proxy-server.ts into route modules
   acceptance: `gateway/proxy-server.ts` reduced to bootstrap/composition; route modules for MCP, agents, servers, pending, audit, LLM, and token; shared HTTP helpers extracted; no route behavior changes for `/health`, `/audit`, `/mcp`, `/:serverId/mcp`, `/agents`, `/servers`, `/pending`, `/token`, `/llm/complete`; preserve CORS, rate limiting, and OTEL wrapping
   owner: unassigned
-  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01
+  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01; partial delivered in branch bl-015-proxy-slice-and-tests (shared HTTP helpers + extracted audit/pending routes + expanded gateway baseline tests)
 - BL-019
   priority: P0
   status: todo
@@ -216,6 +216,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: post-0.4.0 Track 4 BL-S02
   depends_on: BL-031
+- BL-035
+  priority: P1
+  status: todo
+  item: Isolate or document Render preview environment shared state
+  acceptance: Render PR preview environments (`render.yaml` `previews.generation: automatic`) either get their own `KV_REST_API_URL`/`KV_REST_API_TOKEN` (and other env-scoped secrets) separate from Production, or - if kept shared for cost/simplicity - `docs/render-deploy.md` explicitly documents that preview deploys read/write the same KV store, Auth0 management app, and upstream tokens as prod, so PR reviewers know not to treat preview URLs as sandboxed for approval-queue/audit testing
+  owner: unassigned
+  source: discovered 2026-07-14 during BL-015 PR-150 preview validation - `/health` on `pr-150.onrender.com` showed `kv_enabled:true` and a dynamically-registered `slack-prod` server not present in `config.prod.yaml`, indicating it reads the same KV store as Production; `render.yaml` has no separate Preview-scoped env vars for any of `KV_REST_API_URL`/`KV_REST_API_TOKEN`, `AUTH0_MGMT_*`, `GEMINI_API_KEY`, `SLACK_MCP_TOKEN`, `GITHUB_MCP_TOKEN`
 
 - BL-016
   priority: P2

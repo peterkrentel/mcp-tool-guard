@@ -113,6 +113,38 @@ test("POST /audit/agent rejects missing bearer", async () => {
   assert.equal(res.status, 401);
 });
 
+test("GET /health returns expected baseline flags", async () => {
+  const res = await fetch(`${BASE_URL}/health`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.service, "mcp-tool-guard-proxy");
+  assert.equal(body.guard_enabled, true);
+  assert.equal(body.jwt_trust_enabled, true);
+  assert.equal(body.approval_queue_enabled, true);
+  assert.ok(Array.isArray(body.servers));
+  assert.ok(body.servers.includes("flight"));
+});
+
+test("GET /audit rejects missing bearer when guard is enabled", async () => {
+  const res = await fetch(`${BASE_URL}/audit`);
+  assert.equal(res.status, 401);
+  const body = await res.json();
+  assert.match(String(body.error ?? ""), /Missing Authorization: Bearer/i);
+});
+
+test("GET /audit allows bearer and returns sources", async () => {
+  const token = await makeToken(["audit:write"]);
+  const res = await fetch(`${BASE_URL}/audit`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.entries));
+  assert.deepEqual(body.sources, ["agent", "proxy", "mcp"]);
+});
+
 test("POST /audit/agent allows audit:write bearer", async () => {
   const token = await makeToken(["audit:write"]);
   const res = await fetch(`${BASE_URL}/audit/agent`, {
@@ -137,6 +169,52 @@ test("POST /audit/agent allows audit:write bearer", async () => {
   assert.equal(body.count, 1);
 });
 
+test("POST /mcp tools/call rejects missing bearer", async () => {
+  const res = await fetch(`${BASE_URL}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "missing-bearer",
+      method: "tools/call",
+      params: { name: "search_flights_tool", arguments: { from: "SFO", to: "LAX" } },
+    }),
+  });
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.jsonrpc, "2.0");
+  assert.equal(body.id, "missing-bearer");
+  assert.match(
+    String(body?.error?.message ?? ""),
+    /(missing bearer token|jwt validation failed)/i,
+  );
+});
+
+test("POST /:serverId/mcp tools/call rejects missing bearer", async () => {
+  const res = await fetch(`${BASE_URL}/flight/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "missing-bearer-server-route",
+      method: "tools/call",
+      params: { name: "search_flights_tool", arguments: { from: "SEA", to: "SFO" } },
+    }),
+  });
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.jsonrpc, "2.0");
+  assert.equal(body.id, "missing-bearer-server-route");
+  assert.match(
+    String(body?.error?.message ?? ""),
+    /(missing bearer token|jwt validation failed)/i,
+  );
+});
+
 test("GET /pending/:id requires poll token and accepts valid poll token", async () => {
   const { pendingId, pendingPollToken } = await createPendingRequest();
 
@@ -159,6 +237,49 @@ test("GET /pending/:id requires poll token and accepts valid poll token", async 
     },
   });
   assert.equal(withAdminRes.status, 200);
+});
+
+test("GET /pending requires admin bearer when control plane auth is enabled", async () => {
+  const noBearer = await fetch(`${BASE_URL}/pending`);
+  assert.equal(noBearer.status, 401);
+
+  const adminToken = await makeToken(["gateway:admin"]);
+  const withAdmin = await fetch(`${BASE_URL}/pending`, {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  });
+  assert.equal(withAdmin.status, 200);
+  const body = await withAdmin.json();
+  assert.ok(Array.isArray(body.pending));
+});
+
+test("POST /pending/:id/approve requires admin bearer", async () => {
+  const { pendingId } = await createPendingRequest();
+
+  const noBearer = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ resolvedBy: "tester-no-bearer" }),
+  });
+  assert.equal(noBearer.status, 401);
+
+  const adminToken = await makeToken(["gateway:admin"]);
+  const withAdmin = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({ resolvedBy: "tester-admin" }),
+  });
+  assert.equal(withAdmin.status, 200);
+  const body = await withAdmin.json();
+  assert.equal(body.pending.id, pendingId);
+  assert.equal(body.pending.status, "approved");
+  assert.ok(typeof body.approval_token === "string" && body.approval_token.length > 0);
 });
 
 test("OPTIONS /pending/:id preflight allows X-Pending-Token header", async () => {

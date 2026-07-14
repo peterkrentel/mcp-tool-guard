@@ -52,7 +52,6 @@ import { kvEnabled } from "./kv.js";
 import { loadServersFromKv, persistServer, removeServerFromKv } from "./registry-kv.js";
 import {
   auditAgentTrustedMode,
-  corsAllowOrigins,
   guardEnabled,
   jwtTrustFromEnv,
   readPublicKeyPem,
@@ -77,7 +76,6 @@ import {
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
-  recordAgentIntent,
   recordProxyDecision,
   withHttpRequestSpan,
   withProxyAllowSpan,
@@ -87,7 +85,22 @@ import {
   tokenVendorFromEnv,
 } from "./token-vendor.js";
 import { geminiComplete, geminiConfigured } from "./llm-proxy.js";
-import type { AuditLogEntry, GuardConfig, ServerConfig } from "./types.js";
+import {
+  handleAuditAgentPostRoute,
+  handleAuditRoute,
+} from "./proxy-routes-audit.js";
+import { handlePendingRoutes } from "./proxy-routes-pending.js";
+import {
+  applyCors,
+  extractBearer,
+  header,
+  readBody,
+  readJson,
+  sendJson,
+  sendJsonRpcError,
+  sendJsonRpcPending,
+} from "./http-helpers.js";
+import type { GuardConfig, ServerConfig } from "./types.js";
 
 function gatewayRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -125,104 +138,6 @@ function buildReqHeadersWithUpstreamAuth(
   return headers;
 }
 
-function extractBearer(authHeader: string | undefined): string | null {
-  if (!authHeader) return null;
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() ?? null;
-}
-
-function header(req: IncomingMessage, name: string): string | undefined {
-  const value = req.headers[name.toLowerCase()];
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
-  const origins = corsAllowOrigins();
-  const origin = header(req, "origin");
-  if (origin && (origins.includes("*") || origins.includes(origin))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Authorization, Content-Type, Accept, X-Trace-Id, X-Session-Id, X-Approval-Token, X-Pending-Token, X-Agent-Id",
-    );
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  }
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return true;
-  }
-  return false;
-}
-
-async function readBody(req: IncomingMessage, maxBytes = 1_048_576): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req) {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    size += buf.length;
-    if (size > maxBytes) {
-      throw new Error(`Request body exceeds ${maxBytes} bytes`);
-    }
-    chunks.push(buf);
-  }
-  return Buffer.concat(chunks);
-}
-
-async function readJson<T>(req: IncomingMessage): Promise<T> {
-  const body = await readBody(req);
-  return JSON.parse(body.toString("utf8")) as T;
-}
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body);
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Length", String(Buffer.byteLength(payload)));
-  res.end(payload);
-}
-
-function sendJsonRpcError(
-  res: ServerResponse,
-  requestId: unknown,
-  message: string,
-  status = 403,
-): void {
-  const body = JSON.stringify({
-    jsonrpc: "2.0",
-    id: requestId ?? null,
-    error: { code: -32001, message },
-  });
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Length", String(Buffer.byteLength(body)));
-  res.end(body);
-}
-
-function sendJsonRpcPending(
-  res: ServerResponse,
-  requestId: unknown,
-  pendingId: string,
-  pendingPollToken: string,
-): void {
-  const body = JSON.stringify({
-    jsonrpc: "2.0",
-    id: requestId ?? null,
-    result: {
-      status: "pending",
-      pending_id: pendingId,
-      pending_poll_token: pendingPollToken,
-      message: "Awaiting approval",
-    },
-  });
-  res.statusCode = 202;
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Length", String(Buffer.byteLength(body)));
-  res.end(body);
-}
-
 function matchMcpRoute(
   pathname: string,
   defaultServer: string,
@@ -237,100 +152,6 @@ function matchMcpRoute(
 
 function syncGuardConfig(guard: ToolGuard, registry: ServerRegistry): void {
   guard.replaceConfig(registry.toGuardConfig());
-}
-
-async function handleAudit(
-  guard: ToolGuard,
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
-  /** GET /audit — returns agent, proxy, and mcp entries. Auth: Bearer when guard enabled. */
-  if (guardEnabled()) {
-    const bearer = extractBearer(header(req, "authorization"));
-    if (!bearer) {
-      sendJson(res, 401, { error: "Missing Authorization: Bearer" });
-      return;
-    }
-    try {
-      await guard.validateToken(bearer);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      sendJson(res, 401, { error: `JWT validation failed: ${message}` });
-      return;
-    }
-  }
-
-  const url = new URL(req.url ?? "/", "http://localhost");
-  const sessionId = url.searchParams.get("session_id") ?? undefined;
-  let entries = [...guard.logger.getEntries()];
-  if (sessionId) {
-    entries = entries.filter((e) => e.session_id === sessionId);
-  }
-  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? "200"), 500));
-  sendJson(res, 200, {
-    entries: entries.slice(-limit),
-    sources: ["agent", "proxy", "mcp"],
-  });
-}
-
-async function handleAuditAgentPost(
-  guard: ToolGuard,
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
-  /**
-   * POST /audit/agent — append agent-layer intent entries.
-   * Auth: Bearer with `audit:write` or `gateway:admin`, unless explicit trusted demo mode is enabled.
-   */
-  if (guardEnabled() && !auditAgentTrustedMode()) {
-    const bearer = extractBearer(header(req, "authorization"));
-    if (!bearer) {
-      sendJson(res, 401, {
-        error: "Missing Authorization: Bearer (audit:write or gateway:admin required)",
-      });
-      return;
-    }
-
-    try {
-      const { scopes } = await guard.validateToken(bearer);
-      const canWriteAudit =
-        guard.hasScope(scopes, "audit:write") ||
-        guard.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
-      if (!canWriteAudit) {
-        sendJson(res, 403, {
-          error: "Missing required permission 'audit:write' or 'gateway:admin'",
-        });
-        return;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      sendJson(res, 401, { error: `JWT validation failed: ${message}` });
-      return;
-    }
-  }
-
-  const requestCtx = context.active();
-  const body = await readJson<{ entries?: AuditLogEntry[]; entry?: AuditLogEntry }>(req);
-  const items = body.entries ?? (body.entry ? [body.entry] : []);
-  for (const raw of items) {
-    const entry: AuditLogEntry = {
-      ...raw,
-      source: "agent",
-      timestamp: raw.timestamp ?? new Date().toISOString(),
-      decision: raw.decision ?? "allow",
-      server: raw.server ?? "",
-      tool: raw.tool ?? "",
-      required_scope: raw.required_scope ?? "",
-      token_scopes: raw.token_scopes ?? [],
-    };
-    guard.logger.log(entry);
-    recordAgentIntent({
-      toolName: entry.tool,
-      decision: entry.decision,
-      traceId: entry.trace_id,
-    }, requestCtx);
-  }
-  sendJson(res, 200, { ok: true, count: items.length });
 }
 
 async function handleMcp(
@@ -652,149 +473,26 @@ async function main(): Promise<void> {
       }
 
       if (req.method === "GET" && pathname === "/audit") {
-        await handleAudit(guard, req, res);
+        await handleAuditRoute(guard, req, res);
         return;
       }
 
       if (req.method === "POST" && pathname === "/audit/agent") {
-        await handleAuditAgentPost(guard, req, res);
+        await handleAuditAgentPostRoute(guard, req, res);
         return;
       }
 
-      if (req.method === "GET" && pathname === "/pending") {
-        /** GET /pending — list pending requests. Auth: gateway:admin when control plane auth enabled. */
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const statusRaw = url.searchParams.get("status") ?? undefined;
-        const status =
-          statusRaw === "pending" || statusRaw === "approved" || statusRaw === "denied"
-            ? statusRaw
-            : undefined;
-        const items = await listPendingRequests(status);
-        sendJson(res, 200, { pending: items });
-        return;
-      }
-
-      const pendingIdMatch = pathname.match(/^\/pending\/([^/]+)\/?$/);
-      if (req.method === "GET" && pendingIdMatch) {
-        /**
-         * GET /pending/:id — read one pending request.
-         * Auth: short-lived pending poll token (x-pending-token or poll_token query), or gateway:admin when control-plane auth is enabled.
-         */
-        const pendingId = pendingIdMatch[1];
-        const pollToken =
-          header(req, "x-pending-token") ??
-          url.searchParams.get("poll_token") ??
-          undefined;
-
-        let canReadPending = false;
-        if (pollToken && (await validatePendingPollToken(pollToken, pendingId))) {
-          canReadPending = true;
-        }
-
-        if (!canReadPending) {
-          if (controlPlaneAuth) {
-            if (!(await requireGatewayAdmin(guard, req, res, sendJson))) {
-              return;
-            }
-            canReadPending = true;
-          } else {
-            sendJson(res, 401, {
-              error:
-                "Missing or invalid pending poll token (use x-pending-token from pending response)",
-            });
-            return;
-          }
-        }
-
-        const item = await getPendingRequest(pendingId);
-        if (!item) {
-          sendJson(res, 404, { error: "Pending request not found" });
-          return;
-        }
-        const response: any = { pending: item };
-        if (item.status === "approved") {
-          const token = await getApprovalTokenForPending(item.id);
-          if (token) {
-            response.approval_token = token;
-          }
-        }
-        sendJson(res, 200, response);
-        return;
-      }
-
-      const pendingApproveMatch = pathname.match(/^\/pending\/([^/]+)\/approve\/?$/);
-      if (req.method === "POST" && pendingApproveMatch) {
-        /** POST /pending/:id/approve — resolve a pending request as approved. Auth: gateway:admin when enabled. */
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const body = await readJson<{ resolvedBy?: string }>(req).catch(() => ({ resolvedBy: undefined }));
-        const updated = await resolvePendingRequest(
-          pendingApproveMatch[1],
-          "approved",
-          body.resolvedBy,
-        );
-        if (!updated) {
-          sendJson(res, 404, { error: "Pending request not found" });
-          return;
-        }
-        const approvalToken = await generateApprovalToken(updated);
-        guard.logger.log({
-          timestamp: new Date().toISOString(),
-          decision: "allow",
-          server: updated.server_id,
-          tool: updated.tool,
-          required_scope: updated.required_scope,
-          token_scopes: updated.token_scopes,
-          source: "proxy",
-          trace_id: updated.trace_id,
-          session_id: updated.session_id,
-          reason: `Pending request approved (${updated.id})`,
-        });
-        sendJson(res, 200, { pending: updated, approval_token: approvalToken });
-        return;
-      }
-
-      const pendingDenyMatch = pathname.match(/^\/pending\/([^/]+)\/deny\/?$/);
-      if (req.method === "POST" && pendingDenyMatch) {
-        /** POST /pending/:id/deny — resolve a pending request as denied. Auth: gateway:admin when enabled. */
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const body = await readJson<{ resolvedBy?: string }>(req).catch(() => ({ resolvedBy: undefined }));
-        const updated = await resolvePendingRequest(
-          pendingDenyMatch[1],
-          "denied",
-          body.resolvedBy,
-        );
-        if (!updated) {
-          sendJson(res, 404, { error: "Pending request not found" });
-          return;
-        }
-        guard.logger.log({
-          timestamp: new Date().toISOString(),
-          decision: "deny",
-          server: updated.server_id,
-          tool: updated.tool,
-          required_scope: updated.required_scope,
-          token_scopes: updated.token_scopes,
-          source: "proxy",
-          trace_id: updated.trace_id,
-          session_id: updated.session_id,
-          reason: `Pending request denied (${updated.id})`,
-        });
-        sendJson(res, 200, { pending: updated });
+      if (
+        await handlePendingRoutes(
+          guard,
+          req,
+          res,
+          url,
+          pathname,
+          controlPlaneAuth,
+          sendJson,
+        )
+      ) {
         return;
       }
 
