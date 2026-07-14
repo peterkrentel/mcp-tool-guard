@@ -42,14 +42,12 @@ import {
 } from "./agent-store.js";
 import {
   adminAuthRequired,
-  GATEWAY_ADMIN_SCOPE,
-  identifyBearer,
   requireGatewayAdmin,
 } from "./admin-auth.js";
 import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.js";
 import { kvEnabled } from "./kv.js";
-import { loadServersFromKv, persistServer, removeServerFromKv } from "./registry-kv.js";
+import { loadServersFromKv } from "./registry-kv.js";
 import {
   auditAgentTrustedMode,
   guardEnabled,
@@ -58,7 +56,6 @@ import {
 } from "./env.js";
 import { ToolGuard } from "./guard.js";
 import {
-  discoverMcpTools,
   forwardMcpPost,
   upstreamErrorBody,
 } from "./mcp-upstream.js";
