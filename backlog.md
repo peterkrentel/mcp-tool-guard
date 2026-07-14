@@ -216,6 +216,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: post-0.4.0 Track 4 BL-S02
   depends_on: BL-031
+- BL-035
+  priority: P1
+  status: todo
+  item: Isolate or document Render preview environment shared state
+  acceptance: Render PR preview environments (`render.yaml` `previews.generation: automatic`) either get their own `KV_REST_API_URL`/`KV_REST_API_TOKEN` (and other env-scoped secrets) separate from Production, or - if kept shared for cost/simplicity - `docs/render-deploy.md` explicitly documents that preview deploys read/write the same KV store, Auth0 management app, and upstream tokens as prod, so PR reviewers know not to treat preview URLs as sandboxed for approval-queue/audit testing
+  owner: unassigned
+  source: discovered 2026-07-14 during BL-015 PR-150 preview validation - `/health` on `pr-150.onrender.com` showed `kv_enabled:true` and a dynamically-registered `slack-prod` server not present in `config.prod.yaml`, indicating it reads the same KV store as Production; `render.yaml` has no separate Preview-scoped env vars for any of `KV_REST_API_URL`/`KV_REST_API_TOKEN`, `AUTH0_MGMT_*`, `GEMINI_API_KEY`, `SLACK_MCP_TOKEN`, `GITHUB_MCP_TOKEN`
 
 - BL-016
   priority: P2
