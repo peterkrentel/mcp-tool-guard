@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BL-015 slice (helpers + routes + tests)** — extracted shared proxy HTTP helpers into `gateway/http-helpers.ts`; moved `/audit` and `/pending` route handling into `gateway/proxy-routes-audit.ts` and `gateway/proxy-routes-pending.ts`; reduced `gateway/proxy-server.ts` monolith by delegating to new route modules; expanded gateway baseline tests for `/health`, `/audit`, MCP deny contracts, and pending admin/poll-token flows
 - **Backlog tracking (BL-015)** — added explicit execution strategy note to deliver route decomposition in small slices (helpers-first, then one route group at a time) with tests and GUI smoke validation after each slice
 - **Backlog tracking (BL-018)** — marked BL-018 as in-progress and clarified this PR delivers the preflight/CORS portion while browser-context deny -> pending -> approve -> retry coverage remains
 - **Gateway regression coverage** — added preflight CORS test for `OPTIONS /pending/:id` to assert `X-Pending-Token` remains allowed in `Access-Control-Allow-Headers`, protecting approval polling behavior during route refactors

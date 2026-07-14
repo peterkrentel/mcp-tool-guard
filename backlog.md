@@ -57,11 +57,11 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
 - BL-015
   priority: P0
-  status: todo
+  status: in-progress
   item: Decompose proxy-server.ts into route modules
   acceptance: `gateway/proxy-server.ts` reduced to bootstrap/composition; route modules for MCP, agents, servers, pending, audit, LLM, and token; shared HTTP helpers extracted; no route behavior changes for `/health`, `/audit`, `/mcp`, `/:serverId/mcp`, `/agents`, `/servers`, `/pending`, `/token`, `/llm/complete`; preserve CORS, rate limiting, and OTEL wrapping
   owner: unassigned
-  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01
+  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01; partial delivered in branch bl-015-proxy-slice-and-tests (shared HTTP helpers + extracted audit/pending routes + expanded gateway baseline tests)
 - BL-019
   priority: P0
   status: todo
