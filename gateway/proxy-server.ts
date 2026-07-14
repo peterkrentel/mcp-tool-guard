@@ -32,19 +32,9 @@ import { fileURLToPath } from "node:url";
 import { context } from "@opentelemetry/api";
 import { parse as parseYaml } from "yaml";
 
-import { encryptClientSecret } from "./agent-secrets.js";
-import {
-  buildAgentRecord,
-  deleteAgent,
-  getAgentClientSecret,
-  listAgents,
-  saveAgent,
-} from "./agent-store.js";
 import {
   adminAuthRequired,
-  requireGatewayAdmin,
 } from "./admin-auth.js";
-import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.js";
 import { kvEnabled } from "./kv.js";
 import { loadServersFromKv } from "./registry-kv.js";
@@ -88,6 +78,7 @@ import {
 } from "./proxy-routes-audit.js";
 import { handlePendingRoutes } from "./proxy-routes-pending.js";
 import { handleServerRoutes } from "./proxy-routes-servers.js";
+import { handleAgentsTokenRoutes } from "./proxy-routes-agents-token.js";
 import {
   applyCors,
   extractBearer,
@@ -508,92 +499,17 @@ async function main(): Promise<void> {
         return;
       }
 
-      /** GET /agents — list persisted agents. Auth: no. */
-      if (req.method === "GET" && pathname === "/agents") {
-        const agents = await listAgents();
-        sendJson(res, 200, { agents });
-        return;
-      }
-
-      /** POST /agents — create Auth0 M2M client. Auth: gateway:admin when enabled. */
-      if (req.method === "POST" && pathname === "/agents") {
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const body = await readJson<{ name: string; scopes: string[]; serverId?: string }>(req);
-        try {
-          const created = await createM2mAgent(body.name, body.scopes ?? []);
-          const record = buildAgentRecord({
-            name: created.name,
-            serverId: body.serverId?.trim() || "flight",
-            scopes: body.scopes ?? [],
-            auth0ClientId: created.clientId,
-            auth0AppName: `mcp-agent-${created.name}`,
-            clientSecretEnc: encryptClientSecret(created.clientSecret),
-          });
-          await saveAgent(record);
-          sendJson(res, 201, { ...created, serverId: record.serverId });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          sendJson(res, 503, { error: message });
-        }
-        return;
-      }
-
-      const agentTokenMatch = pathname.match(/^\/agents\/([^/]+)\/token\/?$/);
-      if (req.method === "POST" && agentTokenMatch) {
-        /** POST /agents/:clientId/token — vend JWT using secret stored at create (gateway:admin). */
-        if (!tokenVendor || !apiAudience) {
-          sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
-          return;
-        }
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const clientId = agentTokenMatch[1];
-        try {
-          const clientSecret = await getAgentClientSecret(clientId);
-          if (!clientSecret) {
-            sendJson(res, 404, {
-              error:
-                "Agent has no stored credentials — recreate the agent (created before server-side secret storage)",
-            });
-            return;
-          }
-          const vended = await tokenVendor.vend(clientId, clientSecret, apiAudience);
-          sendJson(res, 200, vended);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          sendJson(res, 503, { error: message });
-        }
-        return;
-      }
-
-      const deleteAgentMatch = pathname.match(/^\/agents\/([^/]+)\/?$/);
-      if (req.method === "DELETE" && deleteAgentMatch) {
-        /** DELETE /agents/:clientId — revoke M2M client. Auth: gateway:admin when enabled. */
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        try {
-          const clientId = deleteAgentMatch[1];
-          await deleteM2mAgent(clientId);
-          await deleteAgent(clientId);
-          tokenVendor?.invalidate(clientId);
-          sendJson(res, 200, { ok: true });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          sendJson(res, 503, { error: message });
-        }
+      if (
+        await handleAgentsTokenRoutes({
+          guard,
+          req,
+          res,
+          pathname,
+          controlPlaneAuth,
+          tokenVendor,
+          apiAudience,
+        })
+      ) {
         return;
       }
 
@@ -612,33 +528,6 @@ async function main(): Promise<void> {
           const message = err instanceof Error ? err.message : String(err);
           console.warn(`[MCPToolGuard] llm/complete error: ${message}`);
           sendJson(res, 502, { error: message });
-        }
-        return;
-      }
-
-      /** POST /token — vend client_credentials JWT. Auth: gateway:admin when enabled. */
-      if (req.method === "POST" && pathname === "/token") {
-        if (!tokenVendor || !apiAudience) {
-          sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
-          return;
-        }
-        if (
-          controlPlaneAuth &&
-          !(await requireGatewayAdmin(guard, req, res, sendJson))
-        ) {
-          return;
-        }
-        const body = await readJson<{ clientId: string; clientSecret: string }>(req);
-        try {
-          const vended = await tokenVendor.vend(
-            body.clientId,
-            body.clientSecret,
-            apiAudience,
-          );
-          sendJson(res, 200, vended);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          sendJson(res, 401, { error: message });
         }
         return;
       }

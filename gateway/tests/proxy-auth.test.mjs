@@ -220,6 +220,59 @@ test("GET /servers lists seeded registry entries without auth", async () => {
   assert.ok(body.servers.some((server) => server.id === "flight"));
 });
 
+test("GET /agents returns agent list without auth", async () => {
+  const res = await fetch(`${BASE_URL}/agents`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.agents));
+});
+
+test("POST /agents requires admin bearer when control plane auth is enabled", async () => {
+  const res = await fetch(`${BASE_URL}/agents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "agent-no-auth",
+      scopes: ["flights:read"],
+    }),
+  });
+  assert.equal(res.status, 401);
+});
+
+test("DELETE /agents/:clientId requires admin bearer when control plane auth is enabled", async () => {
+  const res = await fetch(`${BASE_URL}/agents/some-client-id`, {
+    method: "DELETE",
+  });
+  assert.equal(res.status, 401);
+});
+
+test("POST /token returns 503 when Auth0 vending is not configured", async () => {
+  const res = await fetch(`${BASE_URL}/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+    }),
+  });
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.match(String(body.error ?? ""), /AUTH0_DOMAIN and AUTH0_AUDIENCE required/i);
+});
+
+test("POST /agents/:clientId/token returns 503 when Auth0 vending is not configured", async () => {
+  const res = await fetch(`${BASE_URL}/agents/some-client-id/token`, {
+    method: "POST",
+  });
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.match(String(body.error ?? ""), /AUTH0_DOMAIN and AUTH0_AUDIENCE required/i);
+});
+
 test("POST /servers requires admin bearer when control plane auth is enabled", async () => {
   const res = await fetch(`${BASE_URL}/servers`, {
     method: "POST",

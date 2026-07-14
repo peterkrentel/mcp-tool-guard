@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BL-015 slice (agents/token routes + tests)** — extracted `/agents*` and `/token` route handling into `gateway/proxy-routes-agents-token.ts`; delegated agent/token endpoints from `gateway/proxy-server.ts`; expanded gateway tests for `/agents` list + admin auth guards and token-vending-not-configured contracts
 - **BL-015 cleanup (dead imports)** — removed stale `/servers` extraction leftovers from `gateway/proxy-server.ts` import block after route logic moved into `gateway/proxy-routes-servers.ts`
 - **BL-015 slice (servers routes + tests)** — extracted `/servers` route handling into `gateway/proxy-routes-servers.ts`; delegated server list/add/remove/tools endpoints from `gateway/proxy-server.ts`; expanded gateway tests to cover `/servers` list/auth/add/remove and `/servers/:id/tools` error contracts
 - **Backlog tracking (BL-035)** — added P1 item to isolate or explicitly document Render PR preview shared state versus production (KV/Auth0/upstream token scope) after preview validation showed production-shared behavior
