@@ -34,9 +34,9 @@ The workflow is intentionally separate from fast CI and only runs on:
 
 ## Required GitHub secrets
 
-- `AUTH0_ISSUER`
-- `AUTH0_AUDIENCE`
-- `AUTH0_JWKS_URL` (optional if derivable from issuer, but recommended to set explicitly)
+- `MCP_JWT_ISSUER`
+- `MCP_JWT_AUDIENCE`
+- `MCP_JWT_JWKS_URL`
 - `AUTH0_DOMAIN`
 - `AUTH0_MGMT_CLIENT_ID`
 - `AUTH0_MGMT_CLIENT_SECRET`
@@ -59,8 +59,8 @@ The same script can be used against localhost or hosted environments by changing
 ```bash
 GUARD_BASE_URL=http://localhost:8787 \
 UI_BASE_URL=http://localhost:5173 \
-AUTH0_ISSUER=https://<tenant>/ \
-AUTH0_AUDIENCE=https://mcp-tool-guard \
+MCP_JWT_ISSUER=https://<tenant>/ \
+MCP_JWT_AUDIENCE=https://mcp-tool-guard \
 AUTH0_OPERATOR_CLIENT_ID=<operator-client-id> \
 AUTH0_OPERATOR_CLIENT_SECRET=<operator-client-secret> \
 AGENT_SCOPE=demo:noop \

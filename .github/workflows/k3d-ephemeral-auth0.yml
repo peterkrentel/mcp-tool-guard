@@ -15,7 +15,9 @@ jobs:
       UI_HOST: ui.ephemeral.local
       GUARD_HOST: guard.ephemeral.local
       KV_TOKEN: local-ephemeral-kv-token
-      MCP_JWT_JWKS_URL: ${{ secrets.AUTH0_JWKS_URL }}
+      MCP_JWT_ISSUER: ${{ secrets.MCP_JWT_ISSUER }}
+      MCP_JWT_AUDIENCE: ${{ secrets.MCP_JWT_AUDIENCE }}
+      MCP_JWT_JWKS_URL: ${{ secrets.MCP_JWT_JWKS_URL }}
       MCP_GUARD_PUBLIC_KEY_PEM: ${{ secrets.MCP_GUARD_PUBLIC_KEY_PEM }}
       AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
       AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
@@ -65,18 +67,19 @@ jobs:
 
       - name: Validate required secrets
         env:
-          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
+          MCP_JWT_ISSUER: ${{ secrets.MCP_JWT_ISSUER }}
+          MCP_JWT_AUDIENCE: ${{ secrets.MCP_JWT_AUDIENCE }}
           AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
           AUTH0_MGMT_CLIENT_ID: ${{ secrets.AUTH0_MGMT_CLIENT_ID }}
           AUTH0_MGMT_CLIENT_SECRET: ${{ secrets.AUTH0_MGMT_CLIENT_SECRET }}
           AUTH0_OPERATOR_CLIENT_ID: ${{ secrets.AUTH0_OPERATOR_CLIENT_ID }}
           AUTH0_OPERATOR_CLIENT_SECRET: ${{ secrets.AUTH0_OPERATOR_CLIENT_SECRET }}
-          MCP_JWT_JWKS_URL: ${{ secrets.AUTH0_JWKS_URL }}
+          MCP_JWT_JWKS_URL: ${{ secrets.MCP_JWT_JWKS_URL }}
           MCP_GUARD_PUBLIC_KEY_PEM: ${{ secrets.MCP_GUARD_PUBLIC_KEY_PEM }}
         run: |
           missing=0
-          for key in AUTH0_ISSUER AUTH0_AUDIENCE AUTH0_DOMAIN AUTH0_MGMT_CLIENT_ID AUTH0_MGMT_CLIENT_SECRET AUTH0_OPERATOR_CLIENT_ID AUTH0_OPERATOR_CLIENT_SECRET MCP_JWT_JWKS_URL MCP_GUARD_PUBLIC_KEY_PEM; do
+          for key in MCP_JWT_ISSUER MCP_JWT_AUDIENCE AUTH0_AUDIENCE AUTH0_DOMAIN AUTH0_MGMT_CLIENT_ID AUTH0_MGMT_CLIENT_SECRET AUTH0_OPERATOR_CLIENT_ID AUTH0_OPERATOR_CLIENT_SECRET MCP_JWT_JWKS_URL MCP_GUARD_PUBLIC_KEY_PEM; do
             if [ -z "${!key}" ]; then
               echo "::error::Missing required secret: $key"
               missing=1
@@ -105,8 +108,8 @@ jobs:
           printf '%s' "${MCP_GUARD_PUBLIC_KEY_PEM}" > /tmp/mcp-guard-public.pem
           kubectl -n ${NAMESPACE} create secret generic guard-secrets \
             --from-literal=KV_REST_API_TOKEN="${KV_TOKEN}" \
-            --from-literal=MCP_JWT_ISSUER="${{ secrets.AUTH0_ISSUER }}" \
-            --from-literal=MCP_JWT_AUDIENCE="${{ secrets.AUTH0_AUDIENCE }}" \
+            --from-literal=MCP_JWT_ISSUER="${MCP_JWT_ISSUER}" \
+            --from-literal=MCP_JWT_AUDIENCE="${MCP_JWT_AUDIENCE}" \
             --from-literal=MCP_JWT_JWKS_URL="${MCP_JWT_JWKS_URL}" \
             --from-literal=AUTH0_DOMAIN="${AUTH0_DOMAIN}" \
             --from-literal=AUTH0_AUDIENCE="${AUTH0_AUDIENCE}" \
@@ -137,8 +140,8 @@ jobs:
         env:
           GUARD_BASE_URL: http://${{ env.GUARD_HOST }}
           UI_BASE_URL: http://${{ env.UI_HOST }}
-          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
-          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+          MCP_JWT_ISSUER: ${{ secrets.MCP_JWT_ISSUER }}
+          MCP_JWT_AUDIENCE: ${{ secrets.MCP_JWT_AUDIENCE }}
           AUTH0_OPERATOR_CLIENT_ID: ${{ secrets.AUTH0_OPERATOR_CLIENT_ID }}
           AUTH0_OPERATOR_CLIENT_SECRET: ${{ secrets.AUTH0_OPERATOR_CLIENT_SECRET }}
         run: |

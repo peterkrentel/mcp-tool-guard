@@ -2,8 +2,8 @@
 set -euo pipefail
 
 : "${GUARD_BASE_URL:?GUARD_BASE_URL is required}"
-: "${AUTH0_ISSUER:?AUTH0_ISSUER is required}"
-: "${AUTH0_AUDIENCE:?AUTH0_AUDIENCE is required}"
+: "${MCP_JWT_ISSUER:?MCP_JWT_ISSUER is required}"
+: "${MCP_JWT_AUDIENCE:?MCP_JWT_AUDIENCE is required}"
 : "${AUTH0_OPERATOR_CLIENT_ID:?AUTH0_OPERATOR_CLIENT_ID is required}"
 : "${AUTH0_OPERATOR_CLIENT_SECRET:?AUTH0_OPERATOR_CLIENT_SECRET is required}"
 
@@ -11,7 +11,7 @@ UI_BASE_URL="${UI_BASE_URL:-}"
 AGENT_SCOPE="${AGENT_SCOPE:-demo:noop}"
 AGENT_SERVER_ID="${AGENT_SERVER_ID:-demo}"
 
-AUTH0_DOMAIN="${AUTH0_ISSUER#https://}"
+AUTH0_DOMAIN="${MCP_JWT_ISSUER#https://}"
 AUTH0_DOMAIN="${AUTH0_DOMAIN%/}"
 
 pass() { echo "  ✓ $1"; }
@@ -33,7 +33,7 @@ mint_token() {
 
   curl -sS -X POST "https://${AUTH0_DOMAIN}/oauth/token" \
     -H "Content-Type: application/json" \
-    -d "{\"client_id\":\"${client_id}\",\"client_secret\":\"${client_secret}\",\"audience\":\"${AUTH0_AUDIENCE}\",\"grant_type\":\"client_credentials\"}" \
+    -d "{\"client_id\":\"${client_id}\",\"client_secret\":\"${client_secret}\",\"audience\":\"${MCP_JWT_AUDIENCE}\",\"grant_type\":\"client_credentials\"}" \
   | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);if(!j.access_token){process.stderr.write(d);process.exit(1)};process.stdout.write(j.access_token)})'
 }
 

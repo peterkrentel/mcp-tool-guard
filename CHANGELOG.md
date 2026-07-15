@@ -14,6 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Backlog planning intake (BL-024/BL-040/BL-041 + BL-021 sequencing note)** — rewrote BL-024 from docker-compose packaging to a k3d-based ephemeral CI workflow skeleton; added BL-040 to extend that workflow into a per-IdP matrix harness (Auth0/Keycloak/Entra as adapters land); added BL-041 for Keycloak `JwtValidator` + `IdpAdapter` implementation sequenced between Auth0 and Entra work; updated BL-021 source with explicit sequencing rationale (after BL-041 for lessons learned, not a hard dependency)
 - **Ephemeral Auth0 smoke path alignment** — updated the k3d workflow smoke checks to exercise the real operator flow (`POST /agents` create, `POST /agents/:clientId/token` vend, `DELETE /agents/:clientId` cleanup) instead of relying on pre-provisioned read/admin test apps; guard deployment now receives Auth0 management env via Kubernetes secret for this isolated ephemeral lane
+- **Ephemeral JWT naming alignment** — updated the k3d workflow, smoke script, and setup docs to use `MCP_JWT_ISSUER`, `MCP_JWT_AUDIENCE`, and `MCP_JWT_JWKS_URL` naming consistently with `scripts/dev.env`, removing issuer/audience alias ambiguity in CI setup
 
 ### Fixed
 
