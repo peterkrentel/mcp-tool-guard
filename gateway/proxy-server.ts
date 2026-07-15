@@ -25,11 +25,10 @@
 
 import "./telemetry.js";
 
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { context } from "@opentelemetry/api";
 import { parse as parseYaml } from "yaml";
 
 import {
@@ -47,27 +46,10 @@ import {
   readPublicKeyPem,
 } from "./env.js";
 import { ToolGuard } from "./guard.js";
-import {
-  forwardMcpPost,
-  upstreamErrorBody,
-} from "./mcp-upstream.js";
-import {
-  createPendingRequest,
-  generatePendingPollToken,
-  generateApprovalToken,
-  getApprovalTokenForPending,
-  getPendingRequest,
-  listPendingRequests,
-  resolvePendingRequest,
-  validateApprovalToken,
-  validatePendingPollToken,
-} from "./pending-store.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
-  recordProxyDecision,
   withHttpRequestSpan,
-  withProxyAllowSpan,
 } from "./telemetry.js";
 import {
   auth0AudienceFromEnv,
@@ -81,17 +63,13 @@ import {
 import { handlePendingRoutes } from "./proxy-routes-pending.js";
 import { handleServerRoutes } from "./proxy-routes-servers.js";
 import { handleAgentsTokenRoutes } from "./proxy-routes-agents-token.js";
+import { handleMcpRoute } from "./proxy-routes-mcp.js";
 import {
   applyCors,
-  extractBearer,
-  header,
-  readBody,
   readJson,
   sendJson,
-  sendJsonRpcError,
-  sendJsonRpcPending,
 } from "./http-helpers.js";
-import type { GuardConfig, ServerConfig } from "./types.js";
+import type { GuardConfig } from "./types.js";
 
 function gatewayRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -113,22 +91,6 @@ function loadYamlConfig(): GuardConfig {
   return resolveGuardConfig(parseYaml(raw) as GuardConfig);
 }
 
-function upstreamAuthMissing(serverCfg: ServerConfig): string | null {
-  const envName = serverCfg.upstream_token_env?.trim();
-  if (!envName || serverCfg.upstream_token) return null;
-  return envName;
-}
-
-function buildReqHeadersWithUpstreamAuth(
-  req: IncomingMessage,
-  serverCfg: ServerConfig,
-): Record<string, string | string[] | undefined> {
-  if (!serverCfg.upstream_token) return req.headers;
-  const headers = { ...req.headers };
-  headers.authorization = `Bearer ${serverCfg.upstream_token}`;
-  return headers;
-}
-
 function matchMcpRoute(
   pathname: string,
   defaultServer: string,
@@ -143,215 +105,6 @@ function matchMcpRoute(
 
 function syncGuardConfig(guard: ToolGuard, registry: ServerRegistry): void {
   guard.replaceConfig(registry.toGuardConfig());
-}
-
-async function handleMcp(
-  guard: ToolGuard,
-  registry: ServerRegistry,
-  serverId: string,
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
-  const serverCfg = registry.getServer(serverId);
-  if (!serverCfg) {
-    sendJson(res, 404, { error: `Unknown server '${serverId}'` });
-    return;
-  }
-
-  const missingUpstream = upstreamAuthMissing(serverCfg);
-  if (missingUpstream) {
-    sendJson(res, 503, {
-      error: `Upstream credential not configured — set ${missingUpstream} on the proxy`,
-    });
-    return;
-  }
-
-  const forwardHeaders = buildReqHeadersWithUpstreamAuth(req, serverCfg);
-  const upstreamBearer = serverCfg.upstream_token;
-
-  let body: Buffer;
-  try {
-    body = await readBody(req);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    sendJson(res, 413, { error: message });
-    return;
-  }
-
-  let payload: { method?: string; params?: { name?: string }; id?: unknown };
-  try {
-    payload = JSON.parse(body.toString("utf8")) as typeof payload;
-  } catch {
-    await forwardMcpPost({
-      upstreamUrl: serverCfg.url,
-      reqHeaders: forwardHeaders,
-      body,
-      res,
-      serverId,
-      upstreamBearer,
-    });
-    return;
-  }
-
-  const toolName = payload.params?.name ?? "";
-  const traceId = header(req, "x-trace-id");
-  const sessionId = header(req, "x-session-id");
-  const requestCtx = context.active();
-
-  let allowSpan:
-    | {
-        toolName: string;
-        serverId: string;
-        agentScopes: string[];
-        traceId?: string;
-        pendingId?: string;
-        approvalViaToken?: boolean;
-      }
-    | undefined;
-
-  if (payload.method === "tools/call" && guardEnabled()) {
-    const bearer = extractBearer(header(req, "authorization"));
-
-    const result = await guard.authorize(serverId, toolName, bearer ?? "", {
-      trace_id: traceId,
-      session_id: sessionId,
-      source: "proxy",
-    });
-
-    const decisionBase = {
-      toolName,
-      serverId,
-      traceId,
-      agentScopes: result.entry.token_scopes,
-    };
-
-    if (!result.allowed) {
-      // Check for approval token bypass (from admin approval of pending request)
-      let approvedViaToken = false;
-      let approvalPendingId: string | undefined;
-      if (result.reason?.startsWith("Missing required scope")) {
-        const approvalToken = header(req, "x-approval-token");
-        if (approvalToken && APPROVAL_QUEUE_ENABLED) {
-          const pendingId = await validateApprovalToken(approvalToken, serverId, toolName);
-          if (pendingId) {
-            const pending = await getPendingRequest(pendingId);
-            if (pending && pending.status === "approved") {
-              guard.logger.log({
-                timestamp: new Date().toISOString(),
-                decision: "allow",
-                server: serverId,
-                tool: toolName,
-                required_scope: result.required_scope,
-                token_scopes: result.entry.token_scopes,
-                source: "proxy",
-                trace_id: traceId,
-                session_id: sessionId,
-                reason: `Approved via token (${pendingId})`,
-              });
-              approvedViaToken = true;
-              approvalPendingId = pendingId;
-            } else {
-              recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
-              sendJsonRpcError(res, payload.id, "Approval token invalid or expired");
-              return;
-            }
-          } else {
-            recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
-            sendJsonRpcError(res, payload.id, "Approval token invalid");
-            return;
-          }
-        } else if (APPROVAL_QUEUE_ENABLED) {
-          // No approval token, create pending request
-          const pending = await createPendingRequest({
-            trace_id: traceId,
-            session_id: sessionId,
-            server_id: serverId,
-            tool: toolName,
-            required_scope: result.required_scope,
-            token_scopes: result.entry.token_scopes,
-            agent_id: header(req, "x-agent-id"),
-          });
-
-          guard.logger.log({
-            timestamp: new Date().toISOString(),
-            decision: "pending",
-            server: serverId,
-            tool: toolName,
-            required_scope: result.required_scope,
-            token_scopes: result.entry.token_scopes,
-            source: "proxy",
-            trace_id: traceId,
-            session_id: sessionId,
-            reason: `Awaiting approval (${pending.id})`,
-          });
-
-          recordProxyDecision({
-            ...decisionBase,
-            decision: "pending",
-            pendingId: pending.id,
-          }, requestCtx);
-          const pendingPollToken = await generatePendingPollToken(pending.id);
-          sendJsonRpcPending(res, payload.id, pending.id, pendingPollToken);
-          return;
-        }
-      }
-      if (!approvedViaToken) {
-        recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
-        sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
-        return;
-      }
-      allowSpan = {
-        ...decisionBase,
-        pendingId: approvalPendingId,
-        approvalViaToken: true,
-      };
-    } else {
-      allowSpan = decisionBase;
-    }
-  }
-
-  const auditMcp =
-    payload.method === "tools/call"
-      ? {
-          logger: guard.logger,
-          serverId,
-          toolName,
-          traceId,
-          sessionId,
-        }
-      : undefined;
-
-  const forwardOnce = async (): Promise<void> => {
-    await forwardMcpPost({
-      upstreamUrl: serverCfg.url,
-      reqHeaders: forwardHeaders,
-      body,
-      res,
-      serverId,
-      audit: auditMcp,
-      upstreamBearer,
-    });
-  };
-
-  try {
-    if (allowSpan) {
-      await withProxyAllowSpan(allowSpan, forwardOnce);
-    } else {
-      await forwardOnce();
-    }
-  } catch (err) {
-    if (res.headersSent) return;
-    const body502 = upstreamErrorBody(serverId, err);
-    if (payload.method === "tools/call" && payload.id !== undefined) {
-      sendJsonRpcError(
-        res,
-        payload.id,
-        `${body502.error}: ${body502.server} — ${body502.detail}`,
-      );
-      return;
-    }
-    sendJson(res, 502, body502);
-  }
 }
 
 async function main(): Promise<void> {
@@ -550,7 +303,7 @@ async function main(): Promise<void> {
       if (req.method === "POST") {
         const route = matchMcpRoute(pathname, defaultServer);
         if (route) {
-          await handleMcp(guard, registry, route.serverId, req, res);
+          await handleMcpRoute(guard, registry, route.serverId, req, res);
           return;
         }
       }
