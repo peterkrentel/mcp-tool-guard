@@ -57,6 +57,26 @@ spec:
                 secretKeyRef:
                   name: guard-secrets
                   key: MCP_GUARD_PUBLIC_KEY_PEM
+            - name: AUTH0_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_DOMAIN
+            - name: AUTH0_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_AUDIENCE
+            - name: AUTH0_MGMT_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_MGMT_CLIENT_ID
+            - name: AUTH0_MGMT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_MGMT_CLIENT_SECRET
           volumeMounts:
             - name: guard-config
               mountPath: /app/config

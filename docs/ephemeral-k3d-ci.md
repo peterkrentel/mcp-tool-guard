@@ -37,19 +37,42 @@ The workflow is intentionally separate from fast CI and only runs on:
 - `AUTH0_ISSUER`
 - `AUTH0_AUDIENCE`
 - `AUTH0_JWKS_URL` (optional if derivable from issuer, but recommended to set explicitly)
-- `AUTH0_READ_CLIENT_ID`
-- `AUTH0_READ_CLIENT_SECRET`
-- `AUTH0_ADMIN_CLIENT_ID`
-- `AUTH0_ADMIN_CLIENT_SECRET`
+- `AUTH0_DOMAIN`
+- `AUTH0_MGMT_CLIENT_ID`
+- `AUTH0_MGMT_CLIENT_SECRET`
+- `AUTH0_OPERATOR_CLIENT_ID`
+- `AUTH0_OPERATOR_CLIENT_SECRET`
 - `MCP_GUARD_PUBLIC_KEY_PEM`
 
 ## What the smoke test verifies
 
 - Guard `/health` reports `kv_enabled: true`
 - UI is reachable via ingress host
-- Read token is blocked from control-plane mutation
-- Admin token can add and delete a server
+- Operator token can create and delete an Auth0-backed agent via `/agents`
+- Operator token can vend an agent access token via `/agents/:clientId/token`
 - Guard `/audit` is readable with valid bearer
+
+## Reusing the smoke test outside workflow
+
+The same script can be used against localhost or hosted environments by changing env vars:
+
+```bash
+GUARD_BASE_URL=http://localhost:8787 \
+UI_BASE_URL=http://localhost:5173 \
+AUTH0_ISSUER=https://<tenant>/ \
+AUTH0_AUDIENCE=https://mcp-tool-guard \
+AUTH0_OPERATOR_CLIENT_ID=<operator-client-id> \
+AUTH0_OPERATOR_CLIENT_SECRET=<operator-client-secret> \
+AGENT_SCOPE=demo:noop \
+AGENT_SERVER_ID=demo \
+./scripts/smoke-auth0-k3d.sh
+```
+
+Notes:
+
+- `UI_BASE_URL` is optional (UI check is skipped if unset).
+- Script auto-cleans the created agent with `trap` on exit.
+- For hosted runs, use a CI/test Auth0 tenant or constrained operator app to keep blast radius low.
 
 ## Notes
 
