@@ -2,10 +2,14 @@
 set -euo pipefail
 
 : "${GUARD_BASE_URL:?GUARD_BASE_URL is required}"
-: "${MCP_JWT_ISSUER:?MCP_JWT_ISSUER is required}"
-: "${MCP_JWT_AUDIENCE:?MCP_JWT_AUDIENCE is required}"
-: "${AUTH0_OPERATOR_CLIENT_ID:?AUTH0_OPERATOR_CLIENT_ID is required}"
-: "${AUTH0_OPERATOR_CLIENT_SECRET:?AUTH0_OPERATOR_CLIENT_SECRET is required}"
+OPERATOR_TOKEN="${AUTH0_OPERATOR_BEARER_TOKEN:-}"
+
+if [[ -z "$OPERATOR_TOKEN" ]]; then
+  : "${MCP_JWT_ISSUER:?MCP_JWT_ISSUER is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
+  : "${MCP_JWT_AUDIENCE:?MCP_JWT_AUDIENCE is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
+  : "${AUTH0_OPERATOR_CLIENT_ID:?AUTH0_OPERATOR_CLIENT_ID is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
+  : "${AUTH0_OPERATOR_CLIENT_SECRET:?AUTH0_OPERATOR_CLIENT_SECRET is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
+fi
 
 UI_BASE_URL="${UI_BASE_URL:-}"
 AGENT_SCOPE="${AGENT_SCOPE:-demo:noop}"
@@ -45,10 +49,15 @@ if [[ -n "$UI_BASE_URL" ]]; then
 fi
 echo ""
 
-echo "1. Mint operator Auth0 token (gateway:admin)..."
-OPERATOR_TOKEN="$(mint_token "$AUTH0_OPERATOR_CLIENT_ID" "$AUTH0_OPERATOR_CLIENT_SECRET")"
-[[ -n "$OPERATOR_TOKEN" ]] || fail "Failed to mint operator token"
-pass "Minted operator token"
+if [[ -n "$OPERATOR_TOKEN" ]]; then
+  echo "1. Using provided operator bearer token (GUI-like flow)..."
+  pass "Using provided operator token"
+else
+  echo "1. Mint operator Auth0 token (gateway:admin)..."
+  OPERATOR_TOKEN="$(mint_token "$AUTH0_OPERATOR_CLIENT_ID" "$AUTH0_OPERATOR_CLIENT_SECRET")"
+  [[ -n "$OPERATOR_TOKEN" ]] || fail "Failed to mint operator token"
+  pass "Minted operator token"
+fi
 
 echo "2. Guard health should report KV enabled..."
 HEALTH="$(curl -sS "$GUARD_BASE_URL/health")"

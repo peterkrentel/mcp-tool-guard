@@ -40,9 +40,12 @@ The workflow is intentionally separate from fast CI and runs on:
 - `AUTH0_DOMAIN`
 - `AUTH0_MGMT_CLIENT_ID`
 - `AUTH0_MGMT_CLIENT_SECRET`
-- `AUTH0_OPERATOR_CLIENT_ID`
-- `AUTH0_OPERATOR_CLIENT_SECRET`
 - `MCP_GUARD_PUBLIC_KEY_PEM`
+
+Operator auth mode:
+
+- Workflow creates an ephemeral Auth0 M2M operator client at run start, grants it `gateway:admin` on `AUTH0_AUDIENCE`, uses it for smoke checks, and deletes grant + client during cleanup.
+- No static `AUTH0_OPERATOR_CLIENT_ID` / `AUTH0_OPERATOR_CLIENT_SECRET` repository secrets are required.
 
 ## What the smoke test verifies
 
