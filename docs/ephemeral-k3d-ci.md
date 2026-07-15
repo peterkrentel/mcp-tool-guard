@@ -66,7 +66,7 @@ MCP_JWT_ISSUER=https://<tenant>/ \
 MCP_JWT_AUDIENCE=https://mcp-tool-guard \
 AUTH0_OPERATOR_CLIENT_ID=<operator-client-id> \
 AUTH0_OPERATOR_CLIENT_SECRET=<operator-client-secret> \
-AGENT_SCOPE=demo:noop \
+AGENT_SCOPE=flights:read \
 AGENT_SERVER_ID=demo \
 ./scripts/smoke-auth0-k3d.sh
 ```

@@ -12,7 +12,7 @@ if [[ -z "$OPERATOR_TOKEN" ]]; then
 fi
 
 UI_BASE_URL="${UI_BASE_URL:-}"
-AGENT_SCOPE="${AGENT_SCOPE:-demo:noop}"
+AGENT_SCOPE="${AGENT_SCOPE:-flights:read}"
 AGENT_SERVER_ID="${AGENT_SERVER_ID:-demo}"
 
 AUTH0_DOMAIN="${MCP_JWT_ISSUER#https://}"
@@ -80,7 +80,10 @@ CREATE_JSON="$(curl -sS -X POST "$GUARD_BASE_URL/agents" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"ci-ephemeral-agent-$(date +%s)\",\"scopes\":[\"${AGENT_SCOPE}\"],\"serverId\":\"${AGENT_SERVER_ID}\"}")"
 CREATE_STATUS="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);if(j.clientId && j.clientSecret){process.stdout.write("ok");}else{process.stdout.write("bad");}}catch{process.stdout.write("bad")}})')"
-[[ "$CREATE_STATUS" == "ok" ]] || fail "Expected clientId/clientSecret from POST /agents"
+if [[ "$CREATE_STATUS" != "ok" ]]; then
+  CREATE_ERR="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);process.stdout.write(String(j.error||j.message||"unknown error"));}catch{process.stdout.write("non-json response")}})')"
+  fail "POST /agents failed: ${CREATE_ERR}"
+fi
 AGENT_CLIENT_ID="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);process.stdout.write(j.clientId||"")})')"
 [[ -n "$AGENT_CLIENT_ID" ]] || fail "No clientId in create response"
 pass "Created ephemeral agent: $AGENT_CLIENT_ID"

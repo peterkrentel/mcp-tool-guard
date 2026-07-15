@@ -24,6 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Ephemeral kv-rest probe auth fix** — `/health` now bypasses bearer auth in the kv-rest adapter so Kubernetes readiness/liveness probes no longer receive `401` and force restart loops
 - **Ephemeral smoke auth parity option** — k3d smoke flow now supports `AUTH0_OPERATOR_BEARER_TOKEN` (admin user token) to emulate GUI control-plane behavior; M2M client-credentials remains supported as fallback when bearer token is not provided
 - **Ephemeral operator client lifecycle automation** — k3d workflow now creates an Auth0 M2M operator client and `client-grant` at run start (scope `gateway:admin` on `AUTH0_AUDIENCE`) and deletes both during cleanup, removing reliance on long-lived operator client secrets
+- **Ephemeral smoke agent-create compatibility** — smoke now defaults test-agent scope to `flights:read` (a typical declared API permission) instead of `demo:noop`, and surfaces the server error returned by `POST /agents` when creation fails
 - Corrected stale BL-015 route ownership references in `docs/ARCHITECTURE.md` to point at extracted gateway route modules.
 
 ### Removed
