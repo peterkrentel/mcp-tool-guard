@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kv-rest
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kv-rest
+  template:
+    metadata:
+      labels:
+        app: kv-rest
+    spec:
+      containers:
+        - name: kv-rest
+          image: {{ .Values.kv.rest.image.repository }}:{{ .Values.kv.rest.image.tag }}
+          imagePullPolicy: {{ .Values.kv.rest.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: {{ .Values.kv.rest.service.port | quote }}
+            - name: REDIS_URL
+              value: redis://redis:6379
+            - name: KV_REST_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: KV_REST_API_TOKEN
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

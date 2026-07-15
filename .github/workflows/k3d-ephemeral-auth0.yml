@@ -1,0 +1,114 @@
+name: k3d-ephemeral-auth0
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  ephemeral:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-k3d-ephemeral'
+    runs-on: ubuntu-latest
+    env:
+      CLUSTER_NAME: guard-ephemeral
+      NAMESPACE: guard-ephemeral
+      UI_HOST: ui.ephemeral.local
+      GUARD_HOST: guard.ephemeral.local
+      KV_TOKEN: local-ephemeral-kv-token
+      MCP_JWT_JWKS_URL: ${{ secrets.AUTH0_JWKS_URL }}
+      MCP_GUARD_PUBLIC_KEY_PEM: ${{ secrets.MCP_GUARD_PUBLIC_KEY_PEM }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Build gateway image
+        run: |
+          docker build -f gateway/Dockerfile -t mcp-tool-guard-gateway:${{ github.sha }} .
+
+      - name: Build UI image
+        run: |
+          docker build \
+            -f ui/Dockerfile \
+            --build-arg VITE_MCP_URL=http://${GUARD_HOST}/mcp \
+            --build-arg VITE_PROXY_BASE_URL=http://${GUARD_HOST} \
+            -t mcp-tool-guard-ui:${{ github.sha }} .
+
+      - name: Build KV REST adapter image
+        run: |
+          docker build -f deploy/ephemeral/kv-rest-adapter/Dockerfile -t mcp-tool-guard-kv-rest-adapter:${{ github.sha }} .
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v5
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install k3d
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          k3d version
+
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create ${CLUSTER_NAME} --wait --timeout 5m --port "80:80@loadbalancer"
+          kubectl cluster-info
+          kubectl get nodes
+          echo "127.0.0.1 ${UI_HOST} ${GUARD_HOST}" | sudo tee -a /etc/hosts
+
+      - name: Import images
+        run: |
+          k3d image import mcp-tool-guard-gateway:${{ github.sha }} -c ${CLUSTER_NAME}
+          k3d image import mcp-tool-guard-ui:${{ github.sha }} -c ${CLUSTER_NAME}
+          k3d image import mcp-tool-guard-kv-rest-adapter:${{ github.sha }} -c ${CLUSTER_NAME}
+
+      - name: Create namespace and secrets
+        run: |
+          kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+          printf '%s' "${MCP_GUARD_PUBLIC_KEY_PEM}" > /tmp/mcp-guard-public.pem
+          kubectl -n ${NAMESPACE} create secret generic guard-secrets \
+            --from-literal=KV_REST_API_TOKEN="${KV_TOKEN}" \
+            --from-literal=MCP_JWT_ISSUER="${{ secrets.AUTH0_ISSUER }}" \
+            --from-literal=MCP_JWT_AUDIENCE="${{ secrets.AUTH0_AUDIENCE }}" \
+            --from-literal=MCP_JWT_JWKS_URL="${MCP_JWT_JWKS_URL}" \
+            --from-file=MCP_GUARD_PUBLIC_KEY_PEM=/tmp/mcp-guard-public.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy Helm chart
+        run: |
+          helm upgrade --install guard-ephemeral deploy/ephemeral/helm/guard-ephemeral \
+            -n ${NAMESPACE} \
+            -f deploy/ephemeral/values-ci.yaml \
+            --set ui.image.tag=${{ github.sha }} \
+            --set guard.image.tag=${{ github.sha }} \
+            --set kv.rest.image.tag=${{ github.sha }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n ${NAMESPACE} rollout status deployment/redis --timeout=180s
+          kubectl -n ${NAMESPACE} rollout status deployment/kv-rest --timeout=180s
+          kubectl -n ${NAMESPACE} rollout status deployment/guard --timeout=240s
+          kubectl -n ${NAMESPACE} rollout status deployment/ui --timeout=240s
+          kubectl -n ${NAMESPACE} get pods -o wide
+          kubectl -n ${NAMESPACE} get ingress
+
+      - name: Smoke test (Auth0 + UI + guard)
+        env:
+          GUARD_BASE_URL: http://${{ env.GUARD_HOST }}
+          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
+          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+          AUTH0_READ_CLIENT_ID: ${{ secrets.AUTH0_READ_CLIENT_ID }}
+          AUTH0_READ_CLIENT_SECRET: ${{ secrets.AUTH0_READ_CLIENT_SECRET }}
+          AUTH0_ADMIN_CLIENT_ID: ${{ secrets.AUTH0_ADMIN_CLIENT_ID }}
+          AUTH0_ADMIN_CLIENT_SECRET: ${{ secrets.AUTH0_ADMIN_CLIENT_SECRET }}
+        run: |
+          ./scripts/smoke-auth0-k3d.sh
+
+      - name: Cleanup cluster
+        if: always()
+        run: |
+          k3d cluster delete ${CLUSTER_NAME}
