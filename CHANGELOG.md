@@ -12,7 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- (none)
+- **Backlog planning intake (BL-024/BL-040/BL-041 + BL-021 sequencing note)** — rewrote BL-024 from docker-compose packaging to a k3d-based ephemeral CI workflow skeleton; added BL-040 to extend that workflow into a per-IdP matrix harness (Auth0/Keycloak/Entra as adapters land); added BL-041 for Keycloak `JwtValidator` + `IdpAdapter` implementation sequenced between Auth0 and Entra work; updated BL-021 source with explicit sequencing rationale (after BL-041 for lessons learned, not a hard dependency)
 
 ### Fixed
 
