@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BL-015 final slice B (LLM route extraction)** — moved `/llm/complete` handling into `gateway/proxy-routes-llm.ts`; `gateway/proxy-server.ts` now delegates LLM completion routing via `handleLlmCompleteRoute` while preserving existing behavior (`GEMINI_API_KEY` gating, result/error logging, response codes, and HTTP request span wrapping)
 - **Grafana dashboard JSON refresh** — checked in latest `dashboards/grafana/mcp-tool-guard-proxy.dashboard.json` from Grafana UI edits (including dashboard metadata and current panel/query state) so observability changes remain versioned and reviewable in PRs
 - **OTel ops playbook (Grafana debug row)** — `docs/otel.md` now documents the collapsed telemetry-health debug row (`Error Span Rate`, `Total Span Ingest Rate`, `Span Rate by Name`), a fast no-data decision flow, and latency query caveats (`span.latency_ms` in `ms`, prefer wider ranges for bursty traffic)
 - **BL-015 final slice A (MCP route extraction)** — moved `/mcp` and `/:serverId/mcp` enforcement/forwarding path into `gateway/proxy-routes-mcp.ts`; `gateway/proxy-server.ts` now delegates MCP handling via `handleMcpRoute` with behavior preserved (approval queue, token-bypass flow, audit/telemetry, and upstream forwarding contracts unchanged)
