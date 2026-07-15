@@ -38,14 +38,12 @@ async function connectRedisWithRetry() {
   }
 }
 
-await connectRedisWithRetry();
-
 function unauthorized(res) {
   return res.status(401).json({ error: "unauthorized" });
 }
 
 function requireAuth(req, res, next) {
-  if (req.path === "/health") return next();
+  if (req.path === "/health" || req.path === "/live") return next();
   if (!token) return next();
   const auth = req.headers.authorization || "";
   if (!auth.startsWith("Bearer ")) return unauthorized(res);
@@ -55,6 +53,10 @@ function requireAuth(req, res, next) {
 }
 
 app.use(requireAuth);
+
+app.get("/live", (_req, res) => {
+  return res.json({ ok: true });
+});
 
 app.get("/health", (_req, res) => {
   if (!redisReady) {
@@ -104,6 +106,8 @@ app.get("/scan/:cursor/match/:pattern/count/:count", async (req, res) => {
 
   res.json({ result: [String(out.cursor), out.keys] });
 });
+
+void connectRedisWithRetry();
 
 app.listen(port, () => {
   console.log(`kv-rest-adapter listening on :${port}`);

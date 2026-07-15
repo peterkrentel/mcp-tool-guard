@@ -26,6 +26,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Ephemeral operator client lifecycle automation** — k3d workflow now creates an Auth0 M2M operator client and `client-grant` at run start (scope `gateway:admin` on `AUTH0_AUDIENCE`) and deletes both during cleanup, removing reliance on long-lived operator client secrets
 - **Ephemeral smoke agent-create compatibility** — smoke now defaults test-agent scope to `flights:read` (a typical declared API permission) instead of `demo:noop`, and surfaces the server error returned by `POST /agents` when creation fails
 - **Ephemeral control-plane token compatibility** — k3d Helm values now set `MCP_M2M_REVOCATION=false` for the isolated CI lane so temporary operator M2M admin tokens are not rejected as "Agent revoked or deleted" before `/agents` create/vend/delete checks
+- **Ephemeral kv-rest probe resilience** — kv-rest now starts its HTTP server immediately, retries Redis connection in the background, exposes `/live` for liveness, and keeps `/health` as Redis-readiness so startup races do not trigger rollout timeouts from early connection-refused probe failures
 - Corrected stale BL-015 route ownership references in `docs/ARCHITECTURE.md` to point at extracted gateway route modules.
 
 ### Removed
