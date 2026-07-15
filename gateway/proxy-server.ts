@@ -35,6 +35,7 @@ import { parse as parseYaml } from "yaml";
 import {
   adminAuthRequired,
 } from "./admin-auth.js";
+import { getAgent } from "./agent-store.js";
 import { missingUpstreamEnvNames, resolveGuardConfig } from "./config-resolver.js";
 import { kvEnabled } from "./kv.js";
 import { loadServersFromKv } from "./registry-kv.js";
@@ -372,6 +373,7 @@ async function main(): Promise<void> {
   const guard = new ToolGuard({
     config: registry.toGuardConfig(),
     publicKey: readPublicKeyPem(),
+    isM2mClientActive: async (clientId: string) => Boolean(await getAgent(clientId)),
     ...jwtTrust,
   });
   await guard.init();

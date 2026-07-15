@@ -70,6 +70,7 @@ test("JWKS M2M-shaped token is rejected when agent record is missing (without gt
 
   const guard = new ToolGuard({
     config: makeConfig(),
+    isM2mClientActive: async () => false,
     jwtIssuer: ISSUER,
     jwtAudience: AUDIENCE,
     jwksUrl,
@@ -101,6 +102,7 @@ test("JWKS human token without agent record still validates", async () => {
 
   const guard = new ToolGuard({
     config: makeConfig(),
+    isM2mClientActive: async () => false,
     jwtIssuer: ISSUER,
     jwtAudience: AUDIENCE,
     jwksUrl,

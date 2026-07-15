@@ -6,7 +6,6 @@ import {
 } from "jose";
 import { parse as parseYaml } from "yaml";
 
-import { getAgent } from "./agent-store.js";
 import { AuditLogger } from "./logger.js";
 import type {
   AuditContext,
@@ -23,6 +22,8 @@ export interface ToolGuardOptions {
   publicKey?: CryptoKey | string;
   algorithm?: string;
   logger?: AuditLogger;
+  /** Optional server-side callback to enforce immediate M2M revocation after agent delete. */
+  isM2mClientActive?: (clientId: string) => Promise<boolean>;
   /** IdP issuer — when token `iss` matches, verify via JWKS instead of PEM. */
   jwtIssuer?: string;
   jwtAudience?: string;
@@ -37,6 +38,7 @@ export class ToolGuard {
   private jwtIssuer?: string;
   private jwtAudience?: string;
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private isM2mClientActive?: (clientId: string) => Promise<boolean>;
 
   constructor(options: ToolGuardOptions) {
     this.config =
@@ -45,6 +47,7 @@ export class ToolGuard {
         : options.config;
     this.algorithm = options.algorithm ?? "RS256";
     this.logger = options.logger ?? new AuditLogger();
+    this.isM2mClientActive = options.isM2mClientActive;
     this.jwtIssuer = options.jwtIssuer?.replace(/\/$/, "");
     this.jwtAudience = options.jwtAudience;
     if (options.jwksUrl) {
@@ -134,8 +137,9 @@ export class ToolGuard {
     if (!clientId) {
       throw new Error("M2M token missing client_id/sub claim shape");
     }
-    const agent = await getAgent(clientId);
-    if (!agent) {
+    if (!this.isM2mClientActive) return;
+    const active = await this.isM2mClientActive(clientId);
+    if (!active) {
       throw new Error("Agent revoked or deleted");
     }
   }
