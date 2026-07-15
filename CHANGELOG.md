@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Grafana dashboard-as-code baseline** — added canonical dashboard storage under `dashboards/grafana/` with `mcp-tool-guard-proxy.dashboard.json` and workflow notes in `dashboards/grafana/README.md` so dashboard query/threshold changes are reviewable in PRs
 - **Server registry hardening** — `POST`/`DELETE /servers` now write an audit entry (`__registry:add__` / `__registry:remove__`) with the acting bearer subject, so runtime MCP registration changes are traceable in `/audit`; `POST /servers` reports `persisted: false` and refuses to silently accept a registration when KV is disabled (rolls back the in-memory add on a KV write failure instead of leaving a non-durable entry); `/agents.html` "Remove" button now asks for confirmation before deregistering a server
 - Team deck: added `docs/MCPToolGuard-Team-Overview.pptx` for internal project walkthroughs
 - Demo deck refresh: updated `docs/overview.pptx` for the latest product walkthrough
