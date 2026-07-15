@@ -62,6 +62,9 @@ export interface AuditContext {
 export interface JwtPayload {
   sub?: string;
   exp?: number;
+  gty?: string;
+  client_id?: string;
+  azp?: string;
   scope?: string;
   scopes?: string | string[];
   scp?: string | string[];

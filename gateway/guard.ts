@@ -6,6 +6,7 @@ import {
 } from "jose";
 import { parse as parseYaml } from "yaml";
 
+import { getAgent } from "./agent-store.js";
 import { AuditLogger } from "./logger.js";
 import type {
   AuditContext,
@@ -110,6 +111,35 @@ export class ToolGuard {
     return tokenIss.replace(/\/$/, "") === this.jwtIssuer;
   }
 
+  private isM2mLikeToken(payload: JwtPayload): boolean {
+    // Primary signal: Auth0 M2M token subject/client-id shape.
+    // Secondary signal: explicit grant type claim when present.
+    return this.clientIdFromPayload(payload) !== null || payload.gty === "client-credentials";
+  }
+
+  private clientIdFromPayload(payload: JwtPayload): string | null {
+    if (typeof payload.client_id === "string" && payload.client_id.trim()) {
+      return payload.client_id.trim();
+    }
+    if (typeof payload.sub === "string") {
+      const match = payload.sub.match(/^([^@]+)@clients$/);
+      if (match?.[1]) return match[1];
+    }
+    return null;
+  }
+
+  private async assertActiveM2mAgent(payload: JwtPayload): Promise<void> {
+    if (!this.isM2mLikeToken(payload)) return;
+    const clientId = this.clientIdFromPayload(payload);
+    if (!clientId) {
+      throw new Error("M2M token missing client_id/sub claim shape");
+    }
+    const agent = await getAgent(clientId);
+    if (!agent) {
+      throw new Error("Agent revoked or deleted");
+    }
+  }
+
   async validateToken(token: string): Promise<{ payload: JwtPayload; scopes: string[] }> {
     const unverified = decodeJwt(token) as JwtPayload;
     if (
@@ -123,6 +153,7 @@ export class ToolGuard {
         audience: this.jwtAudience,
       });
       const jwtPayload = payload as JwtPayload;
+      await this.assertActiveM2mAgent(jwtPayload);
       return { payload: jwtPayload, scopes: this.extractScopes(jwtPayload) };
     }
 
