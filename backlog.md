@@ -20,14 +20,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P0 (next)
 
-- BL-001
-  priority: P0
-  status: done
-  item: Harden agent audit ingest auth (`POST /audit/agent`)
-  acceptance: Endpoint requires Bearer (`audit:write` or `gateway:admin`) or trusted mode; demo mode remains explicit
-  owner: unassigned
-  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
-
 - BL-037
   priority: P1
   status: todo
@@ -43,13 +35,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Define parent/subagent delegation model (scope attenuation vs independently minted JWT per subagent), add parent/child trace correlation fields, document cross-agent prompt-injection risks and mitigation boundaries, and propose risk-tiered approval policy for high-volume autonomous tool calls (instead of per-call human approval only)
   owner: unassigned
   source: threat-model note 2026-07-14 — moving from single-agent loops to orchestrated subagents introduces agent-to-agent trust boundaries not covered by current harness-to-tool enforcement
-- BL-002
-  priority: P0
-  status: done
-  item: Harden pending token disclosure (`GET /pending/:id`)
-  acceptance: Optional Bearer gate or short poll token path for retries; docs updated with threat model
-  owner: unassigned
-  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
 - BL-003
   priority: P0
   status: todo
@@ -71,13 +56,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
-- BL-015
-  priority: P0
-  status: done
-  item: Decompose proxy-server.ts into route modules
-  acceptance: `gateway/proxy-server.ts` reduced to bootstrap/composition; route modules for MCP, agents, servers, pending, audit, LLM, and token; shared HTTP helpers extracted; no route behavior changes for `/health`, `/audit`, `/mcp`, `/:serverId/mcp`, `/agents`, `/servers`, `/pending`, `/token`, `/llm/complete`; preserve CORS, rate limiting, and OTEL wrapping
-  owner: unassigned
-  source: discussion 2026-06-29, post-0.4.0 Track 0 BL-P01; completed in branch bl-015-proxy-slice-and-tests via staged extraction (shared HTTP helpers + audit/pending + servers + agents/token + MCP + LLM routes) with gateway regression tests and local/prod smoke validation
 - BL-019
   priority: P0
   status: todo
@@ -302,26 +280,3 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 - New open work should be added here first.
 - BL-015 execution strategy: ship in small slices (helpers-first), then move one route group at a time with gateway tests and GUI smoke validation after each slice.
 
-## Completed in this PR (pending release note)
-
-- BL-012
-  priority: P1
-  status: done
-  item: Add `GEMINI_API_KEY` to [docs/guard-proxy.md](docs/guard-proxy.md) environment table
-  acceptance: Env table includes Gemini server-side key usage for `POST /llm/complete`
-  owner: docs
-  source: docs audit 2026-06-26
-- BL-013
-  priority: P1
-  status: done
-  item: Remove raw dev notes from EOF of [docs/demo-proxy.md](docs/demo-proxy.md)
-  acceptance: No pasted ad-hoc tool-call notes remain in published demo script
-  owner: docs
-  source: docs audit 2026-06-26
-- BL-014
-  priority: P1
-  status: done
-  item: Update [docs/otel.md](docs/otel.md) acceptance and stale branch wording
-  acceptance: Acceptance checklist is checked and branch-pending note replaced with shipped status text
-  owner: docs
-  source: docs audit 2026-06-26
