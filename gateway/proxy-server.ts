@@ -55,7 +55,7 @@ import {
   auth0AudienceFromEnv,
   tokenVendorFromEnv,
 } from "./token-vendor.js";
-import { geminiComplete, geminiConfigured } from "./llm-proxy.js";
+import { geminiConfigured } from "./llm-proxy.js";
 import {
   handleAuditAgentPostRoute,
   handleAuditRoute,
@@ -64,9 +64,9 @@ import { handlePendingRoutes } from "./proxy-routes-pending.js";
 import { handleServerRoutes } from "./proxy-routes-servers.js";
 import { handleAgentsTokenRoutes } from "./proxy-routes-agents-token.js";
 import { handleMcpRoute } from "./proxy-routes-mcp.js";
+import { handleLlmCompleteRoute } from "./proxy-routes-llm.js";
 import {
   applyCors,
-  readJson,
   sendJson,
 } from "./http-helpers.js";
 import type { GuardConfig } from "./types.js";
@@ -281,24 +281,7 @@ async function main(): Promise<void> {
         return;
       }
 
-      /** POST /llm/complete — proxy Gemini completion server-side (key never exposed to browser). */
-      if (req.method === "POST" && pathname === "/llm/complete") {
-        if (!geminiConfigured()) {
-          sendJson(res, 503, { error: "GEMINI_API_KEY not configured on gateway" });
-          return;
-        }
-        try {
-          const body = await readJson<{ messages: unknown[]; tools?: unknown[] }>(req);
-          const result = await geminiComplete(body as Parameters<typeof geminiComplete>[0]);
-          console.info(`[MCPToolGuard] llm/complete → ${result.toolCall ? `toolCall:${result.toolCall.name}` : "text"}`);
-          sendJson(res, 200, result);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn(`[MCPToolGuard] llm/complete error: ${message}`);
-          sendJson(res, 502, { error: message });
-        }
-        return;
-      }
+      if (await handleLlmCompleteRoute(req, res)) return;
 
       if (req.method === "POST") {
         const route = matchMcpRoute(pathname, defaultServer);
