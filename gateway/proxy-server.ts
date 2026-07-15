@@ -42,6 +42,7 @@ import { loadServersFromKv } from "./registry-kv.js";
 import {
   auditAgentTrustedMode,
   guardEnabled,
+  m2mRevocationEnabled,
   jwtTrustFromEnv,
   readPublicKeyPem,
 } from "./env.js";
@@ -370,10 +371,16 @@ async function main(): Promise<void> {
   }
 
   const jwtTrust = jwtTrustFromEnv();
+  const revocationEnabled = m2mRevocationEnabled();
   const guard = new ToolGuard({
     config: registry.toGuardConfig(),
     publicKey: readPublicKeyPem(),
-    isM2mClientActive: async (clientId: string) => Boolean(await getAgent(clientId)),
+    ...(revocationEnabled
+      ? {
+          isM2mClientActive: async (clientId: string) =>
+            Boolean(await getAgent(clientId)),
+        }
+      : {}),
     ...jwtTrust,
   });
   await guard.init();
@@ -400,6 +407,11 @@ async function main(): Promise<void> {
     console.info(
       "[MCPToolGuard proxy] Dual trust: JWKS (%s) + demo PEM",
       jwtTrust.jwksUrl,
+    );
+  }
+  if (!revocationEnabled) {
+    console.warn(
+      "[MCPToolGuard proxy] M2M immediate revocation disabled (MCP_M2M_REVOCATION=false or KV disabled)",
     );
   }
 
@@ -451,6 +463,7 @@ async function main(): Promise<void> {
           guard_enabled: enabled,
           jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
           control_plane_auth: controlPlaneAuth,
+          m2m_revocation_enabled: revocationEnabled,
           audit_agent_trusted_mode: auditAgentTrustedMode(),
           auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           kv_enabled: kvEnabled(),

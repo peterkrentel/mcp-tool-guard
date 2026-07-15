@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { kvEnabled } from "./kv.js";
+
 function gatewayRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   return here.endsWith(`${sep}dist`) ? resolve(here, "..") : here;
@@ -36,6 +38,19 @@ export function readPublicKeyPem(): string {
 
 export function guardEnabled(): boolean {
   return process.env.MCP_GUARD_ENABLED?.toLowerCase() !== "false";
+}
+
+/**
+ * M2M immediate revocation enforcement.
+ *
+ * Defaults to `true` only when KV persistence is enabled because the revocation
+ * check depends on server-side agent records.
+ */
+export function m2mRevocationEnabled(): boolean {
+  const override = process.env.MCP_M2M_REVOCATION?.trim().toLowerCase();
+  if (override === "true") return true;
+  if (override === "false") return false;
+  return kvEnabled();
 }
 
 /** Explicit demo-mode escape hatch for browser audit ingest. */
