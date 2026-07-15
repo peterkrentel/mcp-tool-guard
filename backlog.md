@@ -224,6 +224,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: discovered 2026-07-14 during BL-015 PR-150 preview validation - `/health` on `pr-150.onrender.com` showed `kv_enabled:true` and a dynamically-registered `slack-prod` server not present in `config.prod.yaml`, indicating it reads the same KV store as Production; `render.yaml` has no separate Preview-scoped env vars for any of `KV_REST_API_URL`/`KV_REST_API_TOKEN`, `AUTH0_MGMT_*`, `GEMINI_API_KEY`, `SLACK_MCP_TOKEN`, `GITHUB_MCP_TOKEN`
 
+- BL-036
+  priority: P1
+  status: todo
+  item: Add env-gated Auth0 happy-path integration coverage for `/agents` and `/token`
+  acceptance: Add integration tests that exercise successful Auth0-backed `POST /agents`, `POST /agents/:clientId/token`, and `POST /token` paths when dedicated test env vars are present; tests are skipped (not failed) when Auth0 integration env is absent; tests clean up created Auth0 apps/agents; CI keeps deterministic non-network auth tests as baseline and runs Auth0 integration tests only in secrets-enabled job/environment
+  owner: unassigned
+  source: BL-015 slice review 2026-07-14 - route decomposition tests cover auth gates and not-configured paths, but real Auth0 happy-path behavior remains unverified in automated tests
+
 - BL-016
   priority: P2
   status: todo
