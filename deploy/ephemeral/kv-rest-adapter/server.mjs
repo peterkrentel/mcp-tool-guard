@@ -45,6 +45,7 @@ function unauthorized(res) {
 }
 
 function requireAuth(req, res, next) {
+  if (req.path === "/health") return next();
   if (!token) return next();
   const auth = req.headers.authorization || "";
   if (!auth.startsWith("Bearer ")) return unauthorized(res);
