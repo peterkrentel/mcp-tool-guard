@@ -128,10 +128,22 @@ jobs:
 
       - name: Wait for rollout
         run: |
+          on_rollout_failure() {
+            echo "Rollout failed. Dumping pod diagnostics..."
+            kubectl -n ${NAMESPACE} get pods -o wide || true
+            kubectl -n ${NAMESPACE} describe deployment kv-rest || true
+            kubectl -n ${NAMESPACE} describe pod -l app=kv-rest || true
+            kubectl -n ${NAMESPACE} logs deployment/kv-rest --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/redis --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/guard --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/ui --tail=200 || true
+          }
+          trap on_rollout_failure ERR
           kubectl -n ${NAMESPACE} rollout status deployment/redis --timeout=180s
-          kubectl -n ${NAMESPACE} rollout status deployment/kv-rest --timeout=180s
+          kubectl -n ${NAMESPACE} rollout status deployment/kv-rest --timeout=300s
           kubectl -n ${NAMESPACE} rollout status deployment/guard --timeout=240s
           kubectl -n ${NAMESPACE} rollout status deployment/ui --timeout=240s
+          trap - ERR
           kubectl -n ${NAMESPACE} get pods -o wide
           kubectl -n ${NAMESPACE} get ingress
 

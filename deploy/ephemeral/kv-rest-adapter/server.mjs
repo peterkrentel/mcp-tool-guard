@@ -12,7 +12,33 @@ const redis = createClient({ url: redisUrl });
 redis.on("error", (err) => {
   console.error("redis error", err);
 });
-await redis.connect();
+
+let redisReady = false;
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectRedisWithRetry() {
+  for (;;) {
+    try {
+      if (!redis.isOpen) {
+        await redis.connect();
+      }
+      await redis.ping();
+      redisReady = true;
+      console.log("redis connected");
+      return;
+    } catch (err) {
+      redisReady = false;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("redis connect failed, retrying in 2s", message);
+      await sleep(2000);
+    }
+  }
+}
+
+await connectRedisWithRetry();
 
 function unauthorized(res) {
   return res.status(401).json({ error: "unauthorized" });
@@ -30,7 +56,10 @@ function requireAuth(req, res, next) {
 app.use(requireAuth);
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  if (!redisReady) {
+    return res.status(503).json({ ok: false, redisReady: false });
+  }
+  return res.json({ ok: true, redisReady: true });
 });
 
 app.get("/get/:key", async (req, res) => {
