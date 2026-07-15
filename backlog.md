@@ -27,6 +27,22 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Endpoint requires Bearer (`audit:write` or `gateway:admin`) or trusted mode; demo mode remains explicit
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
+
+- BL-037
+  priority: P1
+  status: todo
+  item: Claude Code harness integration guide for guarded MCP endpoints
+  acceptance: Document and smoke-test Claude Code configuration for guarded upstream access via `POST /:serverId/mcp` (example `claude mcp add .../github/mcp` with bearer auth), including token vending flow (`/agents/:clientId/token` or `/token`), token refresh via `headersHelper`, and expected dual approval behavior (Claude local tool approval plus gateway scope/pending approval)
+  owner: unassigned
+  source: design note 2026-07-14 — guard proxy is MCP-contract compatible and should be harness-agnostic across browser, curl/M2M, and Claude Code clients
+
+- BL-038
+  priority: P1
+  status: todo
+  item: Multi-agent delegation trust model and guard policy extension
+  acceptance: Define parent/subagent delegation model (scope attenuation vs independently minted JWT per subagent), add parent/child trace correlation fields, document cross-agent prompt-injection risks and mitigation boundaries, and propose risk-tiered approval policy for high-volume autonomous tool calls (instead of per-call human approval only)
+  owner: unassigned
+  source: threat-model note 2026-07-14 — moving from single-agent loops to orchestrated subagents introduces agent-to-agent trust boundaries not covered by current harness-to-tool enforcement
 - BL-002
   priority: P0
   status: done
@@ -223,6 +239,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Render PR preview environments (`render.yaml` `previews.generation: automatic`) either get their own `KV_REST_API_URL`/`KV_REST_API_TOKEN` (and other env-scoped secrets) separate from Production, or - if kept shared for cost/simplicity - `docs/render-deploy.md` explicitly documents that preview deploys read/write the same KV store, Auth0 management app, and upstream tokens as prod, so PR reviewers know not to treat preview URLs as sandboxed for approval-queue/audit testing
   owner: unassigned
   source: discovered 2026-07-14 during BL-015 PR-150 preview validation - `/health` on `pr-150.onrender.com` showed `kv_enabled:true` and a dynamically-registered `slack-prod` server not present in `config.prod.yaml`, indicating it reads the same KV store as Production; `render.yaml` has no separate Preview-scoped env vars for any of `KV_REST_API_URL`/`KV_REST_API_TOKEN`, `AUTH0_MGMT_*`, `GEMINI_API_KEY`, `SLACK_MCP_TOKEN`, `GITHUB_MCP_TOKEN`
+
+- BL-036
+  priority: P1
+  status: todo
+  item: Add env-gated Auth0 happy-path integration coverage for `/agents` and `/token`
+  acceptance: Add integration tests that exercise successful Auth0-backed `POST /agents`, `POST /agents/:clientId/token`, and `POST /token` paths when dedicated test env vars are present; tests are skipped (not failed) when Auth0 integration env is absent; tests clean up created Auth0 apps/agents; CI keeps deterministic non-network auth tests as baseline and runs Auth0 integration tests only in secrets-enabled job/environment
+  owner: unassigned
+  source: BL-015 slice review 2026-07-14 - route decomposition tests cover auth gates and not-configured paths, but real Auth0 happy-path behavior remains unverified in automated tests
 
 - BL-016
   priority: P2

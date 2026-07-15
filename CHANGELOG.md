@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Grafana dashboard-as-code baseline** — added canonical dashboard storage under `dashboards/grafana/` with `mcp-tool-guard-proxy.dashboard.json` and workflow notes in `dashboards/grafana/README.md` so dashboard query/threshold changes are reviewable in PRs
 - **Server registry hardening** — `POST`/`DELETE /servers` now write an audit entry (`__registry:add__` / `__registry:remove__`) with the acting bearer subject, so runtime MCP registration changes are traceable in `/audit`; `POST /servers` reports `persisted: false` and refuses to silently accept a registration when KV is disabled (rolls back the in-memory add on a KV write failure instead of leaving a non-durable entry); `/agents.html` "Remove" button now asks for confirmation before deregistering a server
 - Team deck: added `docs/MCPToolGuard-Team-Overview.pptx` for internal project walkthroughs
 - Demo deck refresh: updated `docs/overview.pptx` for the latest product walkthrough
@@ -15,6 +16,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **OTel ops playbook (Grafana debug row)** — `docs/otel.md` now documents the collapsed telemetry-health debug row (`Error Span Rate`, `Total Span Ingest Rate`, `Span Rate by Name`), a fast no-data decision flow, and latency query caveats (`span.latency_ms` in `ms`, prefer wider ranges for bursty traffic)
+- **Local revocation ergonomics** — M2M immediate revocation now auto-enables only when KV is enabled; local no-KV runs default to revocation off to avoid false "Agent revoked or deleted" denials during `/agents.html` demo flow, with explicit override via `MCP_M2M_REVOCATION=true|false`
+- **M2M revocation detection hardening** — guard-side deleted-agent enforcement now treats Auth0 M2M tokens as client-id shaped (`sub={clientId}@clients` or `client_id`) even when `gty` is absent, with `gty` retained only as secondary hint; this prevents silent bypass when tenant tokens omit grant-type claim, and the active-agent lookup is now injected server-side so browser bundles do not pull Node-only dependencies
+- **Backlog tracking (BL-037/BL-038)** — added P1 follow-ups for Claude Code MCP harness integration guidance (guarded `/ :serverId /mcp` usage, token vending/refresh via headers helper, dual approval expectations) and for multi-agent delegation trust-model hardening (scope attenuation/delegation, parent-child trace correlation, cross-agent injection boundary, and risk-tiered approvals)
+- **Agents UI chat-state guardrail** — `ui/src/agents-main.ts` now disables Send unless an agent is selected and initialized, clears Send state when selected agent/runtime is revoked or reset, and shows explicit status guidance instead of silent no-op when sending without an active initialized agent
+- **Backlog tracking (BL-036)** — added P1 follow-up for env-gated Auth0 happy-path integration coverage on `POST /agents`, `POST /agents/:clientId/token`, and `POST /token`, with skip-when-no-secrets behavior and cleanup requirements
+- **BL-015 slice (agents/token routes + tests)** — extracted `/agents*` and `/token` route handling into `gateway/proxy-routes-agents-token.ts`; delegated agent/token endpoints from `gateway/proxy-server.ts`; expanded gateway tests for `/agents` list + admin auth guards and token-vending-not-configured contracts
 - **BL-015 cleanup (dead imports)** — removed stale `/servers` extraction leftovers from `gateway/proxy-server.ts` import block after route logic moved into `gateway/proxy-routes-servers.ts`
 - **BL-015 slice (servers routes + tests)** — extracted `/servers` route handling into `gateway/proxy-routes-servers.ts`; delegated server list/add/remove/tools endpoints from `gateway/proxy-server.ts`; expanded gateway tests to cover `/servers` list/auth/add/remove and `/servers/:id/tools` error contracts
 - **Backlog tracking (BL-035)** — added P1 item to isolate or explicitly document Render PR preview shared state versus production (KV/Auth0/upstream token scope) after preview validation showed production-shared behavior

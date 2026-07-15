@@ -227,6 +227,10 @@ function populateLlmSelect(): void {
   }
 }
 
+function syncSendButtonState(): void {
+  sendBtn.disabled = !(selectedAgent && gatewayAgent);
+}
+
 async function refreshAgents(): Promise<void> {
   try {
     const listed = await listAgents();
@@ -248,6 +252,7 @@ async function refreshAgents(): Promise<void> {
     ) {
       selectedAgent = null;
       gatewayAgent = null;
+      syncSendButtonState();
     }
     renderAgentCards();
   } catch {
@@ -311,6 +316,8 @@ function renderAgentCards(): void {
         removeAgentSession(id);
         if (selectedAgent?.clientId === id) selectedAgent = null;
         gatewayAgent = null;
+        syncSendButtonState();
+        statusEl.textContent = "Select or create an agent, then Initialize";
         renderAgentCards();
       })();
     });
@@ -332,6 +339,7 @@ async function activateSelectedAgent(clientId: string): Promise<void> {
     selectedAgent = { ...meta, token, clientSecret: "" };
     gatewayAgent = null;
     statusEl.textContent = `Selected ${meta.name}`;
+    syncSendButtonState();
     renderAgentCards();
   } catch (err) {
     statusEl.textContent = err instanceof Error ? err.message : String(err);
@@ -468,6 +476,7 @@ createAgentForm.addEventListener("submit", (e) => {
     agents.push(agent);
     selectedAgent = agent;
     statusEl.textContent = `Agent ${name} created`;
+    syncSendButtonState();
     renderAgentCards();
     form.reset();
   })().catch((err) => {
@@ -519,13 +528,14 @@ initBtn.addEventListener("click", () => {
       onAudit: () => void refreshAudit(),
     });
     await gatewayAgent.init();
-    sendBtn.disabled = false;
+    syncSendButtonState();
     startAuditPoll();
     await refreshAudit();
     appendChat("system", `Agent ready — ${selectedAgent.name} → ${selectedAgent.serverId}`);
     initBtn.disabled = false;
   })().catch((err) => {
     statusEl.textContent = err instanceof Error ? err.message : String(err);
+    syncSendButtonState();
     initBtn.disabled = false;
   });
 });
@@ -533,7 +543,17 @@ initBtn.addEventListener("click", () => {
 sendBtn.addEventListener("click", () => {
   void (async () => {
     const text = inputEl.value.trim();
-    if (!text || !gatewayAgent) return;
+    if (!text) return;
+    if (!selectedAgent) {
+      statusEl.textContent = "Select or create an agent first";
+      syncSendButtonState();
+      return;
+    }
+    if (!gatewayAgent) {
+      statusEl.textContent = "Initialize the selected agent before sending";
+      syncSendButtonState();
+      return;
+    }
     inputEl.value = "";
     sendBtn.disabled = true;
     try {
@@ -541,7 +561,7 @@ sendBtn.addEventListener("click", () => {
       await gatewayAgent.chat(text);
       await refreshAudit();
     } finally {
-      sendBtn.disabled = false;
+      syncSendButtonState();
     }
   })();
 });
@@ -554,10 +574,12 @@ authLoginBtn.addEventListener("click", () => void loginWithAuth0());
 authLogoutBtn.addEventListener("click", () => {
   gatewayAgent = null;
   selectedAgent = null;
+  syncSendButtonState();
   void logoutAuth0().then(() => syncAdminUi());
 });
 
 populateLlmSelect();
+syncSendButtonState();
 void syncAdminUi().then(() =>
   refreshServers()
     .then(() => refreshAgents())

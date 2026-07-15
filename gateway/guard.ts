@@ -22,6 +22,8 @@ export interface ToolGuardOptions {
   publicKey?: CryptoKey | string;
   algorithm?: string;
   logger?: AuditLogger;
+  /** Optional server-side callback to enforce immediate M2M revocation after agent delete. */
+  isM2mClientActive?: (clientId: string) => Promise<boolean>;
   /** IdP issuer — when token `iss` matches, verify via JWKS instead of PEM. */
   jwtIssuer?: string;
   jwtAudience?: string;
@@ -36,6 +38,7 @@ export class ToolGuard {
   private jwtIssuer?: string;
   private jwtAudience?: string;
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private isM2mClientActive?: (clientId: string) => Promise<boolean>;
 
   constructor(options: ToolGuardOptions) {
     this.config =
@@ -44,6 +47,7 @@ export class ToolGuard {
         : options.config;
     this.algorithm = options.algorithm ?? "RS256";
     this.logger = options.logger ?? new AuditLogger();
+    this.isM2mClientActive = options.isM2mClientActive;
     this.jwtIssuer = options.jwtIssuer?.replace(/\/$/, "");
     this.jwtAudience = options.jwtAudience;
     if (options.jwksUrl) {
@@ -110,6 +114,36 @@ export class ToolGuard {
     return tokenIss.replace(/\/$/, "") === this.jwtIssuer;
   }
 
+  private isM2mLikeToken(payload: JwtPayload): boolean {
+    // Primary signal: Auth0 M2M token subject/client-id shape.
+    // Secondary signal: explicit grant type claim when present.
+    return this.clientIdFromPayload(payload) !== null || payload.gty === "client-credentials";
+  }
+
+  private clientIdFromPayload(payload: JwtPayload): string | null {
+    if (typeof payload.client_id === "string" && payload.client_id.trim()) {
+      return payload.client_id.trim();
+    }
+    if (typeof payload.sub === "string") {
+      const match = payload.sub.match(/^([^@]+)@clients$/);
+      if (match?.[1]) return match[1];
+    }
+    return null;
+  }
+
+  private async assertActiveM2mAgent(payload: JwtPayload): Promise<void> {
+    if (!this.isM2mLikeToken(payload)) return;
+    const clientId = this.clientIdFromPayload(payload);
+    if (!clientId) {
+      throw new Error("M2M token missing client_id/sub claim shape");
+    }
+    if (!this.isM2mClientActive) return;
+    const active = await this.isM2mClientActive(clientId);
+    if (!active) {
+      throw new Error("Agent revoked or deleted");
+    }
+  }
+
   async validateToken(token: string): Promise<{ payload: JwtPayload; scopes: string[] }> {
     const unverified = decodeJwt(token) as JwtPayload;
     if (
@@ -123,6 +157,7 @@ export class ToolGuard {
         audience: this.jwtAudience,
       });
       const jwtPayload = payload as JwtPayload;
+      await this.assertActiveM2mAgent(jwtPayload);
       return { payload: jwtPayload, scopes: this.extractScopes(jwtPayload) };
     }
 

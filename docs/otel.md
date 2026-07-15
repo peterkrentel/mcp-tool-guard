@@ -69,6 +69,38 @@ If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, the SDK is **not** initialized — pr
 { span.name = "mcp.upstream.forward" && http.response.status_code >= 400 }
 ```
 
+## Grafana debug row (No data triage)
+
+When latency panels show `No data`, open the collapsed **`⚙ Debug — Telemetry Health`** row first.
+
+| Panel | Query | Purpose |
+|-------|-------|---------|
+| Error Span Rate | `{ resource.service.name="mcp-tool-guard-proxy" && status=error } \| rate()` | Distinguishes runtime failures from panel/query issues |
+| Total Span Ingest Rate | `{ resource.service.name="mcp-tool-guard-proxy" } \| rate()` | Confirms spans are reaching Tempo |
+| Span Rate by Name | `{ resource.service.name="mcp-tool-guard-proxy" } \| rate() by (name)` | Confirms expected span names are present |
+
+Decision flow:
+
+```text
+Error Span Rate > 0 and Total Span Ingest Rate > 0:
+	runtime errors are present — inspect traces/logs by span name and trace id
+
+Error Span Rate = 0 and Total Span Ingest Rate > 0:
+	panel query/filter/unit issue
+	- verify span name filter
+	- verify attribute name
+	- verify unit and time range
+
+Total Span Ingest Rate = 0:
+	ingestion path issue (SDK/exporter/collector)
+```
+
+Latency query caveat:
+
+- For `mcp.upstream.forward` and `llm.gemini.complete`, use `span.latency_ms` (unit: `ms`) for p50/p95 panels.
+- `duration` is intrinsic span duration and may not reflect app-level latency for these spans.
+- Use a wider dashboard range (`Last 30 minutes`) during low-traffic debugging.
+
 ---
 
 ## Non-goals (v1)
