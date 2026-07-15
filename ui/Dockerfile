@@ -12,6 +12,7 @@ ARG VITE_MCP_URL=""
 ARG VITE_PROXY_BASE_URL=""
 ENV VITE_MCP_URL=${VITE_MCP_URL}
 ENV VITE_PROXY_BASE_URL=${VITE_PROXY_BASE_URL}
+RUN npm run build -w @mcp-tool-guard/gateway
 RUN npm run build -w @mcp-tool-guard/ui
 
 FROM nginx:1.27-alpine AS runtime

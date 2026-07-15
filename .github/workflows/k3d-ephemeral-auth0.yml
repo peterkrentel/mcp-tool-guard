@@ -47,15 +47,44 @@ jobs:
           docker build -f deploy/ephemeral/kv-rest-adapter/Dockerfile -t mcp-tool-guard-kv-rest-adapter:${{ github.sha }} .
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v5
+        run: |
+          curl -fsSL -o kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
 
       - name: Install k3d
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
           k3d version
+
+      - name: Validate required secrets
+        env:
+          AUTH0_ISSUER: ${{ secrets.AUTH0_ISSUER }}
+          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_MGMT_CLIENT_ID: ${{ secrets.AUTH0_MGMT_CLIENT_ID }}
+          AUTH0_MGMT_CLIENT_SECRET: ${{ secrets.AUTH0_MGMT_CLIENT_SECRET }}
+          AUTH0_OPERATOR_CLIENT_ID: ${{ secrets.AUTH0_OPERATOR_CLIENT_ID }}
+          AUTH0_OPERATOR_CLIENT_SECRET: ${{ secrets.AUTH0_OPERATOR_CLIENT_SECRET }}
+          MCP_JWT_JWKS_URL: ${{ secrets.AUTH0_JWKS_URL }}
+          MCP_GUARD_PUBLIC_KEY_PEM: ${{ secrets.MCP_GUARD_PUBLIC_KEY_PEM }}
+        run: |
+          missing=0
+          for key in AUTH0_ISSUER AUTH0_AUDIENCE AUTH0_DOMAIN AUTH0_MGMT_CLIENT_ID AUTH0_MGMT_CLIENT_SECRET AUTH0_OPERATOR_CLIENT_ID AUTH0_OPERATOR_CLIENT_SECRET MCP_JWT_JWKS_URL MCP_GUARD_PUBLIC_KEY_PEM; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Create k3d cluster
         run: |
@@ -118,4 +147,6 @@ jobs:
       - name: Cleanup cluster
         if: always()
         run: |
-          k3d cluster delete ${CLUSTER_NAME}
+          if command -v k3d >/dev/null 2>&1; then
+            k3d cluster delete ${CLUSTER_NAME} || true
+          fi
