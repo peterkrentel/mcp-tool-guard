@@ -27,6 +27,22 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Endpoint requires Bearer (`audit:write` or `gateway:admin`) or trusted mode; demo mode remains explicit
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review)
+
+- BL-037
+  priority: P1
+  status: todo
+  item: Claude Code harness integration guide for guarded MCP endpoints
+  acceptance: Document and smoke-test Claude Code configuration for guarded upstream access via `POST /:serverId/mcp` (example `claude mcp add .../github/mcp` with bearer auth), including token vending flow (`/agents/:clientId/token` or `/token`), token refresh via `headersHelper`, and expected dual approval behavior (Claude local tool approval plus gateway scope/pending approval)
+  owner: unassigned
+  source: design note 2026-07-14 — guard proxy is MCP-contract compatible and should be harness-agnostic across browser, curl/M2M, and Claude Code clients
+
+- BL-038
+  priority: P1
+  status: todo
+  item: Multi-agent delegation trust model and guard policy extension
+  acceptance: Define parent/subagent delegation model (scope attenuation vs independently minted JWT per subagent), add parent/child trace correlation fields, document cross-agent prompt-injection risks and mitigation boundaries, and propose risk-tiered approval policy for high-volume autonomous tool calls (instead of per-call human approval only)
+  owner: unassigned
+  source: threat-model note 2026-07-14 — moving from single-agent loops to orchestrated subagents introduces agent-to-agent trust boundaries not covered by current harness-to-tool enforcement
 - BL-002
   priority: P0
   status: done

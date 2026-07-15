@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Backlog tracking (BL-037/BL-038)** — added P1 follow-ups for Claude Code MCP harness integration guidance (guarded `/ :serverId /mcp` usage, token vending/refresh via headers helper, dual approval expectations) and for multi-agent delegation trust-model hardening (scope attenuation/delegation, parent-child trace correlation, cross-agent injection boundary, and risk-tiered approvals)
 - **Agents UI chat-state guardrail** — `ui/src/agents-main.ts` now disables Send unless an agent is selected and initialized, clears Send state when selected agent/runtime is revoked or reset, and shows explicit status guidance instead of silent no-op when sending without an active initialized agent
 - **Backlog tracking (BL-036)** — added P1 follow-up for env-gated Auth0 happy-path integration coverage on `POST /agents`, `POST /agents/:clientId/token`, and `POST /token`, with skip-when-no-secrets behavior and cleanup requirements
 - **BL-015 slice (agents/token routes + tests)** — extracted `/agents*` and `/token` route handling into `gateway/proxy-routes-agents-token.ts`; delegated agent/token endpoints from `gateway/proxy-server.ts`; expanded gateway tests for `/agents` list + admin auth guards and token-vending-not-configured contracts
