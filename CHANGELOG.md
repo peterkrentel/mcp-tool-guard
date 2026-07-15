@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Ephemeral workflow startup reliability** — UI container build now compiles `@mcp-tool-guard/gateway` before `@mcp-tool-guard/ui` so workspace type imports resolve during Docker build; `k3d-ephemeral-auth0` now installs `kubectl`/`helm` without Azure setup actions, fails fast with explicit missing-secret errors, and guards cleanup when `k3d` is unavailable so secondary errors do not mask primary failures
+- **Ephemeral workflow trigger usability** — removed label-only gating from `.github/workflows/k3d-ephemeral-auth0.yml`; the job now runs on pull request `opened`/`synchronize`/`reopened` events and `workflow_dispatch`, eliminating manual label re-add cycles
 - Corrected stale BL-015 route ownership references in `docs/ARCHITECTURE.md` to point at extracted gateway route modules.
 
 ### Removed

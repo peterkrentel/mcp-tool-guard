@@ -27,10 +27,10 @@ No existing application runtime code path is changed.
 
 ## Trigger model
 
-The workflow is intentionally separate from fast CI and only runs on:
+The workflow is intentionally separate from fast CI and runs on:
 
 - `workflow_dispatch`
-- PR label `run-k3d-ephemeral`
+- pull request updates (`opened`, `synchronize`, `reopened`)
 
 ## Required GitHub secrets
 

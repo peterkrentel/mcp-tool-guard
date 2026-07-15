@@ -3,11 +3,10 @@ name: k3d-ephemeral-auth0
 on:
   workflow_dispatch:
   pull_request:
-    types: [labeled]
+    types: [opened, synchronize, reopened]
 
 jobs:
   ephemeral:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-k3d-ephemeral'
     runs-on: ubuntu-latest
     env:
       CLUSTER_NAME: guard-ephemeral
