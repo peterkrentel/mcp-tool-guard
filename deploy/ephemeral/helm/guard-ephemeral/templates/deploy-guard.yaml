@@ -24,6 +24,8 @@ spec:
               value: {{ .Values.guard.env.MCP_PROXY_PORT | quote }}
             - name: MCP_GUARD_ENABLED
               value: {{ .Values.guard.env.MCP_GUARD_ENABLED | quote }}
+            - name: MCP_M2M_REVOCATION
+              value: {{ .Values.guard.env.MCP_M2M_REVOCATION | quote }}
             - name: MCP_PROXY_DEFAULT_SERVER
               value: {{ .Values.guard.env.MCP_PROXY_DEFAULT_SERVER | quote }}
             - name: MCP_CORS_ORIGINS

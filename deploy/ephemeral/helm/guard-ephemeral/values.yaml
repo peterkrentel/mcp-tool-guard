@@ -25,6 +25,7 @@ guard:
   env:
     MCP_PROXY_PORT: "8787"
     MCP_GUARD_ENABLED: "true"
+    MCP_M2M_REVOCATION: "false"
     MCP_PROXY_DEFAULT_SERVER: "demo"
     MCP_CORS_ORIGINS: "http://ui.ephemeral.local"
     MCP_PROXY_CONFIG: "/app/config/guard-config.yaml"
