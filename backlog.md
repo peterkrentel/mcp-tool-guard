@@ -264,6 +264,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: discussion 2026-07-07 — registry mutation audit entries (added in server-registry hardening) exist server-side but have no dedicated view; session-scoped filter intentionally left unchanged to avoid affecting other audit consumers
 
+- BL-039
+  priority: P2
+  status: todo
+  item: Approval-queue bypass doesn't propagate to upstreams with their own scope enforcement
+  acceptance: Document (and decide whether to fix) that the proxy's `X-Approval-Token` bypass only lifts the proxy's own guard check — for upstream MCP servers without `upstream_token_env` configured (no vendor-credential substitution, e.g. `flight`), the original scope-limited bearer is forwarded unchanged, so an upstream running its own independent guard (`servers/flight`) re-denies after proxy approval. Servers with `upstream_token_env` (`github`, `slack-prod`) are unaffected since the proxy substitutes its own vendor PAT. Decide: is this acceptable (approval queue is a proxy-layer control, not meant to override upstream-owned policy) or does it need a fix (e.g. proxy re-signs/elevates the forwarded credential post-approval)?
+  owner: unassigned
+  source: discovered 2026-07-15 during BL-015 MCP route extraction smoke test — `scripts/smoke-approval.sh` step 3 fails against local flight upstream specifically; confirmed pre-existing (`buildReqHeadersWithUpstreamAuth` unchanged by extraction), not a regression
+
 ## Deferred
 
 - BL-008
