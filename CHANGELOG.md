@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Grafana dashboard JSON refresh** — checked in latest `dashboards/grafana/mcp-tool-guard-proxy.dashboard.json` from Grafana UI edits (including dashboard metadata and current panel/query state) so observability changes remain versioned and reviewable in PRs
 - **OTel ops playbook (Grafana debug row)** — `docs/otel.md` now documents the collapsed telemetry-health debug row (`Error Span Rate`, `Total Span Ingest Rate`, `Span Rate by Name`), a fast no-data decision flow, and latency query caveats (`span.latency_ms` in `ms`, prefer wider ranges for bursty traffic)
 - **BL-015 final slice A (MCP route extraction)** — moved `/mcp` and `/:serverId/mcp` enforcement/forwarding path into `gateway/proxy-routes-mcp.ts`; `gateway/proxy-server.ts` now delegates MCP handling via `handleMcpRoute` with behavior preserved (approval queue, token-bypass flow, audit/telemetry, and upstream forwarding contracts unchanged)
 - **Backlog intake (BL-039)** — added decision-tracking item for approval-queue bypass semantics against independently guarded upstreams (proxy-layer approval token bypass does not elevate forwarded bearer for upstreams without `upstream_token_env`, e.g. `flight`), including explicit accept-vs-fix decision prompt
