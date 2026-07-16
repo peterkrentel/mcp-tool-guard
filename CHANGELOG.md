@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`CLAUDE.md` and project subagents** — added root `CLAUDE.md` for Claude Code guidance (commands, architecture, enforcement-layer distinctions, workflow rules); added `.claude/agents/jwt-scope-reviewer.md` (read-only reviewer for JWT scope validation patterns in TypeScript) and `.claude/agents/jwt-validator-extractor.md` (scoped implementer for BL-019, explicitly barred from IdP adapter code)
 - **Ephemeral k3d CI deployment lane (additive)** — added isolated assets for running UI + guard in Kubernetes with self-hosted Redis and an in-cluster KV REST bridge compatible with existing `KV_REST_API_URL` usage: new Dockerfiles (`gateway/Dockerfile`, `ui/Dockerfile`), Helm chart under `deploy/ephemeral/helm/guard-ephemeral`, Auth0 smoke script (`scripts/smoke-auth0-k3d.sh`), dedicated workflow (`.github/workflows/k3d-ephemeral-auth0.yml`), and setup guide (`docs/ephemeral-k3d-ci.md`)
 
 ### Changed
