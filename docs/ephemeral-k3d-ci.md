@@ -18,7 +18,6 @@ No existing application runtime code path is changed.
 
 - Workflow: `.github/workflows/k3d-ephemeral-auth0.yml`
 - Helm chart: `deploy/ephemeral/helm/guard-ephemeral`
-- CI values: `deploy/ephemeral/values-ci.yaml`
 - KV REST adapter: `deploy/ephemeral/kv-rest-adapter`
 - Smoke test: `scripts/smoke-auth0-k3d.sh`
 - Dockerfiles:

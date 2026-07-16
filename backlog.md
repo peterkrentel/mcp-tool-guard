@@ -92,7 +92,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: Dockerfiles + k3d ephemeral CI workflow for guard proxy and flight server
-  acceptance: Dockerfiles exist for `gateway/` and `servers/flight/`; a GitHub Actions workflow (workflow_dispatch or PR-label triggered, not on every push) builds both images, spins up a k3d cluster, imports the images directly (no registry needed), applies Deployment/Service manifests, waits for rollout, runs `scripts/smoke-approval.sh` against the cluster's exposed service, and tears the cluster down; runs against demo/guest-token mode only (no real Auth0/GitHub/Slack secrets in the ephemeral cluster); kept as a separate workflow from `ci.yml` so the fast typecheck/test PR feedback loop is untouched
+  acceptance: Dockerfiles exist for `gateway/` and `servers/flight/`; a GitHub Actions workflow (workflow_dispatch or PR-label triggered, not on every push) builds both images, spins up a k3d cluster, imports the images directly (no registry needed), applies Deployment/Service manifests, waits for rollout, runs smoke checks against the cluster's exposed UI/guard endpoints, and tears the cluster down; workflow uses real Auth0 test secrets to create an ephemeral Management API operator client for the run and cleans up the grant/client during teardown; kept as a separate workflow from `ci.yml` so the fast typecheck/test PR feedback loop is untouched
   owner: unassigned
   source: design discussion 2026-07-15 - k3d chosen over bare k3s for CI (no special runner privileges needed); docker-compose dropped as redundant with existing `make dev` local-dev story
 

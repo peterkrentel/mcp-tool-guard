@@ -1,6 +1,0 @@
-namespace: guard-ephemeral
-hosts:
-  ui: ui.ephemeral.local
-  guard: guard.ephemeral.local
-ingress:
-  className: traefik

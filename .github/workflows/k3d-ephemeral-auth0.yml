@@ -157,7 +157,6 @@ jobs:
         run: |
           helm upgrade --install guard-ephemeral deploy/ephemeral/helm/guard-ephemeral \
             -n ${NAMESPACE} \
-            -f deploy/ephemeral/values-ci.yaml \
             --set ui.image.tag=${{ github.sha }} \
             --set guard.image.tag=${{ github.sha }} \
             --set kv.rest.image.tag=${{ github.sha }}
