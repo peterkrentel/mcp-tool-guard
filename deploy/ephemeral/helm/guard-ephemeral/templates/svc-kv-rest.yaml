@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kv-rest
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: kv-rest
+  ports:
+    - name: http
+      port: {{ .Values.kv.rest.service.port }}
+      targetPort: 8080

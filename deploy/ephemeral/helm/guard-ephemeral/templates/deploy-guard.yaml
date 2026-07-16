@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guard
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: guard
+  template:
+    metadata:
+      labels:
+        app: guard
+    spec:
+      containers:
+        - name: guard
+          image: {{ .Values.guard.image.repository }}:{{ .Values.guard.image.tag }}
+          imagePullPolicy: {{ .Values.guard.image.pullPolicy }}
+          ports:
+            - containerPort: 8787
+          env:
+            - name: MCP_PROXY_PORT
+              value: {{ .Values.guard.env.MCP_PROXY_PORT | quote }}
+            - name: MCP_GUARD_ENABLED
+              value: {{ .Values.guard.env.MCP_GUARD_ENABLED | quote }}
+            - name: MCP_M2M_REVOCATION
+              value: {{ .Values.guard.env.MCP_M2M_REVOCATION | quote }}
+            - name: MCP_PROXY_DEFAULT_SERVER
+              value: {{ .Values.guard.env.MCP_PROXY_DEFAULT_SERVER | quote }}
+            - name: MCP_CORS_ORIGINS
+              value: {{ .Values.guard.env.MCP_CORS_ORIGINS | quote }}
+            - name: MCP_PROXY_CONFIG
+              value: {{ .Values.guard.env.MCP_PROXY_CONFIG | quote }}
+            - name: KV_REST_API_URL
+              value: http://kv-rest:{{ .Values.kv.rest.service.port }}
+            - name: KV_REST_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: KV_REST_API_TOKEN
+            - name: MCP_JWT_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: MCP_JWT_ISSUER
+            - name: MCP_JWT_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: MCP_JWT_AUDIENCE
+            - name: MCP_JWT_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: MCP_JWT_JWKS_URL
+            - name: MCP_GUARD_PUBLIC_KEY_PEM
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: MCP_GUARD_PUBLIC_KEY_PEM
+            - name: AUTH0_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_DOMAIN
+            - name: AUTH0_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_AUDIENCE
+            - name: AUTH0_MGMT_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_MGMT_CLIENT_ID
+            - name: AUTH0_MGMT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: guard-secrets
+                  key: AUTH0_MGMT_CLIENT_SECRET
+          volumeMounts:
+            - name: guard-config
+              mountPath: /app/config
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: guard-config
+          configMap:
+            name: guard-config

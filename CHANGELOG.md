@@ -8,19 +8,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- (none)
+- **Ephemeral k3d CI deployment lane (additive)** — added isolated assets for running UI + guard in Kubernetes with self-hosted Redis and an in-cluster KV REST bridge compatible with existing `KV_REST_API_URL` usage: new Dockerfiles (`gateway/Dockerfile`, `ui/Dockerfile`), Helm chart under `deploy/ephemeral/helm/guard-ephemeral`, Auth0 smoke script (`scripts/smoke-auth0-k3d.sh`), dedicated workflow (`.github/workflows/k3d-ephemeral-auth0.yml`), and setup guide (`docs/ephemeral-k3d-ci.md`)
 
 ### Changed
 
-- (none)
+- **Backlog planning intake (BL-024/BL-040/BL-041 + BL-021 sequencing note)** — rewrote BL-024 from docker-compose packaging to a k3d-based ephemeral CI workflow skeleton; added BL-040 to extend that workflow into a per-IdP matrix harness (Auth0/Keycloak/Entra as adapters land); added BL-041 for Keycloak `JwtValidator` + `IdpAdapter` implementation sequenced between Auth0 and Entra work; updated BL-021 source with explicit sequencing rationale (after BL-041 for lessons learned, not a hard dependency)
+- **BL-024 acceptance criteria alignment** — updated backlog acceptance text to reflect shipped behavior in the ephemeral workflow (real Auth0 test secrets with per-run ephemeral operator client/grant creation and teardown cleanup), removing stale demo/guest-token-only wording
+- **Ephemeral Auth0 smoke path alignment** — updated the k3d workflow smoke checks to exercise the real operator flow (`POST /agents` create, `POST /agents/:clientId/token` vend, `DELETE /agents/:clientId` cleanup) instead of relying on pre-provisioned read/admin test apps; guard deployment now receives Auth0 management env via Kubernetes secret for this isolated ephemeral lane
+- **Ephemeral JWT naming alignment** — updated the k3d workflow, smoke script, and setup docs to use `MCP_JWT_ISSUER`, `MCP_JWT_AUDIENCE`, and `MCP_JWT_JWKS_URL` naming consistently with `scripts/dev.env`, removing issuer/audience alias ambiguity in CI setup
+- **Ephemeral Helm invocation cleanup** — removed redundant `-f deploy/ephemeral/values-ci.yaml` from `k3d-ephemeral-auth0` because those values matched chart defaults byte-for-byte; deploy behavior is unchanged
 
 ### Fixed
 
+- **Ephemeral workflow startup reliability** — UI container build now compiles `@mcp-tool-guard/gateway` before `@mcp-tool-guard/ui` so workspace type imports resolve during Docker build; `k3d-ephemeral-auth0` now installs `kubectl`/`helm` without Azure setup actions, fails fast with explicit missing-secret errors, and guards cleanup when `k3d` is unavailable so secondary errors do not mask primary failures
+- **Ephemeral workflow trigger usability** — removed label-only gating from `.github/workflows/k3d-ephemeral-auth0.yml`; the job now runs on pull request `opened`/`synchronize`/`reopened` events and `workflow_dispatch`, eliminating manual label re-add cycles
+- **Ephemeral kv-rest rollout stability** — kv-rest adapter now retries Redis connection on startup instead of crash-looping when Redis is still booting, `/health` reports Redis readiness, and the k3d rollout step now emits deployment/pod/log diagnostics when rollout fails to speed root-cause analysis
+- **Ephemeral kv-rest probe auth fix** — `/health` now bypasses bearer auth in the kv-rest adapter so Kubernetes readiness/liveness probes no longer receive `401` and force restart loops
+- **Ephemeral smoke auth parity option** — k3d smoke flow now supports `AUTH0_OPERATOR_BEARER_TOKEN` (admin user token) to emulate GUI control-plane behavior; M2M client-credentials remains supported as fallback when bearer token is not provided
+- **Ephemeral operator client lifecycle automation** — k3d workflow now creates an Auth0 M2M operator client and `client-grant` at run start (scope `gateway:admin` on `AUTH0_AUDIENCE`) and deletes both during cleanup, removing reliance on long-lived operator client secrets
+- **Ephemeral smoke agent-create compatibility** — smoke now defaults test-agent scope to `flights:read` (a typical declared API permission) instead of `demo:noop`, and surfaces the server error returned by `POST /agents` when creation fails
+- **Ephemeral control-plane token compatibility** — k3d Helm values now set `MCP_M2M_REVOCATION=false` for the isolated CI lane so temporary operator M2M admin tokens are not rejected as "Agent revoked or deleted" before `/agents` create/vend/delete checks
+- **Ephemeral kv-rest probe resilience** — kv-rest now starts its HTTP server immediately, retries Redis connection in the background, exposes `/live` for liveness, and keeps `/health` as Redis-readiness so startup races do not trigger rollout timeouts from early connection-refused probe failures
+- **Ephemeral workflow scope reduction** — `.github/workflows/k3d-ephemeral-auth0.yml` pull-request trigger now uses `paths` filters so this heavier lane runs only when files used by the ephemeral stack (workflow, deploy/ephemeral, gateway, ui, smoke script, lockfiles) change
 - Corrected stale BL-015 route ownership references in `docs/ARCHITECTURE.md` to point at extracted gateway route modules.
 
 ### Removed
 
-- (none)
+- Removed redundant `deploy/ephemeral/values-ci.yaml` no-op override file and its documentation reference in `docs/ephemeral-k3d-ci.md`
 
 ## [0.5.0] - 2026-07-15
 

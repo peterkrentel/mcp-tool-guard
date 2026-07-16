@@ -78,7 +78,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   item: Azure Entra JWT validation and IdP adapter
   acceptance: Entra roles/scp claims map correctly to scopes; invalid/expired Entra token rejected on `tools/call`; provider wiring supports concurrent trust as defined in BL-034; identity docs updated
   owner: unassigned
-  source: post-0.4.0 Track 1 BL-F02
+  source: post-0.4.0 Track 1 BL-F02; sequencing note 2026-07-15 - intentionally scheduled after BL-041 (not a hard dependency) to apply second-adapter lessons before Entra Azure/Graph integration
   depends_on: BL-020, BL-034
 - BL-034
   priority: P0
@@ -91,10 +91,19 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 - BL-024
   priority: P0
   status: todo
-  item: Deployment packaging with Docker and Compose
-  acceptance: `docker build` and `docker run` succeed with minimum config; `docker-compose up` starts with in-memory fallback; image excludes `ui/` and `servers/flight/`; `docs/docker-deploy.md` documents minimum viable setup
+  item: Dockerfiles + k3d ephemeral CI workflow for guard proxy and flight server
+  acceptance: Dockerfiles exist for `gateway/` and `servers/flight/`; a GitHub Actions workflow (workflow_dispatch or PR-label triggered, not on every push) builds both images, spins up a k3d cluster, imports the images directly (no registry needed), applies Deployment/Service manifests, waits for rollout, runs smoke checks against the cluster's exposed UI/guard endpoints, and tears the cluster down; workflow uses real Auth0 test secrets to create an ephemeral Management API operator client for the run and cleans up the grant/client during teardown; kept as a separate workflow from `ci.yml` so the fast typecheck/test PR feedback loop is untouched
   owner: unassigned
-  source: post-0.4.0 Track 1 BL-F05
+  source: design discussion 2026-07-15 - k3d chosen over bare k3s for CI (no special runner privileges needed); docker-compose dropped as redundant with existing `make dev` local-dev story
+
+- BL-041
+  priority: P0
+  status: todo
+  item: Keycloak JwtValidator and IdpAdapter implementation
+  acceptance: `KeycloakJwtValidator` implements the `JwtValidator` interface from BL-019 (JWKS-based, Keycloak realm token endpoint); claims-mapping handles Keycloak's role shape (`realm_access.roles` / `resource_access` nested client roles) distinct from Auth0's flat scope/permissions claims; `KeycloakIdpAdapter` implements the `IdpAdapter` interface from BL-020 (client registration via Keycloak Admin REST API); deliberately built before BL-021 (Entra) specifically to validate the BL-019/BL-020 abstractions generalize to a second real provider before the higher-stakes Entra integration; reference existing Azure-hosted Keycloak workflow for deployment/testing pattern
+  owner: unassigned
+  source: design discussion 2026-07-15 - sequenced ahead of BL-021 to de-risk the Entra work with lessons learned from a self-hosted provider first
+  depends_on: BL-019, BL-020
 
 ## P1 (important)
 
@@ -225,6 +234,15 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Add integration tests that exercise successful Auth0-backed `POST /agents`, `POST /agents/:clientId/token`, and `POST /token` paths when dedicated test env vars are present; tests are skipped (not failed) when Auth0 integration env is absent; tests clean up created Auth0 apps/agents; CI keeps deterministic non-network auth tests as baseline and runs Auth0 integration tests only in secrets-enabled job/environment
   owner: unassigned
   source: BL-015 slice review 2026-07-14 - route decomposition tests cover auth gates and not-configured paths, but real Auth0 happy-path behavior remains unverified in automated tests
+
+- BL-040
+  priority: P1
+  status: todo
+  item: Extend k3d CI workflow (BL-024) into a per-IdP-provider test matrix
+  acceptance: The BL-024 workflow becomes a GitHub Actions matrix job with one leg per supported IdP adapter (Auth0, Keycloak, Entra - added incrementally as each adapter lands, not all at once); each leg deploys the gateway configured for that one provider and runs the same smoke test against it; Keycloak leg runs Keycloak itself as an in-cluster pod (no external account/secrets needed); Auth0 and Entra legs use repo/org-level CI secrets scoped to test-only credentials; a leg is only added to the matrix once its corresponding `IdpAdapter` exists - this item grows across BL-020/BL-041/BL-021 rather than landing whole
+  owner: unassigned
+  source: design discussion 2026-07-15 - recognized the CI matrix doubles as the actual verification mechanism for `IdpAdapter` implementations, replacing manual GUI smoke-testing per provider
+  depends_on: BL-024
 
 - BL-016
   priority: P2

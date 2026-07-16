@@ -1,0 +1,51 @@
+namespace: guard-ephemeral
+
+hosts:
+  ui: ui.ephemeral.local
+  guard: guard.ephemeral.local
+
+ingress:
+  className: traefik
+
+ui:
+  image:
+    repository: mcp-tool-guard-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+
+guard:
+  image:
+    repository: mcp-tool-guard-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8787
+  env:
+    MCP_PROXY_PORT: "8787"
+    MCP_GUARD_ENABLED: "true"
+    MCP_M2M_REVOCATION: "false"
+    MCP_PROXY_DEFAULT_SERVER: "demo"
+    MCP_CORS_ORIGINS: "http://ui.ephemeral.local"
+    MCP_PROXY_CONFIG: "/app/config/guard-config.yaml"
+
+kv:
+  redis:
+    image: redis:7.2-alpine
+  rest:
+    image:
+      repository: mcp-tool-guard-kv-rest-adapter
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      port: 8080
+
+# Minimal config so /health and control-plane routes boot without touching prod/local config.
+guardConfig: |
+  servers:
+    demo:
+      url: http://127.0.0.1:9/mcp
+      tools:
+        noop_tool:
+          required_scope: demo:noop

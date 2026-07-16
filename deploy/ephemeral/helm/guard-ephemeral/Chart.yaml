@@ -1,0 +1,5 @@
+apiVersion: v2
+name: guard-ephemeral
+version: 0.1.0
+type: application
+description: Ephemeral k3d stack for UI + guard + self-hosted Redis REST bridge
