@@ -14,6 +14,7 @@
     "check:demo-policy": "node scripts/check-demo-policy-align.mjs"
   },
   "devDependencies": {
-    "jose": "^6.0.11"
+    "jose": "^6.0.11",
+    "playwright": "^1.48.0"
   }
 }
