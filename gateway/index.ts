@@ -1,4 +1,10 @@
-export { ToolGuard, type ToolGuardOptions } from "./guard.js";
+export {
+  ToolGuard,
+  type ToolGuardOptions,
+  DefaultJwtValidator,
+  type JwtValidator,
+  type JwtValidatorOptions,
+} from "./guard.js";
 export { AuditLogger } from "./logger.js";
 export type {
   AuditContext,
