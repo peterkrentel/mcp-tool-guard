@@ -17,11 +17,30 @@ import type {
   ToolConfig,
 } from "./types.js";
 
-export interface ToolGuardOptions {
-  config: GuardConfig | string;
+/**
+ * Validates a bearer token and derives scopes from it. Implementations own
+ * all trust-decision logic (which key/JWKS to verify against, issuer/audience
+ * checks, claims shape, etc). ToolGuard only consumes this interface — it
+ * never re-implements validation itself.
+ *
+ * Future IdP-specific implementations (e.g. a Keycloak or Entra validator)
+ * are expected to satisfy this same interface so ToolGuard doesn't need to
+ * change when a new IdP is added.
+ */
+export interface JwtValidator {
+  /** Verify signature/claims and return the payload plus derived scopes. Throws on invalid tokens. */
+  validateToken(token: string): Promise<{ payload: JwtPayload; scopes: string[] }>;
+  /** Derive a normalized scope list from an already-verified payload. */
+  extractScopes(payload: JwtPayload): string[];
+  /** Check whether `tokenScopes` satisfies `required` (supports `resource:*` and `*` wildcards). */
+  hasScope(tokenScopes: string[], required: string): boolean;
+  /** Optional async setup (e.g. importing a PEM key) to run before first use. */
+  init?(): Promise<void>;
+}
+
+export interface JwtValidatorOptions {
   publicKey?: CryptoKey | string;
   algorithm?: string;
-  logger?: AuditLogger;
   /** Optional server-side callback to enforce immediate M2M revocation after agent delete. */
   isM2mClientActive?: (clientId: string) => Promise<boolean>;
   /** IdP issuer — when token `iss` matches, verify via JWKS instead of PEM. */
@@ -30,23 +49,25 @@ export interface ToolGuardOptions {
   jwksUrl?: string;
 }
 
-export class ToolGuard {
-  private config: GuardConfig;
+/**
+ * Default JwtValidator: dual-trust PEM-or-JWKS verification.
+ *
+ * - If the token's `iss` claim matches the configured `jwtIssuer` (and a JWKS
+ *   URL/audience are configured), verify via JWKS and additionally enforce
+ *   M2M-agent liveness (`assertActiveM2mAgent`) for machine-to-machine tokens.
+ * - Otherwise, fall back to PEM-based verification.
+ */
+export class DefaultJwtValidator implements JwtValidator {
   private publicKey?: CryptoKey;
   private algorithm: string;
-  readonly logger: AuditLogger;
   private jwtIssuer?: string;
   private jwtAudience?: string;
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
   private isM2mClientActive?: (clientId: string) => Promise<boolean>;
+  private publicKeyPromise?: Promise<CryptoKey>;
 
-  constructor(options: ToolGuardOptions) {
-    this.config =
-      typeof options.config === "string"
-        ? (parseYaml(options.config) as GuardConfig)
-        : options.config;
+  constructor(options: JwtValidatorOptions) {
     this.algorithm = options.algorithm ?? "RS256";
-    this.logger = options.logger ?? new AuditLogger();
     this.isM2mClientActive = options.isM2mClientActive;
     this.jwtIssuer = options.jwtIssuer?.replace(/\/$/, "");
     this.jwtAudience = options.jwtAudience;
@@ -60,34 +81,10 @@ export class ToolGuard {
     }
   }
 
-  private publicKeyPromise?: Promise<CryptoKey>;
-
   async init(): Promise<void> {
     if (this.publicKeyPromise) {
       this.publicKey = await this.publicKeyPromise;
     }
-  }
-
-  getServerConfig(server: string): ServerConfig | undefined {
-    return this.config.servers[server];
-  }
-
-  getToolConfig(server: string, tool: string): ToolConfig | undefined {
-    return this.config.servers[server]?.tools[tool];
-  }
-
-  listServers(): string[] {
-    return Object.keys(this.config.servers);
-  }
-
-  listTools(server: string): string[] {
-    const cfg = this.config.servers[server];
-    return cfg ? Object.keys(cfg.tools) : [];
-  }
-
-  /** Replace in-memory policy (runtime registry updates). */
-  replaceConfig(config: GuardConfig): void {
-    this.config = config;
   }
 
   extractScopes(payload: JwtPayload): string[] {
@@ -170,6 +167,68 @@ export class ToolGuard {
     const jwtPayload = payload as JwtPayload;
     return { payload: jwtPayload, scopes: this.extractScopes(jwtPayload) };
   }
+}
+
+export interface ToolGuardOptions extends JwtValidatorOptions {
+  config: GuardConfig | string;
+  logger?: AuditLogger;
+  /** Inject a custom JwtValidator (e.g. for a different IdP). Defaults to a DefaultJwtValidator built from the PEM/JWKS options above. */
+  jwtValidator?: JwtValidator;
+}
+
+export class ToolGuard {
+  private config: GuardConfig;
+  readonly logger: AuditLogger;
+  private validator: JwtValidator;
+
+  constructor(options: ToolGuardOptions) {
+    this.config =
+      typeof options.config === "string"
+        ? (parseYaml(options.config) as GuardConfig)
+        : options.config;
+    this.logger = options.logger ?? new AuditLogger();
+    this.validator =
+      options.jwtValidator ??
+      new DefaultJwtValidator({
+        publicKey: options.publicKey,
+        algorithm: options.algorithm,
+        isM2mClientActive: options.isM2mClientActive,
+        jwtIssuer: options.jwtIssuer,
+        jwtAudience: options.jwtAudience,
+        jwksUrl: options.jwksUrl,
+      });
+  }
+
+  async init(): Promise<void> {
+    await this.validator.init?.();
+  }
+
+  /** The injected (or default) JwtValidator — exposed for call sites that need to validate/check scopes outside of authorize(). */
+  get jwtValidator(): JwtValidator {
+    return this.validator;
+  }
+
+  getServerConfig(server: string): ServerConfig | undefined {
+    return this.config.servers[server];
+  }
+
+  getToolConfig(server: string, tool: string): ToolConfig | undefined {
+    return this.config.servers[server]?.tools[tool];
+  }
+
+  listServers(): string[] {
+    return Object.keys(this.config.servers);
+  }
+
+  listTools(server: string): string[] {
+    const cfg = this.config.servers[server];
+    return cfg ? Object.keys(cfg.tools) : [];
+  }
+
+  /** Replace in-memory policy (runtime registry updates). */
+  replaceConfig(config: GuardConfig): void {
+    this.config = config;
+  }
 
   checkScope(
     server: string,
@@ -197,7 +256,7 @@ export class ToolGuard {
     }
 
     const required = toolConfig.required_scope;
-    const allowed = this.hasScope(tokenScopes, required);
+    const allowed = this.validator.hasScope(tokenScopes, required);
 
     const entry: AuditLogEntry = {
       timestamp,
@@ -232,7 +291,7 @@ export class ToolGuard {
   ): Promise<GuardResult> {
     const start = performance.now();
     try {
-      const { scopes } = await this.validateToken(token);
+      const { scopes } = await this.validator.validateToken(token);
       const result = this.checkScope(server, tool, scopes, audit);
       result.entry.duration_ms = Math.round(performance.now() - start);
       return result;

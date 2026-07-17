@@ -31,7 +31,7 @@ export function adminAuthRequired(jwtTrust: JwtTrustConfig): boolean {
 }
 
 export function hasGatewayAdminScope(guard: ToolGuard, scopes: string[]): boolean {
-  return guard.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
+  return guard.jwtValidator.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
 }
 
 /** Best-effort caller identity for audit entries — never throws. */
@@ -39,7 +39,7 @@ export async function identifyBearer(guard: ToolGuard, req: IncomingMessage): Pr
   const bearer = extractBearer(header(req, "authorization"));
   if (!bearer) return "anonymous";
   try {
-    const { payload } = await guard.validateToken(bearer);
+    const { payload } = await guard.jwtValidator.validateToken(bearer);
     return typeof payload.sub === "string" ? payload.sub : "unknown";
   } catch {
     return "unknown";
@@ -65,7 +65,7 @@ export async function requireGatewayAdmin(
   }
 
   try {
-    const { scopes } = await guard.validateToken(bearer);
+    const { scopes } = await guard.jwtValidator.validateToken(bearer);
     if (!hasGatewayAdminScope(guard, scopes)) {
       sendJson(res, 403, {
         error: `Missing required permission '${GATEWAY_ADMIN_SCOPE}'`,

@@ -21,7 +21,7 @@ export async function handleAuditRoute(
       return;
     }
     try {
-      await guard.validateToken(bearer);
+      await guard.jwtValidator.validateToken(bearer);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       sendJson(res, 401, { error: `JWT validation failed: ${message}` });
@@ -61,10 +61,10 @@ export async function handleAuditAgentPostRoute(
     }
 
     try {
-      const { scopes } = await guard.validateToken(bearer);
+      const { scopes } = await guard.jwtValidator.validateToken(bearer);
       const canWriteAudit =
-        guard.hasScope(scopes, "audit:write") ||
-        guard.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
+        guard.jwtValidator.hasScope(scopes, "audit:write") ||
+        guard.jwtValidator.hasScope(scopes, GATEWAY_ADMIN_SCOPE);
       if (!canWriteAudit) {
         sendJson(res, 403, {
           error: "Missing required permission 'audit:write' or 'gateway:admin'",
