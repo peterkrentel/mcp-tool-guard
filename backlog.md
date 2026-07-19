@@ -83,6 +83,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-042
+  priority: P1
+  status: todo
+  item: Document and harden control-plane auth trust model
+  acceptance: `docs/ARCHITECTURE.md` (or `guard-proxy.md`) explicitly documents that `control_plane_auth` (admin-gating for `/agents`, `/servers`, `/pending`) is conditional on JWT trust config being present (`adminAuthRequired()` in `gateway/admin-auth.ts`), including the operational risk of deploying without JWT trust configured; decide whether `GET /agents` should require `gateway:admin` (currently intentionally open — metadata only, no secrets — per existing `guard-proxy.md` route table) or stay as-is with the rationale made explicit; decide whether the vending-config-check-before-admin-auth-check ordering in `gateway/proxy-routes-agents-token.ts` (`POST /token`, `POST /agents/:clientId/token`) should be reordered to avoid revealing `AUTH0_DOMAIN`/`AUTH0_AUDIENCE` configuration state to unauthenticated callers, or is acceptable given `/health` already exposes the same booleans unauthenticated; add a guardrail test asserting the desired behavior for "guard enabled + partial JWT trust config" (currently untested)
+  owner: unassigned
+  source: external code review (VS Code Copilot) during BL-020 PR review 2026-07-19 — all three observations confirmed pre-existing (present in the codebase before BL-020, not introduced by it) and are already partially documented (guard-proxy.md route table, /health field, UI "control plane auth is off" banner) rather than undocumented; filed as its own item since fixing it in BL-020 would violate that PR's own "preserve existing behavior exactly" acceptance criterion
+
 - BL-006
   priority: P1
   status: todo
