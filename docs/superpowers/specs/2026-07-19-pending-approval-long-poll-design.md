@@ -2,7 +2,7 @@
 
 ## Status
 
-Design decision only — no code changes in this doc.
+Implemented in `gateway/proxy-routes-mcp.ts`, `gateway/pending-store.ts`, `gateway/env.ts`, `gateway/telemetry.ts`, `gateway/http-helpers.ts`, and `scripts/claude-mcp-token-helper.sh` (see `backlog.md`'s BL-045). Production verification of the `MCP_PENDING_LONGPOLL_MAX_MS` default against Render's real edge-timeout behavior is still outstanding — tracked as BL-045's remaining manual step.
 
 ## Problem statement
 

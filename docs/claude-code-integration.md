@@ -79,6 +79,8 @@ A human then approved `pr_5e774d9cbf1a` via `/agents.html`, ~4:49 after the orig
 
 **No `source:"mcp"` row followed it, and the file was never created on GitHub** — confirmed by re-fetching the path afterward. Approving a pending request only updates the queue's own state; it does not itself replay the original write. See "The approval-then-lost-write gap" below.
 
+**Fixed by BL-045** (see `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md`): `scripts/claude-mcp-token-helper.sh` now sends `X-Wait-For-Approval: true`, so the guard proxy holds this exact call open instead of returning `202` immediately, and forwards it automatically the moment a human approves — Claude Code's own tool call now just waits and gets the real result, no manual replay required.
+
 We then manually reconstructed and replayed the original request (we still had the arguments from having made the call ourselves), minting a fresh approval token and POSTing directly to `/github/mcp` with an `x-approval-token` header:
 
 ```bash
@@ -99,7 +101,7 @@ This succeeded and produced a real GitHub commit — confirming the deny → pen
 
 The browser `GatewayAgent` (`ui/src/gateway-agent.ts`, `retryApprovedTool`) handles pending responses by holding the tool name/args in memory, polling `GET /pending/:id`, and re-issuing the call with `x-approval-token` once approved. Claude Code (and, by construction, any simple MCP client) has no equivalent — and critically, **the guard proxy itself never persists the original request arguments** (`gateway/pending-store.ts`'s `PendingRequest` only stores metadata: server, tool, scopes, timestamps). Once the original caller gives up, an approved write is silently unrecoverable unless whoever approved it also happens to still have the original arguments.
 
-This is filed as its own backlog item (not folded into BL-037) since it affects any MCP-client-compatibility story, not just Claude Code: see `backlog.md` and the design spec at `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md`, which evaluates holding the original connection open at the proxy (so a simple client's single request just waits and gets the real result) against a client-side retry wrapper.
+This was filed as BL-045 and is now fixed: the guard proxy (`gateway/proxy-routes-mcp.ts`) holds the connection open when the caller opts in via `X-Wait-For-Approval: true` and auto-forwards the already-in-memory original request once approved. The browser GUI's existing immediate-202-then-poll behavior (`ui/src/gateway-agent.ts`) is unchanged for callers that don't send that header. See `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md` for the full design rationale.
 
 ## `headersHelper` limitations
 
