@@ -31,9 +31,9 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   priority: P0
   status: todo
   item: Auth0 registry hygiene (idempotent agent create and reuse)
-  acceptance: Same `(name, serverId, scopes)` returns existing KV record without creating a new Auth0 app; app naming is unique; free-tier limit and cleanup path documented
+  acceptance: Same `(name, serverId, scopes)` returns existing KV record without creating a new Auth0 app; app naming is unique; free-tier limit and cleanup path documented. Cleanup path includes a convenient list/delete mechanism (script or command) for M2M agents, not just the raw `GET /agents`/`DELETE /agents/:clientId` API — exact shape may differ between local (in-memory, resets on restart) and prod (KV-backed, persistent) and should be figured out during implementation rather than prescribed here.
   owner: unassigned
-  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#agent-registry--auth0-sync-sketch), post-0.4.0 Track 2 BL-H01
+  source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#agent-registry--auth0-sync-sketch), post-0.4.0 Track 2 BL-H01; list/delete convenience gap noted 2026-07-19 after manually deleting `claude-code-local` via hand-written fetch calls during BL-037 cleanup
 - BL-004
   priority: P0
   status: todo
