@@ -91,7 +91,7 @@ Required for **[`/agents.html`](../ui/agents.html)** — M2M agent create/revoke
 | `AUTH0_MGMT_CLIENT_SECRET` | That app's secret |
 | `AUTH0_AUDIENCE` | API identifier, e.g. `https://mcp-tool-guard` (same as `MCP_JWT_AUDIENCE`) |
 
-Verify: `curl https://mcp-tool-guard-proxy.onrender.com/health` → `"auth0_mgmt_configured": true`.
+Verify: `curl https://mcp-tool-guard-proxy.onrender.com/health` → `"idp_provider": "auth0"`, `"idp_management_configured": true`.
 
 On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*`):
 
@@ -220,7 +220,7 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | `POST /github/mcp` fails | Check `GITHUB_MCP_TOKEN`, agent scopes, `Accept: application/json, text/event-stream` — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream) |
 | `POST /slack/mcp` fails | Not in yaml — register via `POST /servers` on `/agents.html` or ignore unless added |
 | `/agents.html` → failed to fetch `/servers` | Set `VITE_PROXY_BASE_URL` on Vercel UI and redeploy |
-| Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `auth0_mgmt_configured: false` |
+| Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `idp_management_configured: false` |
 | `401` / `403` on Add MCP or Create agent | `/health` → `control_plane_auth: true` — sign in on `/agents.html`; token needs `gateway:admin` in `permissions` |
 | M2M token → signature verification failed in browser | `VITE_AUTH0_DOMAIN` + `VITE_AUTH0_AUDIENCE` must be set on Vercel UI (JWKS path) |
 | First request slow after idle | Render free tier spin-down — retry; normal |
@@ -240,5 +240,5 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 - [ ] `GET /audit` → `"sources": ["agent", "proxy", "mcp"]`; recent entries include `"source": "proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`
 - [ ] UI chat search/book works end-to-end via proxy
-- [ ] `/health` → `auth0_mgmt_configured: true` (agent gateway)
+- [ ] `/health` → `idp_management_configured: true` (agent gateway)
 - [ ] `/agents.html` — create agent, search ALLOW, book DENY with three-layer audit

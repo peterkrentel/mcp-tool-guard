@@ -76,7 +76,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 |--------|------|----------|
 | `GET` | `/audit` | All layers — proxy + agent + mcp (`Authorization: Bearer` when guard enabled) |
 | `POST` | `/audit/agent` | Append agent-layer entries from browser SDK pre-check — **requires Bearer with `audit:write` or `gateway:admin`**, unless explicit trusted demo mode (`MCP_AUDIT_AGENT_TRUSTED_MODE=true`) |
-| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `audit_agent_trusted_mode`, `auth0_mgmt_configured`, `approval_queue_enabled` |
+| `GET` | `/health` | Status, `servers[]`, `kv_enabled`, `control_plane_auth`, `audit_agent_trusted_mode`, `idp_provider`, `idp_management_configured`, `idp_vending_configured`, `approval_queue_enabled` |
 
 ## Environment
 
