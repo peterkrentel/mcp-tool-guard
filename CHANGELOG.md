@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`classifyClientType()` helper** — `ui/src/client-type.ts`, classifies a trace id as `claude-code` (`cc-` prefix), `browser-gui` (`tr_` prefix), or `unattributed`, for the upcoming Claude Code ops view. Also fixes `ui/src/proxy-api.ts`'s `PendingRequest` interface, which was missing `trace_id`/`wait_for_approval` (both exist server-side since BL-045).
 - **Claude Code ops view implementation plan** — added `docs/superpowers/plans/2026-07-19-claude-ops-view.md`, a step-by-step plan implementing the approved `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`. Plan only — implementation lands in subsequent commits.
 
 - **Claude Code ops view design spec** — added `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`, scoping a new admin-gated ops page (`ui/claude-ops.html`) filtered by client type (Claude Code / browser GUI / unattributed, via the existing `cc-`/`tr_` trace-id prefix conventions) so a security/admin operator has one place to notice and approve pending MCP tool calls instead of needing to know to check `/agents.html` and hand-inspect trace ids. Design only — no code changes; implementation plan comes next.
