@@ -278,6 +278,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Investigation doc captures feasibility, exposed operations, identity/trust model, and candidate scope model for running an A2A bridge as an upstream MCP server
   owner: unassigned
   source: post-0.4.0 Track 4 BL-S03
+- BL-047
+  priority: P3
+  status: deferred
+  item: Cross-project note (investigate only, not mcp-tool-guard work) — does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail?
+  acceptance: Not an mcp-tool-guard implementation task. mcp-tool-guard's own browser `GatewayAgent` (`ui/src/gateway-agent.ts`) already surfaces full LLM response content in its chat/trace panel as part of tool-call orchestration. Worth checking whether Chris's AI Proxy Engine's admin console/audit trail captures equivalent LLM response bodies (not just request metadata/decisions) for compliance/debugging value — addressed in his project, not this one; this entry exists only so the observation isn't lost before the next cross-project feedback pass.
+  owner: unassigned
+  source: raised 2026-07-19 while scoping BL-045/BL-046 — part of the ongoing mcp-tool-guard-as-precursor-learner thread with Chris Keen's Fast AI Initiative work (see memory)
 
 ## Notes
 

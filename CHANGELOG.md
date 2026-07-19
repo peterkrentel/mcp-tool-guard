@@ -18,6 +18,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Backlog: added BL-047** — deferred, investigate-only cross-project note (not mcp-tool-guard implementation work): does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail, the way mcp-tool-guard's own browser `GatewayAgent` already does in its chat/trace panel? Addressed in his project, not this one.
 - **BL-045 status: implemented, pending prod verification** — gateway code and Claude Code opt-in shipped and live-verified locally; production `MCP_PENDING_LONGPOLL_MAX_MS` tuning against Render's real edge-timeout behavior remains open.
 - **Backlog: BL-003 acceptance criteria expanded** — added a convenient list/delete mechanism for M2M agents (not just the raw `GET /agents`/`DELETE /agents/:clientId` API) to BL-003's cleanup-path requirement, noting the shape may differ between local (in-memory) and prod (KV-backed) storage. Noted after manually deleting the `claude-code-local` agent via hand-written fetch calls during BL-037 cleanup.
 
