@@ -83,6 +83,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-043
+  priority: P1
+  status: todo
+  item: Re-approving an already-approved pending request mints a redundant valid approval token
+  acceptance: `POST /pending/:id/approve` on a pending request that is already `status: approved` either no-ops (returns the existing approval token/state without minting a new one) or rejects with a clear error, instead of silently calling `generateApprovalToken()` again; add a regression test asserting a second approve call on the same pending id does not produce a second independently-valid `X-Approval-Token`
+  owner: unassigned
+  source: discovered 2026-07-19 during BL-020 deployed smoke test follow-up — user approved the same GitHub `create_or_update_file` pending request (`pr_...`) twice via `/agents.html`'s approval queue panel on the deployed proxy; `gateway/pending-store.ts` confirmed each token is still correctly single-use/burned on validation (`validateApprovalToken`, no replay of the same token), but `generateApprovalToken` has no guard against being called again for an already-approved pending id, so two independent valid tokens existed for one pending request and both were successfully redeemed (two "allow ... Pending request approved" audit entries for the same pending id); not a token-replay bug, but a missing idempotency guard on repeated approval
 - BL-006
   priority: P1
   status: todo
