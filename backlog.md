@@ -56,14 +56,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
-- BL-019
-  priority: P0
-  status: todo
-  item: Extract JwtValidator interface from ToolGuard
-  acceptance: `ToolGuard` consumes injected `JwtValidator`; JWT validation removed from `ToolGuard` internals; dual-trust behavior preserved; `authorize()` behavior unchanged
-  owner: unassigned
-  source: post-0.4.0 Track 0 BL-P02
-  depends_on: BL-015
 - BL-020
   priority: P0
   status: todo
@@ -71,7 +63,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Routes depend on `IdpAdapter` interface; Auth0 implementation preserves existing create/revoke/token behavior; provider wiring and `/health` identity reporting align with trust-model decision from BL-034
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F01
-  depends_on: BL-015, BL-019, BL-034
+  depends_on: BL-034
 - BL-021
   priority: P0
   status: todo
@@ -87,7 +79,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Gateway trust model is explicitly defined for concurrent issuer validation (Auth0 M2M and Entra user identity); env/config shape documented; BL-020/BL-021 acceptance stays aligned with this decision before implementation
   owner: unassigned
   source: backlog review 2026-07-13
-  depends_on: BL-019
 - BL-024
   priority: P0
   status: todo
@@ -103,7 +94,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: `KeycloakJwtValidator` implements the `JwtValidator` interface from BL-019 (JWKS-based, Keycloak realm token endpoint); claims-mapping handles Keycloak's role shape (`realm_access.roles` / `resource_access` nested client roles) distinct from Auth0's flat scope/permissions claims; `KeycloakIdpAdapter` implements the `IdpAdapter` interface from BL-020 (client registration via Keycloak Admin REST API); deliberately built before BL-021 (Entra) specifically to validate the BL-019/BL-020 abstractions generalize to a second real provider before the higher-stakes Entra integration; reference existing Azure-hosted Keycloak workflow for deployment/testing pattern
   owner: unassigned
   source: design discussion 2026-07-15 - sequenced ahead of BL-021 to de-risk the Entra work with lessons learned from a self-hosted provider first
-  depends_on: BL-019, BL-020
+  depends_on: BL-020
 
 ## P1 (important)
 
