@@ -4,6 +4,20 @@
 # so Claude-Code-originated traffic is filterable in the audit log and Grafana.
 set -euo pipefail
 
+# Claude Code invokes this as a subprocess of its own already-running process,
+# which only has the env it was launched with — editing scripts/dev.env after
+# launch has no effect there without a full restart. Fall back to reading it
+# directly here so credential updates/rotation take effect on the next call.
+if [ -z "${MCP_AGENT_CLIENT_ID:-}" ] || [ -z "${MCP_AGENT_CLIENT_SECRET:-}" ]; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$script_dir/dev.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$script_dir/dev.env"
+    set +a
+  fi
+fi
+
 : "${MCP_AGENT_CLIENT_ID:?MCP_AGENT_CLIENT_ID is required}"
 : "${MCP_AGENT_CLIENT_SECRET:?MCP_AGENT_CLIENT_SECRET is required}"
 PROXY_URL="${PROXY_URL:-http://localhost:8787}"

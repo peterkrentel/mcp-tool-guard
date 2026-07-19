@@ -75,6 +75,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-045
+  priority: P1
+  status: todo
+  item: Pending-approval requests are lost if the calling MCP client can't retry with an approval token
+  acceptance: Implement the recommended design from `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md` (Option A) — the guard proxy holds a write request open (long-poll) when the calling client opts in via a static header (e.g. `X-Wait-For-Approval: true`), and forwards the already-in-memory original request automatically once a human approves via `/pending/:id/approve`, instead of requiring the caller to remember its own arguments and manually replay with an `X-Approval-Token`. Add a configurable max-wait (`MCP_PENDING_LONGPOLL_MAX_MS`) verified against real Render edge-timeout behavior before picking a production default. The browser GUI's existing immediate-202-then-poll behavior (`ui/src/gateway-agent.ts`) must remain unchanged for callers that don't send the opt-in header.
+  owner: unassigned
+  source: discovered 2026-07-19 during BL-037 Claude Code smoke test — a `create_or_update_file` call went to `pending`, got approved via `/agents.html`, but was never actually forwarded to GitHub because Claude Code's MCP client has no retry-with-approval-token logic and the guard proxy never persists the original request arguments server-side (`gateway/pending-store.ts`'s `PendingRequest` is metadata-only); confirmed by manually reconstructing and replaying the original call by hand, which did succeed, proving the deny→pending→approve→forward mechanism itself is correct and the gap is purely client-compatibility
 - BL-044
   priority: P1
   status: todo
