@@ -36,7 +36,7 @@ node -e '
       process.exit(1);
     }
     const traceId = `cc-${require("crypto").randomUUID()}`;
-    process.stdout.write(JSON.stringify({ Authorization: `Bearer ${body.token}`, "X-Trace-Id": traceId }));
+    process.stdout.write(JSON.stringify({ Authorization: `Bearer ${body.token}`, "X-Trace-Id": traceId, "X-Wait-For-Approval": "true" }));
   })().catch((err) => {
     process.stderr.write(String(err) + "\n");
     process.exit(1);

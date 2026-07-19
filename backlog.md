@@ -69,9 +69,9 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 - BL-045
   priority: P1
-  status: todo
+  status: in-progress
   item: Pending-approval requests are lost if the calling MCP client can't retry with an approval token
-  acceptance: Implement the recommended design from `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md` (Option A) — the guard proxy holds a write request open (long-poll) when the calling client opts in via a static header (e.g. `X-Wait-For-Approval: true`), and forwards the already-in-memory original request automatically once a human approves via `/pending/:id/approve`, instead of requiring the caller to remember its own arguments and manually replay with an `X-Approval-Token`. Add a configurable max-wait (`MCP_PENDING_LONGPOLL_MAX_MS`) verified against real Render edge-timeout behavior before picking a production default. The browser GUI's existing immediate-202-then-poll behavior (`ui/src/gateway-agent.ts`) must remain unchanged for callers that don't send the opt-in header.
+  acceptance: Implement the recommended design from `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md` (Option A) — the guard proxy holds a write request open (long-poll) when the calling client opts in via a static header (e.g. `X-Wait-For-Approval: true`), and forwards the already-in-memory original request automatically once a human approves via `/pending/:id/approve`, instead of requiring the caller to remember its own arguments and manually replay with an `X-Approval-Token`. Add a configurable max-wait (`MCP_PENDING_LONGPOLL_MAX_MS`) verified against real Render edge-timeout behavior before picking a production default. The browser GUI's existing immediate-202-then-poll behavior (`ui/src/gateway-agent.ts`) must remain unchanged for callers that don't send the opt-in header. **Implemented** (gateway code + Claude Code opt-in shipped, live-verified locally) — remaining: verify the chosen `MCP_PENDING_LONGPOLL_MAX_MS` default survives Render's real edge-timeout behavior in production before this closes.
   owner: unassigned
   source: discovered 2026-07-19 during BL-037 Claude Code smoke test — a `create_or_update_file` call went to `pending`, got approved via `/agents.html`, but was never actually forwarded to GitHub because Claude Code's MCP client has no retry-with-approval-token logic and the guard proxy never persists the original request arguments server-side (`gateway/pending-store.ts`'s `PendingRequest` is metadata-only); confirmed by manually reconstructing and replaying the original call by hand, which did succeed, proving the deny→pending→approve→forward mechanism itself is correct and the gap is purely client-compatibility
 - BL-044
@@ -278,6 +278,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Investigation doc captures feasibility, exposed operations, identity/trust model, and candidate scope model for running an A2A bridge as an upstream MCP server
   owner: unassigned
   source: post-0.4.0 Track 4 BL-S03
+- BL-047
+  priority: P3
+  status: deferred
+  item: Cross-project note (investigate only, not mcp-tool-guard work) — does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail?
+  acceptance: Not an mcp-tool-guard implementation task. mcp-tool-guard's own browser `GatewayAgent` (`ui/src/gateway-agent.ts`) already surfaces full LLM response content in its chat/trace panel as part of tool-call orchestration. Worth checking whether Chris's AI Proxy Engine's admin console/audit trail captures equivalent LLM response bodies (not just request metadata/decisions) for compliance/debugging value — addressed in his project, not this one; this entry exists only so the observation isn't lost before the next cross-project feedback pass.
+  owner: unassigned
+  source: raised 2026-07-19 while scoping BL-045/BL-046 — part of the ongoing mcp-tool-guard-as-precursor-learner thread with Chris Keen's Fast AI Initiative work (see memory)
 
 ## Notes
 

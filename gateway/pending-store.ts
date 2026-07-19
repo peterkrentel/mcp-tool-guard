@@ -11,6 +11,7 @@ export interface PendingRequest {
   required_scope: string;
   token_scopes: string[];
   agent_id?: string;
+  wait_for_approval?: boolean;
   requested_at: string;
   status: PendingStatus;
   resolved_at?: string;
@@ -25,6 +26,7 @@ interface CreatePendingInput {
   required_scope: string;
   token_scopes: string[];
   agent_id?: string;
+  wait_for_approval?: boolean;
 }
 
 // In-memory fallback when KV is not configured (local dev)
@@ -63,6 +65,7 @@ export async function createPendingRequest(input: CreatePendingInput): Promise<P
     required_scope: input.required_scope,
     token_scopes: input.token_scopes,
     agent_id: input.agent_id,
+    wait_for_approval: input.wait_for_approval,
     requested_at: new Date().toISOString(),
     status: "pending",
   };
@@ -126,6 +129,27 @@ export async function resolvePendingRequest(
     memPending.set(id, updated);
   }
   return updated;
+}
+
+/**
+ * Poll a pending request until it resolves (approved/denied) or maxWaitMs elapses.
+ * Detects resolution promptly (bounded by pollIntervalMs), not just at maxWaitMs.
+ * Returns the latest known record — still "pending" if it timed out — or null if
+ * the id was never found.
+ */
+export async function waitForPendingResolution(
+  id: string,
+  maxWaitMs: number,
+  pollIntervalMs = 750,
+): Promise<PendingRequest | null> {
+  const deadline = Date.now() + maxWaitMs;
+  let current = await getPendingRequest(id);
+  while (current && current.status === "pending" && Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollIntervalMs, remaining)));
+    current = await getPendingRequest(id);
+  }
+  return current;
 }
 
 const APPROVAL_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
