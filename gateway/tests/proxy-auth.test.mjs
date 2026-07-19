@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
+import http from "node:http";
 import { test, before, after } from "node:test";
 
 import { SignJWT } from "jose";
@@ -84,6 +85,39 @@ async function addServer(serverId, overrides = {}) {
   return res;
 }
 
+function startFakeUpstream() {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            result: { content: [{ type: "text", text: "fake-upstream-ok" }] },
+          }),
+        );
+      });
+    });
+    server.listen(0, "127.0.0.1", () => resolve(server));
+  });
+}
+
+async function findPendingIdFor(serverId, tool, adminToken) {
+  for (let i = 0; i < 40; i++) {
+    const listRes = await fetch(`${BASE_URL}/pending?status=pending`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const listBody = await listRes.json();
+    const match = listBody.pending.find((p) => p.server_id === serverId && p.tool === tool);
+    if (match) return match.id;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`pending record for ${serverId}/${tool} never appeared`);
+}
+
 before(async () => {
   const { publicKey, privateKey: priv } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -102,6 +136,7 @@ before(async () => {
       MCP_JWT_AUDIENCE: "mcp-tool-guard",
       MCP_APPROVAL_QUEUE: "true",
       MCP_AUDIT_AGENT_TRUSTED_MODE: "false",
+      MCP_PENDING_LONGPOLL_MAX_MS: "800",
     },
     stdio: ["ignore", "ignore", "ignore"],
   });
@@ -442,4 +477,130 @@ test("OPTIONS /pending/:id preflight allows X-Pending-Token header", async () =>
 
   const allowOrigin = preflightRes.headers.get("access-control-allow-origin") ?? "";
   assert.ok(allowOrigin === "*" || allowOrigin === "http://127.0.0.1:5173");
+});
+
+test("POST /:serverId/mcp with X-Wait-For-Approval forwards for real once approved mid-wait", async () => {
+  const fakeUpstream = await startFakeUpstream();
+  const upstreamPort = fakeUpstream.address().port;
+  try {
+    const serverId = `longpoll-approve-${Date.now()}`;
+    const createRes = await addServer(serverId, {
+      url: `http://127.0.0.1:${upstreamPort}/mcp`,
+      scopes: { write_tool: ["thing:write"] },
+    });
+    assert.equal(createRes.status, 201);
+
+    const readToken = await makeToken(["thing:read"]);
+    const callPromise = fetch(`${BASE_URL}/${serverId}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${readToken}`,
+        "X-Wait-For-Approval": "true",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 42,
+        method: "tools/call",
+        params: { name: "write_tool", arguments: { foo: "bar" } },
+      }),
+    });
+
+    const adminToken = await makeToken(["gateway:admin"]);
+    const pendingId = await findPendingIdFor(serverId, "write_tool", adminToken);
+
+    const approveRes = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ resolvedBy: "test-admin" }),
+    });
+    assert.equal(approveRes.status, 200);
+
+    const callRes = await callPromise;
+    assert.equal(callRes.status, 200);
+    const callBody = await callRes.json();
+    assert.equal(callBody.result.content[0].text, "fake-upstream-ok");
+  } finally {
+    fakeUpstream.close();
+  }
+});
+
+test("POST /:serverId/mcp with X-Wait-For-Approval times out when never approved", async () => {
+  const serverId = `longpoll-timeout-${Date.now()}`;
+  const createRes = await addServer(serverId, { scopes: { write_tool: ["thing:write"] } });
+  assert.equal(createRes.status, 201);
+
+  const readToken = await makeToken(["thing:read"]);
+  const start = Date.now();
+  const res = await fetch(`${BASE_URL}/${serverId}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${readToken}`,
+      "X-Wait-For-Approval": "true",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 43,
+      method: "tools/call",
+      params: { name: "write_tool", arguments: {} },
+    }),
+  });
+  const elapsed = Date.now() - start;
+
+  assert.equal(res.status, 504);
+  const body = await res.json();
+  assert.match(String(body?.error?.message ?? ""), /Approval wait timed out/i);
+  assert.ok(elapsed >= 750, `expected to wait out the ~800ms max, got ${elapsed}ms`);
+});
+
+test("POST /:serverId/mcp with X-Wait-For-Approval denies promptly once explicitly denied", async () => {
+  const serverId = `longpoll-deny-${Date.now()}`;
+  const createRes = await addServer(serverId, { scopes: { write_tool: ["thing:write"] } });
+  assert.equal(createRes.status, 201);
+
+  const readToken = await makeToken(["thing:read"]);
+  const callPromise = fetch(`${BASE_URL}/${serverId}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${readToken}`,
+      "X-Wait-For-Approval": "true",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 44,
+      method: "tools/call",
+      params: { name: "write_tool", arguments: {} },
+    }),
+  });
+
+  const adminToken = await makeToken(["gateway:admin"]);
+  const pendingId = await findPendingIdFor(serverId, "write_tool", adminToken);
+
+  const denyRes = await fetch(`${BASE_URL}/pending/${encodeURIComponent(pendingId)}/deny`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ resolvedBy: "test-admin" }),
+  });
+  assert.equal(denyRes.status, 200);
+
+  const callRes = await callPromise;
+  assert.equal(callRes.status, 403);
+  const callBody = await callRes.json();
+  assert.match(String(callBody?.error?.message ?? ""), /Pending request denied/i);
+});
+
+test("OPTIONS /:serverId/mcp preflight allows X-Wait-For-Approval header", async () => {
+  const preflightRes = await fetch(`${BASE_URL}/flight/mcp`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "http://127.0.0.1:5173",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "x-wait-for-approval",
+    },
+  });
+  assert.equal(preflightRes.status, 204);
+  const allowHeaders = (preflightRes.headers.get("access-control-allow-headers") ?? "").toLowerCase();
+  assert.ok(allowHeaders.includes("x-wait-for-approval"));
 });

@@ -1,7 +1,7 @@
 import { context } from "@opentelemetry/api";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { guardEnabled } from "./env.js";
+import { guardEnabled, pendingLongPollMaxMs } from "./env.js";
 import type { ToolGuard } from "./guard.js";
 import {
   extractBearer,
@@ -17,6 +17,7 @@ import {
   generatePendingPollToken,
   getPendingRequest,
   validateApprovalToken,
+  waitForPendingResolution,
 } from "./pending-store.js";
 import type { ServerRegistry } from "./server-registry.js";
 import { recordProxyDecision, withProxyAllowSpan } from "./telemetry.js";
@@ -102,6 +103,7 @@ export async function handleMcpRoute(
         traceId?: string;
         pendingId?: string;
         approvalViaToken?: boolean;
+        approvalViaLongPoll?: boolean;
       }
     | undefined;
 
@@ -122,8 +124,11 @@ export async function handleMcpRoute(
     };
 
     if (!result.allowed) {
-      let approvedViaToken = false;
+      let approved = false;
       let approvalPendingId: string | undefined;
+      let approvalViaToken = false;
+      let approvalViaLongPoll = false;
+
       if (result.reason?.startsWith("Missing required scope")) {
         const approvalToken = header(req, "x-approval-token");
         if (approvalToken && APPROVAL_QUEUE_ENABLED) {
@@ -143,7 +148,8 @@ export async function handleMcpRoute(
                 session_id: sessionId,
                 reason: `Approved via token (${pendingId})`,
               });
-              approvedViaToken = true;
+              approved = true;
+              approvalViaToken = true;
               approvalPendingId = pendingId;
             } else {
               recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
@@ -156,6 +162,9 @@ export async function handleMcpRoute(
             return;
           }
         } else if (APPROVAL_QUEUE_ENABLED) {
+          const waitForApproval =
+            header(req, "x-wait-for-approval")?.trim().toLowerCase() === "true";
+
           const pending = await createPendingRequest({
             trace_id: traceId,
             session_id: sessionId,
@@ -164,6 +173,7 @@ export async function handleMcpRoute(
             required_scope: result.required_scope,
             token_scopes: result.entry.token_scopes,
             agent_id: header(req, "x-agent-id"),
+            wait_for_approval: waitForApproval,
           });
 
           guard.logger.log({
@@ -187,12 +197,35 @@ export async function handleMcpRoute(
             },
             requestCtx,
           );
-          const pendingPollToken = await generatePendingPollToken(pending.id);
-          sendJsonRpcPending(res, payload.id, pending.id, pendingPollToken);
-          return;
+
+          if (!waitForApproval) {
+            const pendingPollToken = await generatePendingPollToken(pending.id);
+            sendJsonRpcPending(res, payload.id, pending.id, pendingPollToken);
+            return;
+          }
+
+          const resolved = await waitForPendingResolution(pending.id, pendingLongPollMaxMs());
+          if (resolved?.status === "approved") {
+            approved = true;
+            approvalViaLongPoll = true;
+            approvalPendingId = pending.id;
+          } else {
+            const reason =
+              resolved?.status === "denied"
+                ? `Pending request denied (${pending.id})`
+                : `Approval wait timed out (${pending.id})`;
+            recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
+            sendJsonRpcError(
+              res,
+              payload.id,
+              reason,
+              resolved?.status === "denied" ? 403 : 504,
+            );
+            return;
+          }
         }
       }
-      if (!approvedViaToken) {
+      if (!approved) {
         recordProxyDecision({ ...decisionBase, decision: "deny" }, requestCtx);
         sendJsonRpcError(res, payload.id, result.reason ?? "Access denied");
         return;
@@ -200,7 +233,8 @@ export async function handleMcpRoute(
       allowSpan = {
         ...decisionBase,
         pendingId: approvalPendingId,
-        approvalViaToken: true,
+        approvalViaToken,
+        approvalViaLongPoll,
       };
     } else {
       allowSpan = decisionBase;

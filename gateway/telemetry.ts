@@ -21,6 +21,7 @@ export interface ProxyDecisionAttrs {
   traceId?: string;
   pendingId?: string;
   approvalViaToken?: boolean;
+  approvalViaLongPoll?: boolean;
 }
 
 export interface AgentIntentAttrs {
@@ -151,6 +152,7 @@ function proxySpanAttributes(attrs: ProxyDecisionAttrs): Record<string, string |
     ...(attrs.traceId ? { "mcp.trace_id": attrs.traceId } : {}),
     ...(attrs.pendingId ? { pending_id: attrs.pendingId } : {}),
     ...(attrs.approvalViaToken ? { "approval.via_token": true } : {}),
+    ...(attrs.approvalViaLongPoll ? { "approval.via_long_poll": true } : {}),
   };
 }
 
@@ -278,6 +280,7 @@ export async function withProxyAllowSpan<T>(
     decision?: "allow";
     pendingId?: string;
     approvalViaToken?: boolean;
+    approvalViaLongPoll?: boolean;
   },
   fn: () => Promise<T>,
 ): Promise<T> {
