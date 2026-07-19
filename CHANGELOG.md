@@ -8,6 +8,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Claude Code ops view design spec** — added `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`, scoping a new admin-gated ops page (`ui/claude-ops.html`) filtered by client type (Claude Code / browser GUI / unattributed, via the existing `cc-`/`tr_` trace-id prefix conventions) so a security/admin operator has one place to notice and approve pending MCP tool calls instead of needing to know to check `/agents.html` and hand-inspect trace ids. Design only — no code changes; implementation plan comes next.
+
 - **Claude Code opts into pending-approval long-poll (BL-045)** — `scripts/claude-mcp-token-helper.sh` now sends `X-Wait-For-Approval: true`, so an approved write actually reaches GitHub instead of being lost — no user-facing config change required.
 - **BL-045: pending-approval long-poll** — the guard proxy (`gateway/proxy-routes-mcp.ts`) now holds a write request open when the caller sends `X-Wait-For-Approval: true`, polling the pending record and forwarding the already-in-memory original request automatically once a human approves it via `/pending/:id/approve` — instead of requiring the caller to remember its own arguments and retry with an `X-Approval-Token`. Configurable via `MCP_PENDING_LONGPOLL_MAX_MS` (default 120000ms). The browser GUI's existing immediate-202-then-poll behavior is unchanged for callers that don't send the opt-in header.
 - **BL-045 long-poll primitives** — `pendingLongPollMaxMs()` (`gateway/env.ts`) and `waitForPendingResolution()` (`gateway/pending-store.ts`), the building blocks for holding an MCP write open until a human approves it.
