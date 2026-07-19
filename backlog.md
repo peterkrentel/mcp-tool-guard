@@ -20,14 +20,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P0 (next)
 
-- BL-037
-  priority: P1
-  status: todo
-  item: Claude Code harness integration guide for guarded MCP endpoints
-  acceptance: Document and smoke-test Claude Code configuration for guarded upstream access via `POST /:serverId/mcp` (example `claude mcp add .../github/mcp` with bearer auth), including token vending flow (`/agents/:clientId/token` or `/token`), token refresh via `headersHelper`, and expected dual approval behavior (Claude local tool approval plus gateway scope/pending approval)
-  owner: unassigned
-  source: design note 2026-07-14 — guard proxy is MCP-contract compatible and should be harness-agnostic across browser, curl/M2M, and Claude Code clients
-
 - BL-038
   priority: P1
   status: todo
@@ -64,14 +56,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F02; sequencing note 2026-07-15 - intentionally scheduled after BL-041 (not a hard dependency) to apply second-adapter lessons before Entra Azure/Graph integration
   depends_on: BL-020
-- BL-024
-  priority: P0
-  status: todo
-  item: Dockerfiles + k3d ephemeral CI workflow for guard proxy and flight server
-  acceptance: Dockerfiles exist for `gateway/` and `servers/flight/`; a GitHub Actions workflow (workflow_dispatch or PR-label triggered, not on every push) builds both images, spins up a k3d cluster, imports the images directly (no registry needed), applies Deployment/Service manifests, waits for rollout, runs smoke checks against the cluster's exposed UI/guard endpoints, and tears the cluster down; workflow uses real Auth0 test secrets to create an ephemeral Management API operator client for the run and cleans up the grant/client during teardown; kept as a separate workflow from `ci.yml` so the fast typecheck/test PR feedback loop is untouched
-  owner: unassigned
-  source: design discussion 2026-07-15 - k3d chosen over bare k3s for CI (no special runner privileges needed); docker-compose dropped as redundant with existing `make dev` local-dev story
-
 - BL-041
   priority: P0
   status: todo
@@ -83,6 +67,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-045
+  priority: P1
+  status: todo
+  item: Pending-approval requests are lost if the calling MCP client can't retry with an approval token
+  acceptance: Implement the recommended design from `docs/superpowers/specs/2026-07-19-pending-approval-long-poll-design.md` (Option A) — the guard proxy holds a write request open (long-poll) when the calling client opts in via a static header (e.g. `X-Wait-For-Approval: true`), and forwards the already-in-memory original request automatically once a human approves via `/pending/:id/approve`, instead of requiring the caller to remember its own arguments and manually replay with an `X-Approval-Token`. Add a configurable max-wait (`MCP_PENDING_LONGPOLL_MAX_MS`) verified against real Render edge-timeout behavior before picking a production default. The browser GUI's existing immediate-202-then-poll behavior (`ui/src/gateway-agent.ts`) must remain unchanged for callers that don't send the opt-in header.
+  owner: unassigned
+  source: discovered 2026-07-19 during BL-037 Claude Code smoke test — a `create_or_update_file` call went to `pending`, got approved via `/agents.html`, but was never actually forwarded to GitHub because Claude Code's MCP client has no retry-with-approval-token logic and the guard proxy never persists the original request arguments server-side (`gateway/pending-store.ts`'s `PendingRequest` is metadata-only); confirmed by manually reconstructing and replaying the original call by hand, which did succeed, proving the deny→pending→approve→forward mechanism itself is correct and the gap is purely client-compatibility
 - BL-044
   priority: P1
   status: todo
@@ -239,7 +230,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: The BL-024 workflow becomes a GitHub Actions matrix job with one leg per supported IdP adapter (Auth0, Keycloak, Entra - added incrementally as each adapter lands, not all at once); each leg deploys the gateway configured for that one provider and runs the same smoke test against it; Keycloak leg runs Keycloak itself as an in-cluster pod (no external account/secrets needed); Auth0 and Entra legs use repo/org-level CI secrets scoped to test-only credentials; a leg is only added to the matrix once its corresponding `IdpAdapter` exists - this item grows across BL-020/BL-041/BL-021 rather than landing whole
   owner: unassigned
   source: design discussion 2026-07-15 - recognized the CI matrix doubles as the actual verification mechanism for `IdpAdapter` implementations, replacing manual GUI smoke-testing per provider
-  depends_on: BL-024
 
 - BL-016
   priority: P2

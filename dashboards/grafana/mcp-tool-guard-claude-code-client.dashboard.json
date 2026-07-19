@@ -1,0 +1,584 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "mcp-tool-guard-claude-code-client"
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana",
+            "version": "v0",
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "description": "Claude-Code-originated traffic through the guard proxy (BL-037) — filtered on the cc-prefixed session trace id injected by scripts/claude-mcp-token-helper.sh. Companion to the main MCP Tool Guard Proxy dashboard; does not replace it.",
+    "editable": true,
+    "links": [],
+    "liveNow": false,
+    "preload": false,
+    "tags": ["mcp-tool-guard", "claude-code", "bl-037"],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-6h",
+      "to": "now",
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "MCP Tool Guard — Claude Code Client",
+    "variables": [],
+    "preferences": {
+      "layout": {
+        "kind": "GridLayout",
+        "spec": {
+          "items": []
+        }
+      }
+    },
+    "elements": {
+      "cc-panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Claude Code Request Rate",
+          "description": "All spans from Claude-Code-originated calls (mcp.trace_id prefixed cc-)",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-traces"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "instant": false,
+                        "query": "{ resource.service.name=\"mcp-tool-guard-proxy\" && span.mcp.trace_id=~\"cc-.*\" } | rate()",
+                        "queryType": "traceql",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "green" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "fixed", "fixedColor": "blue" }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "cc-panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Claude Code Allow Rate",
+          "description": "Claude-Code-originated tool calls allowed by the guard",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-traces"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "instant": false,
+                        "query": "{ resource.service.name=\"mcp-tool-guard-proxy\" && span.mcp.trace_id=~\"cc-.*\" && span.mcp.decision=\"allow\" } | rate()",
+                        "queryType": "traceql",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "green" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "fixed", "fixedColor": "green" }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "cc-panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Claude Code Deny Rate",
+          "description": "Claude-Code-originated tool calls denied by the guard",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-traces"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "instant": false,
+                        "query": "{ resource.service.name=\"mcp-tool-guard-proxy\" && span.mcp.trace_id=~\"cc-.*\" && span.mcp.decision=\"deny\" } | rate()",
+                        "queryType": "traceql",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "green" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "fixed", "fixedColor": "red" }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "cc-panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Claude Code Pending Rate",
+          "description": "Claude-Code-originated tool calls held for approval",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-traces"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "instant": false,
+                        "query": "{ resource.service.name=\"mcp-tool-guard-proxy\" && span.mcp.trace_id=~\"cc-.*\" && span.mcp.decision=\"pending\" } | rate()",
+                        "queryType": "traceql",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "green" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "fixed", "fixedColor": "orange" }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "cc-panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Claude Code Upstream Latency (p50 / p95)",
+          "description": "Latency of mcp.upstream.forward spans for Claude-Code-originated calls only",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "tempo",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-traces"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "instant": false,
+                        "query": "{ resource.service.name=\"mcp-tool-guard-proxy\" && name=\"mcp.upstream.forward\" && span.mcp.trace_id=~\"cc-.*\" } | quantile_over_time(span.latency_ms, 0.5, 0.95)",
+                        "queryType": "traceql",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "annotations": { "clustering": -1, "multiLane": false },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "enableFacetedFilter": false,
+                  "overflow": "ellipsis",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": { "hideZeros": false, "mode": "multi", "sort": "none" }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ms",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "green" },
+                      { "value": 80, "color": "red" }
+                    ]
+                  },
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 8,
+                    "gradientMode": "none",
+                    "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": { "type": "linear" },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": { "group": "A", "mode": "none" },
+                    "thresholdsStyle": { "mode": "off" }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "cc-panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Claude Code Logs",
+          "description": "Raw log stream filtered to lines containing trace_id=cc- (Claude-Code-originated calls only)",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "loki",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-logs"
+                      },
+                      "spec": {
+                        "app": "grafana-assistant-app",
+                        "expr": "{service_name=\"mcp-tool-guard-proxy\"} |= \"trace_id=cc-\"",
+                        "instant": false,
+                        "queryType": "range",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.2.0-28926505616",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showLogAttributes": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "RowsLayout",
+      "spec": {
+        "rows": [
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Claude Code Client",
+              "collapse": false,
+              "hideHeader": true,
+              "fillScreen": false,
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 0, "width": 6, "height": 4, "element": { "kind": "ElementReference", "name": "cc-panel-1" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 6, "y": 0, "width": 6, "height": 4, "element": { "kind": "ElementReference", "name": "cc-panel-2" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 12, "y": 0, "width": 6, "height": 4, "element": { "kind": "ElementReference", "name": "cc-panel-3" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 18, "y": 0, "width": 6, "height": 4, "element": { "kind": "ElementReference", "name": "cc-panel-4" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 4, "width": 24, "height": 8, "element": { "kind": "ElementReference", "name": "cc-panel-5" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 12, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "cc-panel-6" } }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
