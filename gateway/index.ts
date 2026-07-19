@@ -18,3 +18,11 @@ export type {
   ServerConfig,
   ToolConfig,
 } from "./types.js";
+export {
+  type IdpAdapter,
+  type IdpProviderId,
+  type CreatedAgentClient,
+  type VendedToken,
+  Auth0IdpAdapter,
+  buildIdpAdapter,
+} from "./idp-adapter.js";

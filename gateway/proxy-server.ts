@@ -43,18 +43,16 @@ import {
   guardEnabled,
   m2mRevocationEnabled,
   jwtTrustFromEnv,
+  idpProviderIdFromEnv,
   readPublicKeyPem,
 } from "./env.js";
 import { ToolGuard } from "./guard.js";
+import { buildIdpAdapter, type IdpAdapter } from "./idp-adapter.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
   withHttpRequestSpan,
 } from "./telemetry.js";
-import {
-  auth0AudienceFromEnv,
-  tokenVendorFromEnv,
-} from "./token-vendor.js";
 import { geminiConfigured } from "./llm-proxy.js";
 import {
   handleAuditAgentPostRoute,
@@ -144,8 +142,14 @@ async function main(): Promise<void> {
     if (n > 0) console.info(`[MCPToolGuard proxy] loaded ${n} audit entries from KV`);
   }).catch(() => {/* non-fatal */});
 
-  const tokenVendor = tokenVendorFromEnv();
-  const apiAudience = auth0AudienceFromEnv();
+  let idpAdapter: IdpAdapter;
+  try {
+    idpAdapter = buildIdpAdapter(idpProviderIdFromEnv());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[MCPToolGuard proxy] Fatal IdP config error: ${message}`);
+    process.exit(1);
+  }
 
   const defaultServer = process.env.MCP_PROXY_DEFAULT_SERVER?.trim() || "flight";
   const port = Number(process.env.MCP_PROXY_PORT ?? process.env.PORT ?? DEFAULT_PORT);
@@ -214,11 +218,12 @@ async function main(): Promise<void> {
         sendJson(res, 200, {
           service: "mcp-tool-guard-proxy",
           guard_enabled: enabled,
-          jwt_trust_enabled: Boolean(jwtTrust.jwtIssuer),
+          idp_provider: idpAdapter.providerId,
+          idp_management_configured: idpAdapter.isManagementConfigured(),
+          idp_vending_configured: idpAdapter.isVendingConfigured(),
           control_plane_auth: controlPlaneAuth,
           m2m_revocation_enabled: revocationEnabled,
           audit_agent_trusted_mode: auditAgentTrustedMode(),
-          auth0_mgmt_configured: Boolean(process.env.AUTH0_MGMT_CLIENT_ID),
           kv_enabled: kvEnabled(),
           approval_queue_enabled: APPROVAL_QUEUE_ENABLED,
           gemini_configured: geminiConfigured(),
@@ -274,8 +279,7 @@ async function main(): Promise<void> {
           res,
           pathname,
           controlPlaneAuth,
-          tokenVendor,
-          apiAudience,
+          idpAdapter,
         })
       ) {
         return;

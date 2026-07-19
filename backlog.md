@@ -56,13 +56,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
-- BL-020
-  priority: P0
-  status: todo
-  item: IdP adapter interface and Auth0 implementation
-  acceptance: Routes depend on `IdpAdapter` interface; Auth0 implementation preserves existing create/revoke/token behavior; provider wiring (single active provider selected via `MCP_IDP_PROVIDER`, per BL-034) and `/health` identity reporting (`idp_provider` field) implemented per `docs/superpowers/specs/2026-07-18-idp-trust-model-design.md`
-  owner: unassigned
-  source: post-0.4.0 Track 1 BL-F01
 - BL-021
   priority: P0
   status: todo

@@ -139,7 +139,7 @@ test("GET /health returns expected baseline flags", async () => {
   const body = await res.json();
   assert.equal(body.service, "mcp-tool-guard-proxy");
   assert.equal(body.guard_enabled, true);
-  assert.equal(body.jwt_trust_enabled, true);
+  assert.equal(body.idp_provider, "auth0");
   assert.equal(body.approval_queue_enabled, true);
   assert.ok(Array.isArray(body.servers));
   assert.ok(body.servers.includes("flight"));
