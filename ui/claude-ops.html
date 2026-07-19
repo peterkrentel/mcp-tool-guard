@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude Code ops — MCPToolGuard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="site-nav">
+        <a href="/">Flight demo</a>
+        <a href="/agents.html">Agent gateway</a>
+        <a href="/claude-ops.html" class="nav-active">Claude Code ops</a>
+      </nav>
+      <h1>Claude Code ops</h1>
+      <p class="tagline">Pending approvals and audit activity, filtered by client type</p>
+    </header>
+
+    <main class="agents-layout">
+      <section class="panel admin-panel">
+        <h2>Operator sign-in</h2>
+        <p class="admin-hint">
+          This view requires your Auth0 user token with <code>gateway:admin</code>, same as the Agent gateway page.
+        </p>
+        <div id="auth-controls" class="auth-controls" hidden>
+          <button id="auth-login" type="button">Sign in</button>
+          <button id="auth-logout" type="button" hidden>Sign out</button>
+          <span id="auth-status" class="auth-status"></span>
+        </div>
+        <p id="admin-gate-hint" class="admin-hint"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Client type</h2>
+        <select id="client-type-select">
+          <option value="claude-code">Claude Code</option>
+          <option value="browser-gui">Browser GUI</option>
+          <option value="unattributed">Unattributed</option>
+          <option value="all">All</option>
+        </select>
+      </section>
+
+      <section class="panel">
+        <h2>Pending approvals</h2>
+        <p class="admin-hint">Filtered to the selected client type. Approve grants a one-time token to the agent.</p>
+        <div id="ops-pending-list" class="card-list"></div>
+      </section>
+
+      <section class="panel log-panel">
+        <h2>Recent activity</h2>
+        <p class="log-panel-sub">Filtered audit feed for the selected client type</p>
+        <div id="ops-audit" class="audit-log"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/claude-ops-main.ts"></script>
+  </body>
+</html>

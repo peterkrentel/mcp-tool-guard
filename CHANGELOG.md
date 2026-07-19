@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Claude Code ops view** — `ui/claude-ops.html` + `ui/src/claude-ops-main.ts`, an admin-gated page (same Auth0 `gateway:admin` sign-in as `/agents.html`) showing pending approvals and recent audit activity filtered by client type (Claude Code / browser GUI / unattributed), so an operator doesn't need to know to check `/agents.html` and hand-inspect trace-id strings. Implements `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`.
 - **`classifyClientType()` helper** — `ui/src/client-type.ts`, classifies a trace id as `claude-code` (`cc-` prefix), `browser-gui` (`tr_` prefix), or `unattributed`, for the upcoming Claude Code ops view. Also fixes `ui/src/proxy-api.ts`'s `PendingRequest` interface, which was missing `trace_id`/`wait_for_approval` (both exist server-side since BL-045).
 - **Claude Code ops view implementation plan** — added `docs/superpowers/plans/2026-07-19-claude-ops-view.md`, a step-by-step plan implementing the approved `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`. Plan only — implementation lands in subsequent commits.
 
