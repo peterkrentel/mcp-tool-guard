@@ -9,10 +9,9 @@ import {
   saveAgent,
 } from "./agent-store.js";
 import { requireGatewayAdmin } from "./admin-auth.js";
-import { createM2mAgent, deleteM2mAgent } from "./auth0-mgmt.js";
 import type { ToolGuard } from "./guard.js";
+import type { IdpAdapter } from "./idp-adapter.js";
 import { readJson, sendJson } from "./http-helpers.js";
-import type { TokenVendor } from "./token-vendor.js";
 
 export interface HandleAgentsTokenRoutesOptions {
   guard: ToolGuard;
@@ -20,8 +19,7 @@ export interface HandleAgentsTokenRoutesOptions {
   res: ServerResponse;
   pathname: string;
   controlPlaneAuth: boolean;
-  tokenVendor: TokenVendor | null;
-  apiAudience: string | null;
+  idpAdapter: IdpAdapter;
 }
 
 /**
@@ -41,8 +39,7 @@ export async function handleAgentsTokenRoutes(
     res,
     pathname,
     controlPlaneAuth,
-    tokenVendor,
-    apiAudience,
+    idpAdapter,
   } = options;
 
   /** GET /agents — list persisted agents. Auth: no. */
@@ -62,7 +59,7 @@ export async function handleAgentsTokenRoutes(
     }
     const body = await readJson<{ name: string; scopes: string[]; serverId?: string }>(req);
     try {
-      const created = await createM2mAgent(body.name, body.scopes ?? []);
+      const created = await idpAdapter.createAgent(body.name, body.scopes ?? []);
       const record = buildAgentRecord({
         name: created.name,
         serverId: body.serverId?.trim() || "flight",
@@ -83,7 +80,7 @@ export async function handleAgentsTokenRoutes(
   const agentTokenMatch = pathname.match(/^\/agents\/([^/]+)\/token\/?$/);
   if (req.method === "POST" && agentTokenMatch) {
     /** POST /agents/:clientId/token — vend JWT using secret stored at create (gateway:admin). */
-    if (!tokenVendor || !apiAudience) {
+    if (!idpAdapter.isVendingConfigured()) {
       sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
       return true;
     }
@@ -103,7 +100,7 @@ export async function handleAgentsTokenRoutes(
         });
         return true;
       }
-      const vended = await tokenVendor.vend(clientId, clientSecret, apiAudience);
+      const vended = await idpAdapter.vendToken(clientId, clientSecret);
       sendJson(res, 200, vended);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -123,9 +120,9 @@ export async function handleAgentsTokenRoutes(
     }
     try {
       const clientId = deleteAgentMatch[1];
-      await deleteM2mAgent(clientId);
+      await idpAdapter.deleteAgent(clientId);
       await deleteAgent(clientId);
-      tokenVendor?.invalidate(clientId);
+      idpAdapter.invalidateToken(clientId);
       sendJson(res, 200, { ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -136,7 +133,7 @@ export async function handleAgentsTokenRoutes(
 
   /** POST /token — vend client_credentials JWT. Auth: gateway:admin when enabled. */
   if (req.method === "POST" && pathname === "/token") {
-    if (!tokenVendor || !apiAudience) {
+    if (!idpAdapter.isVendingConfigured()) {
       sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
       return true;
     }
@@ -148,11 +145,7 @@ export async function handleAgentsTokenRoutes(
     }
     const body = await readJson<{ clientId: string; clientSecret: string }>(req);
     try {
-      const vended = await tokenVendor.vend(
-        body.clientId,
-        body.clientSecret,
-        apiAudience,
-      );
+      const vended = await idpAdapter.vendToken(body.clientId, body.clientSecret);
       sendJson(res, 200, vended);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
