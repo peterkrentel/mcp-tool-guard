@@ -75,6 +75,12 @@ export function jwtTrustFromEnv(): {
   return {};
 }
 
+export function pendingLongPollMaxMs(): number {
+  const raw = process.env.MCP_PENDING_LONGPOLL_MAX_MS?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 120_000;
+}
+
 export function corsAllowOrigins(): string[] {
   const raw = process.env.MCP_CORS_ORIGINS?.trim();
   if (raw === "*") return ["*"];
