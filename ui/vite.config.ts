@@ -40,6 +40,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         agents: resolve(__dirname, "agents.html"),
+        claudeOps: resolve(__dirname, "claude-ops.html"),
       },
     },
   },

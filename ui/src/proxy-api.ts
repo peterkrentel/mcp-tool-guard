@@ -180,11 +180,13 @@ export async function fetchGatewayAudit(
 
 export interface PendingRequest {
   id: string;
+  trace_id?: string;
   server_id: string;
   tool: string;
   required_scope: string;
   token_scopes: string[];
   agent_id?: string;
+  wait_for_approval?: boolean;
   requested_at: string;
   status: "pending" | "approved" | "denied";
   resolved_at?: string;

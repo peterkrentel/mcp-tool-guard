@@ -8,6 +8,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Nav links to Claude Code ops** — added to `/` and `/agents.html`'s site nav.
+- **Claude Code ops view** — `ui/claude-ops.html` + `ui/src/claude-ops-main.ts`, an admin-gated page (same Auth0 `gateway:admin` sign-in as `/agents.html`) showing pending approvals and recent audit activity filtered by client type (Claude Code / browser GUI / unattributed), so an operator doesn't need to know to check `/agents.html` and hand-inspect trace-id strings. Implements `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`.
+- **`classifyClientType()` helper** — `ui/src/client-type.ts`, classifies a trace id as `claude-code` (`cc-` prefix), `browser-gui` (`tr_` prefix), or `unattributed`, for the upcoming Claude Code ops view. Also fixes `ui/src/proxy-api.ts`'s `PendingRequest` interface, which was missing `trace_id`/`wait_for_approval` (both exist server-side since BL-045).
 - **Claude Code ops view implementation plan** — added `docs/superpowers/plans/2026-07-19-claude-ops-view.md`, a step-by-step plan implementing the approved `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`. Plan only — implementation lands in subsequent commits.
 
 - **Claude Code ops view design spec** — added `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`, scoping a new admin-gated ops page (`ui/claude-ops.html`) filtered by client type (Claude Code / browser GUI / unattributed, via the existing `cc-`/`tr_` trace-id prefix conventions) so a security/admin operator has one place to notice and approve pending MCP tool calls instead of needing to know to check `/agents.html` and hand-inspect trace ids. Design only — no code changes; implementation plan comes next.
@@ -22,6 +25,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Extracted `renderPendingList()`** — `ui/src/pending-view.ts`, moved out of `ui/src/agents-main.ts`'s inline card-rendering so it can be shared with the new Claude Code ops view (next). Behavior-preserving — `/agents.html`'s approval queue panel is unchanged.
 - **Backlog: added BL-047** — deferred, investigate-only cross-project note (not mcp-tool-guard implementation work): does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail, the way mcp-tool-guard's own browser `GatewayAgent` already does in its chat/trace panel? Addressed in his project, not this one.
 - **BL-045 status: implemented, pending prod verification** — gateway code and Claude Code opt-in shipped and live-verified locally; production `MCP_PENDING_LONGPOLL_MAX_MS` tuning against Render's real edge-timeout behavior remains open.
 - **Backlog: BL-003 acceptance criteria expanded** — added a convenient list/delete mechanism for M2M agents (not just the raw `GET /agents`/`DELETE /agents/:clientId` API) to BL-003's cleanup-path requirement, noting the shape may differ between local (in-memory) and prod (KV-backed) storage. Noted after manually deleting the `claude-code-local` agent via hand-written fetch calls during BL-037 cleanup.
