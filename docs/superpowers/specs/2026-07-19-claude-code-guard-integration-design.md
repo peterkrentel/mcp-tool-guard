@@ -45,7 +45,7 @@ Reads `MCP_AGENT_CLIENT_ID`/`MCP_AGENT_CLIENT_SECRET`/`PROXY_URL` (default `http
 }
 ```
 
-No client-side token caching needed — `TokenVendor` already caches server-side. The `X-Trace-Id` is a fresh UUID each time the script runs (i.e., once per Claude Code connect/reconnect), giving a **session-level** grouping key in the audit trail — not per-individual-tool-call granularity, since `headersHelper` only re-runs at connect time, not per request. This is documented explicitly as a known limitation, not implied to match the browser's per-turn correlation.
+No client-side token caching needed — `TokenVendor` already caches server-side. The `X-Trace-Id` is a fresh UUID, prefixed `cc-` (e.g. `cc-3f9a2e1b...`), generated each time the script runs (i.e., once per Claude Code connect/reconnect) — giving a **session-level** grouping key in the audit trail, not per-individual-tool-call granularity, since `headersHelper` only re-runs at connect time, not per request. This is documented explicitly as a known limitation, not implied to match the browser's per-turn correlation. The `cc-` prefix exists specifically so Claude-Code-originated traffic is queryable/filterable by trace-id pattern in both the audit log and Grafana (component 4, below) without needing any new attribute or code path — `gateway/telemetry.ts`'s existing `recordUpstreamForward` span already captures `mcp.trace_id` from whatever value arrives in `X-Trace-Id`.
 
 ### 2. `.mcp.json` entry (documented, not committed — user-local config)
 
@@ -72,10 +72,17 @@ Following the existing docs' structure (`auth0-setup.md`/`render-deploy.md` styl
 - **Observability gap, stated plainly**: Claude Code's calls appear in `GET /audit` as `source: "proxy"` only (never `source: "agent"`, since Claude Code never posts to `/audit/agent` — that's the browser SDK's own pre-check mechanism). With the helper's injected `X-Trace-Id`, calls from one Claude Code session are groupable by that one shared id — but not distinguishable per individual tool call the way the browser's per-turn trace_id is.
 - **Generalization note**: the underlying pattern (guard proxy in front, Bearer JWT via a refreshable-header mechanism) is harness-agnostic by construction — any MCP client supporting remote HTTP servers with a custom auth header (OpenCode, VS Code's native MCP support, etc.) should work the same way. Only the per-harness config syntax differs. Documenting other harnesses is explicitly out of scope for this task (YAGNI — the user only uses Claude Code today); a future ticket can add a config section per additional harness without any guard-side changes.
 
+### 4. New Grafana dashboard for Claude-Code / new-client-type traffic
+
+`dashboards/grafana/mcp-tool-guard-proxy.dashboard.json` is a live Grafana Cloud export (`dashboard.grafana.app/v2` schema, tied to the user's actual Cloud stack) — **not edited** as part of this task. Instead, a **net-new, separate dashboard** (`dashboards/grafana/mcp-tool-guard-claude-code-client.dashboard.json`) gets added for this specific client type, following the exact same existing convention (`dashboards/grafana/README.md`: build/edit live in the Grafana UI, export JSON, commit the canonical file — not hand-authored blind against the schema).
+
+The filter that makes this possible needs no new code: `mcp.trace_id =~ "^cc-"` against the existing `mcp.upstream.forward` span (`gateway/telemetry.ts`'s `recordUpstreamForward`, which already emits `mcp.trace_id`, `mcp.tool.name`, `mcp.decision`, `latency_ms`, `server.id`, `http.response.status_code` — everything needed for request-count, decision-breakdown, latency, and a raw trace-list panel scoped to Claude Code's traffic only). Local dev already exports to the same Grafana Cloud instance (`OTEL_EXPORTER_OTLP_ENDPOINT`/`_HEADERS` already configured in the user's local env), so this smoke test's traces will actually appear there in real time, not just in theory.
+
 ## Explicitly out of scope
 
 - `servers/flight` as a target (has its own embedded guard, not representative — see Decision above).
 - Fixing Claude Code's `headersHelper` mid-session refresh bug (external, upstream — link and document it, don't attempt a workaround inside this project).
 - Per-individual-tool-call trace correlation for Claude Code (would require either the proxy accepting a client-generated trace_id per MCP request body, which Claude Code has no mechanism to set per-call, or building a new proxy-side heuristic — not attempted here; session-level grouping via `headersHelper` is the full scope of the observability improvement in this task).
 - Documenting other MCP harnesses (OpenCode, VS Code, Cursor) — noted as a generalizable future extension, not built here.
-- Any new gateway/proxy code — this task is 100% docs + one small shell script, using already-shipped BL-020-era infrastructure (`/token`, `TokenVendor`, existing scope enforcement).
+- Editing the existing `mcp-tool-guard-proxy.dashboard.json` — the new Claude-Code dashboard is a separate, additive file.
+- Any new gateway/proxy code — this task is 100% docs + one small shell script + one net-new Grafana dashboard, using already-shipped BL-020-era infrastructure (`/token`, `TokenVendor`, existing scope enforcement, existing `mcp.trace_id` span attribute) and the existing dashboard-as-code convention.
