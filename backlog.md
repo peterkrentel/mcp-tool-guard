@@ -83,6 +83,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-043
+  priority: P1
+  status: todo
+  item: Re-approving an already-approved pending request mints a redundant valid approval token
+  acceptance: `POST /pending/:id/approve` on a pending request that is already `status: approved` either no-ops (returns the existing approval token/state without minting a new one) or rejects with a clear error, instead of silently calling `generateApprovalToken()` again; add a regression test asserting a second approve call on the same pending id does not produce a second independently-valid `X-Approval-Token`
+  owner: unassigned
+  source: discovered 2026-07-19 during BL-020 deployed smoke test follow-up — user approved the same GitHub `create_or_update_file` pending request (`pr_...`) twice via `/agents.html`'s approval queue panel on the deployed proxy; `gateway/pending-store.ts` confirmed each token is still correctly single-use/burned on validation (`validateApprovalToken`, no replay of the same token), but `generateApprovalToken` has no guard against being called again for an already-approved pending id, so two independent valid tokens existed for one pending request and both were successfully redeemed (two "allow ... Pending request approved" audit entries for the same pending id); not a token-replay bug, but a missing idempotency guard on repeated approval
 - BL-042
   priority: P1
   status: todo
@@ -90,7 +97,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: `docs/ARCHITECTURE.md` (or `guard-proxy.md`) explicitly documents that `control_plane_auth` (admin-gating for `/agents`, `/servers`, `/pending`) is conditional on JWT trust config being present (`adminAuthRequired()` in `gateway/admin-auth.ts`), including the operational risk of deploying without JWT trust configured; decide whether `GET /agents` should require `gateway:admin` (currently intentionally open — metadata only, no secrets — per existing `guard-proxy.md` route table) or stay as-is with the rationale made explicit; decide whether the vending-config-check-before-admin-auth-check ordering in `gateway/proxy-routes-agents-token.ts` (`POST /token`, `POST /agents/:clientId/token`) should be reordered to avoid revealing `AUTH0_DOMAIN`/`AUTH0_AUDIENCE` configuration state to unauthenticated callers, or is acceptable given `/health` already exposes the same booleans unauthenticated; add a guardrail test asserting the desired behavior for "guard enabled + partial JWT trust config" (currently untested)
   owner: unassigned
   source: external code review (VS Code Copilot) during BL-020 PR review 2026-07-19 — all three observations confirmed pre-existing (present in the codebase before BL-020, not introduced by it) and are already partially documented (guard-proxy.md route table, /health field, UI "control plane auth is off" banner) rather than undocumented; filed as its own item since fixing it in BL-020 would violate that PR's own "preserve existing behavior exactly" acceptance criterion
-
 - BL-006
   priority: P1
   status: todo
