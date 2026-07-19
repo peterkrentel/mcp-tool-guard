@@ -83,6 +83,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-044
+  priority: P1
+  status: todo
+  item: Prune pending requests so the approval queue stops growing unbounded
+  acceptance: Resolved (`approved`/`denied`) `PendingRequest` records auto-expire via TTL after a configurable retention window (e.g. `MCP_PENDING_RETENTION_DAYS`, default 7 or 30) — matching the existing TTL pattern already used for approval/poll tokens in `gateway/pending-store.ts`; unresolved (`pending`) records never auto-expire since they still need action. Additionally add `DELETE /pending/:id` (gateway:admin when control-plane auth enabled) plus a remove/clear-resolved control in `/agents.html`'s approval queue panel for on-demand cleanup. Pruning only removes the bookkeeping record — the permanent audit trail (`gateway/logger.ts`) is untouched, so no compliance-relevant history is lost.
+  owner: unassigned
+  source: discovered 2026-07-19 — `GET /pending` returns every pending/approved/denied record ever created with no pagination, and `PendingRequest` records have no TTL/delete path (only approval tokens at 1hr and poll tokens at 10min expire); user noted the approval queue UI panel just grows and grows over time
 - BL-043
   priority: P1
   status: todo
