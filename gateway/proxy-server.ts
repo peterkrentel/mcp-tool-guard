@@ -47,7 +47,7 @@ import {
   readPublicKeyPem,
 } from "./env.js";
 import { ToolGuard } from "./guard.js";
-import { buildIdpAdapter } from "./idp-adapter.js";
+import { buildIdpAdapter, type IdpAdapter } from "./idp-adapter.js";
 import { clientIp, kvRateLimitExceeded, SlidingWindowRateLimiter } from "./rate-limit.js";
 import { ServerRegistry } from "./server-registry.js";
 import {
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
     if (n > 0) console.info(`[MCPToolGuard proxy] loaded ${n} audit entries from KV`);
   }).catch(() => {/* non-fatal */});
 
-  let idpAdapter;
+  let idpAdapter: IdpAdapter;
   try {
     idpAdapter = buildIdpAdapter(idpProviderIdFromEnv());
   } catch (err) {
