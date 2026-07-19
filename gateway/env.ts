@@ -87,3 +87,24 @@ export function corsAllowOrigins(): string[] {
     "http://127.0.0.1:5173",
   ];
 }
+
+import type { IdpProviderId } from "./idp-adapter.js";
+
+const KNOWN_IDP_PROVIDERS: IdpProviderId[] = ["auth0", "keycloak", "entra"];
+
+/**
+ * Selects the single active IdP provider for this deployment.
+ * Defaults to "auth0" when unset — matches today's behavior, where the
+ * Auth0 management/token-vending code paths are always attempted
+ * unconditionally regardless of any other config.
+ */
+export function idpProviderIdFromEnv(): IdpProviderId {
+  const raw = process.env.MCP_IDP_PROVIDER?.trim().toLowerCase();
+  if (!raw) return "auth0";
+  if (!KNOWN_IDP_PROVIDERS.includes(raw as IdpProviderId)) {
+    throw new Error(
+      `Unrecognized MCP_IDP_PROVIDER '${raw}' — expected one of: ${KNOWN_IDP_PROVIDERS.join(", ")}`,
+    );
+  }
+  return raw as IdpProviderId;
+}

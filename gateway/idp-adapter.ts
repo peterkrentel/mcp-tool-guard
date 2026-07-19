@@ -73,3 +73,27 @@ export class Auth0IdpAdapter implements IdpAdapter {
     this.tokenVendor?.invalidate(clientId);
   }
 }
+
+/**
+ * Constructs the single active IdP adapter. Fails loudly (throws) rather
+ * than silently falling back when the requested provider has no
+ * implementation yet — see docs/superpowers/specs/2026-07-18-idp-trust-model-design.md.
+ */
+export function buildIdpAdapter(providerId: IdpProviderId): IdpAdapter {
+  switch (providerId) {
+    case "auth0":
+      return new Auth0IdpAdapter();
+    case "keycloak":
+      throw new Error(
+        "MCP_IDP_PROVIDER=keycloak is not yet implemented (tracked in BL-041)",
+      );
+    case "entra":
+      throw new Error(
+        "MCP_IDP_PROVIDER=entra is not yet implemented (tracked in BL-021)",
+      );
+    default: {
+      const exhaustive: never = providerId;
+      throw new Error(`Unhandled IdpProviderId: ${exhaustive as string}`);
+    }
+  }
+}
