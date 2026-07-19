@@ -20,14 +20,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P0 (next)
 
-- BL-037
-  priority: P1
-  status: todo
-  item: Claude Code harness integration guide for guarded MCP endpoints
-  acceptance: Document and smoke-test Claude Code configuration for guarded upstream access via `POST /:serverId/mcp` (example `claude mcp add .../github/mcp` with bearer auth), including token vending flow (`/agents/:clientId/token` or `/token`), token refresh via `headersHelper`, and expected dual approval behavior (Claude local tool approval plus gateway scope/pending approval)
-  owner: unassigned
-  source: design note 2026-07-14 — guard proxy is MCP-contract compatible and should be harness-agnostic across browser, curl/M2M, and Claude Code clients
-
 - BL-038
   priority: P1
   status: todo
