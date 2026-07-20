@@ -23,6 +23,8 @@ Production UI captures referenced from the repo docs (not Auth0 dashboard walkth
 | `track2-github-agent-readonly-ui.png` | [Track 2 proof](../track2-github-proof.md) | `/agents.html` — `github-test01-read` agent |
 | `track2-github-agent-client-deny.png` | [Track 2 proof](../track2-github-proof.md) | Optional — client pre-check deny when agent policy/server mismatch |
 | `claude-code-ops-approval.png` | [Claude Code prod demo](../claude-code-demo.md) | Claude Code ops view — a `repo:write` `create_or_update_file` request from a `repo:read`-only agent, held pending and approved live |
+| `claude-code-grafana-dashboard.png` | [Claude Code prod demo](../claude-code-demo.md) | Grafana "Claude Code Client" dashboard — request/allow/deny/pending rate panels, upstream latency spike, and the same deny/pending/allow log lines via OTel |
+| `claude-code-render-logs.png` | [Claude Code prod demo](../claude-code-demo.md) | Render's own live application logs for `mcp-tool-guard-proxy` — same deny/pending/allow sequence, confirmed independent of the OTel/Grafana pipeline |
 
 **Flight proxy demo:** [demo-proxy.md](../../demo-proxy.md) Demos 1–5 — Network tab → `onrender.com`, Render logs, curl deny with `Accept: application/json, text/event-stream`.
 

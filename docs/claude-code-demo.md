@@ -113,6 +113,18 @@ Observed via the Claude Code ops view and Grafana, all sharing trace id `cc-d936
 
 The deny and pending rows appear back-to-back because the scope check logs `deny` unconditionally, and — because the approval queue is enabled and the request opted into `X-Wait-For-Approval: true` — the proxy immediately follows it with a `pending` row instead of returning the deny to the caller. The two adjacent `allow` rows come from two independent logging points (the `/pending/:id/approve` action itself, and the long-poll handler noticing the resolved state), not from the client retrying anything.
 
+The same trace is independently visible in Grafana (traces/logs pulled via OpenTelemetry, not read from the guard's own audit store), confirming the two observability paths agree:
+
+![Grafana "MCP Tool Guard — Claude Code Client" dashboard: request/allow/deny/pending rate panels, a latency spike to ~2s at the moment of the held-open approval wait, and the same deny/pending/allow log lines](images/demo/claude-code-grafana-dashboard.png)
+
+Note the **latency panel**: the p95 spikes to ~2s. That lines up with the `source: "mcp"` upstream-forward duration in the audit trail (1994ms, the real round trip to GitHub's API) rather than the ~8s human-approval wait itself — this panel measures *upstream* latency specifically, not total time-to-response for the original caller. The approval wait doesn't show up here as a spike; it shows up as the gap between the `pending` and `allow` log lines.
+
+A third, independent source agrees: the guard proxy's raw application logs on Render itself (no OTel pipeline, no audit-store query — just the deployed process's own stdout), live-tailed:
+
+![Render live application logs for mcp-tool-guard-proxy, showing the same deny/pending/allow sequence for trace cc-d9367453-...](images/demo/claude-code-render-logs.png)
+
+Three unrelated systems (the ops UI reading the guard's own audit store, Grafana reading OTel spans, and Render reading raw process stdout) all reconstruct the identical sequence from the same trace id — that's a meaningful cross-check that the audit trail isn't an artifact of any one observability pipeline.
+
 ## Result
 
 Real commit [`6f48fd6`](https://github.com/peterkrentel/mcp-tool-guard/commit/6f48fd6590f3dc46c7085ae9ed4d35f274b66a0a) adding `demo-guard.md` to `main`. Note: this landed directly on `main` because `create_or_update_file` writes straight to whatever `branch` is passed — it doesn't go through local git, so the repo's usual "always a feature branch" rule has to be applied explicitly by naming a non-`main` branch in the call, not by whatever branch the local git checkout happens to be on. This run intentionally targeted `main` as a one-off; treat that as the exception, not the pattern, for future demos.
