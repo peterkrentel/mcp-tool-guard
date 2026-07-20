@@ -180,7 +180,7 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 
 ### What to expect in the browser after rewire
 
-**Flight demo** ([mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/)):
+**Flight demo** ([mcp-tool-guard-ui.vercel.app/flight-demo.html](https://mcp-tool-guard-ui.vercel.app/flight-demo.html)):
 
 | Check | Expected |
 |-------|----------|

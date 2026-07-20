@@ -10,7 +10,7 @@ Prove it with one scoped JWT, one denied tool call, and one `/audit` query — n
 |---|------|
 | **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — register MCPs, scoped M2M agents, GitHub upstream proof |
 | **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) — `flight` + **`github`** live |
-| **Flight demo** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) — WebLLM chat (demo UX; enforcement story is proxy + curl) |
+| **Flight demo (POC)** | [mcp-tool-guard-ui.vercel.app/flight-demo.html](https://mcp-tool-guard-ui.vercel.app/flight-demo.html) — WebLLM chat (demo UX; enforcement story is proxy + curl) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
 Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Vercel flight (`POST /{serverId}/mcp`). Flight chat UI uses `/mcp` only. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md) · GitHub proof: [docs/track2-github-proof.md](docs/track2-github-proof.md).

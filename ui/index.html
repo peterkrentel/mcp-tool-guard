@@ -9,49 +9,30 @@
   <body>
     <header>
       <nav class="site-nav">
-        <a href="/" class="nav-active">Flight demo</a>
+        <a href="/" class="nav-active">Home</a>
         <a href="/agents.html">Agent gateway</a>
         <a href="/claude-ops.html">Claude Code ops</a>
+        <a href="/flight-demo.html">Flight demo (POC)</a>
       </nav>
       <h1>MCPToolGuard</h1>
-      <p class="tagline">Server enforces scopes on MCP; agent log shows intent</p>
+      <p class="tagline">A firewall for AI agent tool calls — the proxy enforces JWT scopes on every MCP tool call, so an agent can't escalate its own access.</p>
     </header>
 
-    <main>
-      <section class="panel chat-panel">
-        <div class="controls">
-          <div id="auth-controls" class="auth-controls" hidden>
-            <button id="auth-login" type="button">Sign in</button>
-            <button id="auth-logout" type="button" hidden>Sign out</button>
-            <span id="auth-status" class="auth-status"></span>
-          </div>
-          <label id="guest-token-label">
-            JWT scope (guest)
-            <select id="token">
-              <option value="read_only">Read only (flights:read)</option>
-              <option value="booking">Booking (read + write)</option>
-              <option value="admin">Admin (read + write + delete)</option>
-            </select>
-          </label>
-          <button id="init" type="button">Initialize</button>
-          <span id="status" class="status">Not initialized</span>
-        </div>
-
-        <div id="chat" class="chat"></div>
-
-        <div class="input-row">
-          <input id="message" type="text" placeholder="Ask about flights..." />
-          <button id="send" type="button" disabled>Send</button>
-        </div>
-      </section>
-
-      <section class="panel log-panel">
-        <h2>Audit log</h2>
-        <p class="log-panel-sub">Server = enforcement · Agent attempts = SDK pre-check · Agent trace = model + routing (click trace id to correlate)</p>
-        <div id="audit-log" class="audit-log"></div>
+    <main class="landing-main">
+      <section class="card-list">
+        <a class="card landing-card" href="/agents.html">
+          <strong>Agent gateway</strong>
+          <span>The control plane: register MCPs, create scoped M2M agents, chat with any LLM, and watch three-layer audit telemetry. Start here.</span>
+        </a>
+        <a class="card landing-card" href="/claude-ops.html">
+          <strong>Claude Code ops</strong>
+          <span>Pending approvals and audit activity for non-browser MCP clients, filtered by client type.</span>
+        </a>
+        <a class="card landing-card" href="/flight-demo.html">
+          <strong>Flight demo (POC)</strong>
+          <span>The original browser + WebLLM proof of concept — where this project started, kept for teaching scope enforcement in a toy domain.</span>
+        </a>
       </section>
     </main>
-
-    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

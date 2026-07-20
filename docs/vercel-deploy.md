@@ -168,7 +168,7 @@ Flight must trust **both** paths: `MCP_GUARD_PUBLIC_KEY_PEM` (guest) + `MCP_JWT_
 
 ### Browser smoke test — flight demo
 
-1. [Open the UI](https://mcp-tool-guard-ui.vercel.app/)
+1. [Open the flight demo](https://mcp-tool-guard-ui.vercel.app/flight-demo.html)
 2. **Initialize** → wait for WebLLM
 3. *Search flights from SFO to JFK* (read-only)
 4. *Cancel booking BK-…* with same token → deny in audit panels

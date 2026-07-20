@@ -42,7 +42,7 @@ Two-layer model:
 
 ## Demo 1 — Proxy is in the path (30 s)
 
-1. Open [the UI](https://mcp-tool-guard-ui.vercel.app/).
+1. Open [the flight demo](https://mcp-tool-guard-ui.vercel.app/flight-demo.html).
 2. Sign in (Auth0) or pick a guest JWT → **Initialize**.
 3. Open **DevTools → Network**.
 4. Chat: *Search flights from SFO to JFK*.

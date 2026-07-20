@@ -8,7 +8,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **Repo cleanup + landing page design spec** — added `docs/superpowers/specs/2026-07-20-repo-cleanup-and-landing-page-design.md`, scoping a cleanup pass following a full-project review: redact sensitive screenshot/doc content, fix repo hygiene drift (junk root files, a broken example, backlog filing gaps), and reframe the UI landing page around the agent gateway instead of the flight POC. Design only — implementation lands in subsequent commits.
+- **New UI landing page** (`ui/index.html`) — root now shows a minimal title/description page linking to Agent gateway, Claude Code ops, and Flight demo (POC), instead of defaulting straight into the flight chat POC. Flight demo moved to `ui/flight-demo.html`; nav bar across all 4 pages updated to the new order and labels, each page's tagline doubles as a one-line role caption. `ui/vite.config.ts`'s dev proxy and build inputs updated accordingly. Implements `docs/superpowers/specs/2026-07-20-repo-cleanup-and-landing-page-design.md`.
+- **BL-046, BL-048 backlog rows** — filed proper `backlog.md` entries for two items already referenced in shipped docs (`claude-ops-view-design.md`, `claude-code-demo.md`) but missing their own row.
+
+### Changed
+
+- **BL-038 moved to `## P1 (important)`** — its own `priority:` field already said P1; it was filed under the `## P0 (next)` header by mistake. No content change.
+- **`examples/python-agent`** — fixed tool names (`search_flights`/`create_booking` → `search_flights_tool`/`create_booking_tool`, matching `servers/flight/server.py`) and swapped the README's reference to a nonexistent `full_access` demo token for the real `booking` key.
+
+### Removed
+
+- **Junk root scratch files** — `firstslice.md`, `new-pat-local.md`, `prod-smoke-sliceB.md`, `smoke-pat-prod.md`.
+
+### Security
+
+- **Redacted screenshot PII** — cropped real personal browser chrome (bookmarks bar, tabs) out of 7 `docs/images/demo/*.png` files, and blacked out a real personal email address baked into the app UI itself in 2 of them (`claude-code-ops-approval.png`, `prod-ui-audit-success.png`).
+- **Redacted named-colleague reference** — `CHANGELOG.md` and `backlog.md`'s BL-047 note referred to a specific internal colleague by full name; reworded to a generic reference. No change to the underlying cross-project observation.
+
+### Added
+
 - **Claude Code prod demo doc** — `docs/claude-code-demo.md`, a from-scratch (no prior context assumed) walkthrough of driving the deployed Render guard proxy from Claude Code via a new `ghprod` MCP server entry and `scripts/claude-mcp-token-helper-prod-demo.sh` (a static pre-vended-token `headersHelper`, workaround for BL-048's missing `clientSecret`). Documents a real end-to-end run with three independent screenshots confirming the same trace id — `claude-code-ops-approval.png` (the guard's own ops UI, full-page capture including sign-in state and client-type filter), `claude-code-grafana-dashboard.png` (OTel/Grafana), `claude-code-render-logs.png` (raw Render process logs) — of a `repo:read`-only agent's `create_or_update_file` call denied on scope, held pending via the BL-045 long-poll, approved live through the Claude Code ops view, and forwarded to a real GitHub commit. Also covers how Claude Code discovers, selects, and invokes an MCP tool (namespaced tool names per server, on-demand schema loading, single JSON-RPC call per invocation), and a "what this proves vs. what's still open" assessment (including an explicit scope note pointing to `track2-github-proof.md`/`smoke-deployed.sh` as where the underlying guard mechanism was already proven, distinguishing that from what's new here — a real third-party client) for scoping next-phase work.
 - **Nav links to Claude Code ops** — added to `/` and `/agents.html`'s site nav.
 - **Claude Code ops view** — `ui/claude-ops.html` + `ui/src/claude-ops-main.ts`, an admin-gated page (same Auth0 `gateway:admin` sign-in as `/agents.html`) showing pending approvals and recent audit activity filtered by client type (Claude Code / browser GUI / unattributed), so an operator doesn't need to know to check `/agents.html` and hand-inspect trace-id strings. Implements `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md`.
@@ -28,7 +46,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - **Extracted `renderPendingList()`** — `ui/src/pending-view.ts`, moved out of `ui/src/agents-main.ts`'s inline card-rendering so it can be shared with the new Claude Code ops view (next). Behavior-preserving — `/agents.html`'s approval queue panel is unchanged.
-- **Backlog: added BL-047** — deferred, investigate-only cross-project note (not mcp-tool-guard implementation work): does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail, the way mcp-tool-guard's own browser `GatewayAgent` already does in its chat/trace panel? Addressed in his project, not this one.
+- **Backlog: added BL-047** — deferred, investigate-only cross-project note (not mcp-tool-guard implementation work): does an internal colleague's AI Proxy Engine log full LLM response content in its audit trail, the way mcp-tool-guard's own browser `GatewayAgent` already does in its chat/trace panel? Addressed in that project, not this one.
 - **BL-045 status: implemented, pending prod verification** — gateway code and Claude Code opt-in shipped and live-verified locally; production `MCP_PENDING_LONGPOLL_MAX_MS` tuning against Render's real edge-timeout behavior remains open.
 - **Backlog: BL-003 acceptance criteria expanded** — added a convenient list/delete mechanism for M2M agents (not just the raw `GET /agents`/`DELETE /agents/:clientId` API) to BL-003's cleanup-path requirement, noting the shape may differ between local (in-memory) and prod (KV-backed) storage. Noted after manually deleting the `claude-code-local` agent via hand-written fetch calls during BL-037 cleanup.
 
