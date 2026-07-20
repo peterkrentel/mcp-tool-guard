@@ -138,6 +138,8 @@ Real commit [`6f48fd6`](https://github.com/peterkrentel/mcp-tool-guard/commit/6f
 - The **hold-and-human-approve** pattern works over one live network connection with no special client-side support required — the fix in BL-045 means *any* MCP client that sets one header gets this behavior for free, not just this project's own browser UI. That's a meaningfully more general result than "our own frontend can do it."
 - The three-layer audit trail (proxy decision, upstream forward, human action) reconstructs a complete, correlated story after the fact from a shared trace id.
 
+**Scope of this specific demo:** this run is one scenario — one tool (`create_or_update_file`), one client (Claude Code), one server (GitHub) — not the first proof that the guard mechanism itself works. That existed already, via other clients: `track2-github-proof.md` proves the same deny/pending pattern against GitHub via curl and the browser UI, and `scripts/smoke-deployed.sh` proves it against Slack. What's new here specifically is doing it through Claude Code — a real, independent third-party agent framework with no purpose-built support for this guard — rather than clients this project built and controls both ends of.
+
 **Still open, worth weighing for the next phase:**
 
 - The credential used here is a **static** token (BL-048) — a production integration would need Claude Code to get short-lived, dynamically-vended tokens the same way the browser flow does; `/agents.html`'s current "create agent" flow doesn't surface a `clientSecret` to make that possible yet.
