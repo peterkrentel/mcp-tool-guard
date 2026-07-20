@@ -12,7 +12,7 @@ One-page view of how the demo fits together: local proxy path, Vercel prod today
 flowchart TB
   subgraph demo ["Demo browser — two agent paths"]
     User[User / curl]
-    FlightDemo["Flight demo `/` — FlightAgent<br/>WebLLM in-browser"]
+    FlightDemo["/flight-demo.html (POC) — FlightAgent<br/>WebLLM in-browser"]
     AgentGateway["/agents.html — GatewayAgent<br/>M2M provisioning + Gemini/Groq/Mistral"]
     User --> FlightDemo
     User --> AgentGateway

@@ -106,7 +106,7 @@ Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo 
 make dev    # flight :8000 → proxy :8787 → ui :5173
 ```
 
-Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
+Open http://localhost:5173, then [**Agent gateway**](http://localhost:5173/agents.html) to start, or [**Flight demo (POC)**](http://localhost:5173/flight-demo.html) — pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
 
 - **Auth0 on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` + `AUTH0_MGMT_*` (servers don't read `ui/.env.local`).
 - **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).

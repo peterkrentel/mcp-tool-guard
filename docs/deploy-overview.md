@@ -10,7 +10,7 @@ One page for **what runs where** — local dev and prod (three services). Step-b
 
 | Service | Repo path | Host (prod) | Role |
 |---------|-----------|-------------|------|
-| **Demo UI** | `ui/` | Vercel (static) | Flight demo (`index.html`) + agent gateway (`agents.html`); client `ToolGuard` pre-check |
+| **Demo UI** | `ui/` | Vercel (static) | Landing (`index.html`) + flight demo POC (`flight-demo.html`) + agent gateway (`agents.html`); client `ToolGuard` pre-check |
 | **Guard HTTP proxy** | `gateway/proxy-server.ts` | **Render** (Web Service) | Authoritative enforce + audit on `tools/call`; forwards to upstream MCP |
 | **Flight MCP** | `servers/flight/` | Vercel (serverless Python) | Demo upstream MCP; embedded guard is **demo scaffolding** |
 

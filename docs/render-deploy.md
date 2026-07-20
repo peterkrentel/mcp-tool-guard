@@ -170,7 +170,7 @@ In the Vercel UI project → **Environment Variables**, set:
 
 | Variable | Value | Used by |
 |----------|-------|---------|
-| `VITE_MCP_URL` | `https://mcp-tool-guard-proxy.onrender.com/mcp` | Flight demo (`index.html`) |
+| `VITE_MCP_URL` | `https://mcp-tool-guard-proxy.onrender.com/mcp` | Flight demo (`flight-demo.html`) |
 | `VITE_PROXY_BASE_URL` | `https://mcp-tool-guard-proxy.onrender.com` | Agent gateway (`/agents.html`) — `/servers`, `/agents`, `/token`, `/{id}/mcp` |
 | `VITE_AUTH0_DOMAIN` | Your Auth0 tenant | Both pages — JWKS verify for Auth0 tokens |
 | `VITE_AUTH0_CLIENT_ID` | SPA client id | Flight demo sign-in |

@@ -170,7 +170,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
 
 **Talking point:** Same JWT scope model as flight — different upstream credential for the vendor MCP.
 
-**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision GitHub agents and review the shipped approval queue panel.
+**Browser demo:** keep [Flight demo (POC)](../ui/flight-demo.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision GitHub agents and review the shipped approval queue panel.
 
 ---
 

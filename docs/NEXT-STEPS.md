@@ -68,7 +68,7 @@ Active and deferred statuses are maintained in [backlog.md](../backlog.md). This
 
 **For Cursor / contributors:** [cursor-guide.md](cursor-guide.md) documents the shipped Track 1 → 2 → 3 sequencing and rationale. Keep new active tasks in [backlog.md](../backlog.md).
 
-**Demo surfaces:** [Flight demo `/`](../ui/index.html) — **Server enforcement** audit panel (canonical enforce story). [`/agents.html`](../ui/agents.html) — operator provisioning GUI plus shipped approval queue panel.
+**Demo surfaces:** [Flight demo (POC)](../ui/flight-demo.html) — **Server enforcement** audit panel (canonical enforce story). [`/agents.html`](../ui/agents.html) — operator provisioning GUI plus shipped approval queue panel.
 
 ### Production hardening priorities (review)
 
