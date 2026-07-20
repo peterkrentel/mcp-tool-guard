@@ -350,6 +350,34 @@ Verify flight Auth0 config: `curl http://localhost:8000/health` → `"jwt_trust_
 
 ---
 
+## Tenant application inventory (do not delete)
+
+This tenant is shared across prod agents, local dev, and CI (the k3d ephemeral workflow) and is near its free-tier application-count limit — see `backlog.md`'s BL-003. When it's full, agent creation (including CI's own transient clients) fails with `too_many_entities`. Before deleting *any* application to free capacity, check that specific app's own **API Access Policies** tab in the Auth0 dashboard rather than assuming from its name — an app named like generic Auth0 boilerplate can turn out to be load-bearing, and vice versa.
+
+**Confirmed load-bearing — do not delete:**
+
+| Application | Why |
+|---|---|
+| `mcp-tool-guard` (SPA) | The UI's own Auth0 login application |
+| `mcp-tool-guard-proxy-m2m` | The real Management API client — confirmed via its API Access Policies grant (5/265 permissions: `create:clients`, `delete:clients`, `create:client_grants`, `delete:client_grants`, `read:clients`, matching what this doc's Management API app needs). The guard proxy and the k3d CI workflow both use this to create/delete every `mcp-agent-*` client. |
+| `mcp-agent-github-prod` | Live GitHub demo agent |
+| `mcp-agent-slack-agent-prod02` | Live Slack demo agent |
+| `mcp-agent-test-flight-prod` | Live flight demo agent |
+| `mcp-agent-claude-code-prod` | Live Claude Code prod demo agent — backs the static token in `docs/claude-code-demo.md` |
+
+**Unclear — kept out of caution:**
+
+| Application | Note |
+|---|---|
+| `Default App` (Generic) | Auth0's auto-generated tenant boilerplate. Its own API Access Policies show 0/265 Management API grants and 0/5 on this project's own API, and nothing in this repo references its Client ID — but before deleting it, check Render's and Vercel's project environment variables for its Client ID too, since those live outside this repo. |
+
+**Deleted 2026-07-20 (confirmed safe):**
+
+- `api-for-mcp-tool-guard (Test Application)` — Auth0's auto-generated companion to this project's API definition, used only for the dashboard's own "Test" tab. Confirmed never used.
+- `mcp-agent-claude-code-local` — the disposable local-dev validation agent referenced by `scripts/dev.env`'s `MCP_AGENT_CLIENT_ID`/`MCP_AGENT_CLIENT_SECRET`. Deleting it breaks local agent-token minting until you create a fresh agent (`POST /agents` via `/agents.html` or a script) and update those two `dev.env` values to match.
+
+---
+
 ## Smoke test checklist
 
 - [ ] Guest: dropdown → Initialize → search allow, cancel deny

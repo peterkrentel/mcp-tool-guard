@@ -8,9 +8,9 @@ Usage:
   export AGENT_JWT=<your-demo-or-m2m-token>   # or set AGENT_JWT_FILE
   python agent.py
 
-The agent calls 'search_flights' (read_only scope) and, if WRITE_TOKEN is set,
-attempts 'create_booking' (write scope) — which will return 202 + pending_id
-unless a full write-scope token is provided.
+The agent calls 'search_flights_tool' (read_only scope) then attempts
+'create_booking_tool' (write scope) — the latter returns 202 + pending_id
+unless the token already has write scope (see AGENT_JWT below).
 """
 
 import json
@@ -160,23 +160,23 @@ def run() -> None:
     jwt = load_jwt()
     print(f"[agent] Gateway: {GATEWAY_URL}  Server: {SERVER_ID}")
 
-    # --- Tool 1: search_flights (read_only scope — should always succeed) ---
-    print("\n[agent] Calling search_flights …")
-    result = mcp_call("search_flights", {"origin": "JFK", "destination": "LHR"}, jwt)
+    # --- Tool 1: search_flights_tool (read_only scope — should always succeed) ---
+    print("\n[agent] Calling search_flights_tool …")
+    result = mcp_call("search_flights_tool", {"origin": "JFK", "destination": "LHR"}, jwt)
     if "result" in result:
         content = result["result"].get("content", [])
         for block in content:
             if block.get("type") == "text":
                 print("[agent] Flights:", block["text"][:300])
     elif result.get("result", {}).get("status") == "pending":
-        print("[agent] search_flights returned pending — unexpected (read_only scope)")
+        print("[agent] search_flights_tool returned pending — unexpected (read_only scope)")
     elif "error" in result:
-        print(f"[agent] search_flights error: {result['error']}")
+        print(f"[agent] search_flights_tool error: {result['error']}")
 
-    # --- Tool 2: create_booking (write scope — may return 202 pending) ---
-    print("\n[agent] Calling create_booking …")
+    # --- Tool 2: create_booking_tool (write scope — may return 202 pending) ---
+    print("\n[agent] Calling create_booking_tool …")
     result = mcp_call(
-        "create_booking",
+        "create_booking_tool",
         {"flight_id": "FL001", "passenger_name": "Ada Lovelace", "seat": "12A"},
         jwt,
     )
@@ -192,9 +192,9 @@ def run() -> None:
             pending_poll_token=pending_poll_token,
         )
         if approval_token:
-            print("[agent] Retrying create_booking with approval token …")
+            print("[agent] Retrying create_booking_tool with approval token …")
             retry = mcp_call(
-                "create_booking",
+                "create_booking_tool",
                 {"flight_id": "FL001", "passenger_name": "Ada Lovelace", "seat": "12A"},
                 jwt,
                 approval_token=approval_token,
@@ -210,7 +210,7 @@ def run() -> None:
             if block.get("type") == "text":
                 print("[agent] Booking result:", block["text"])
     elif "error" in result:
-        print(f"[agent] create_booking error: {result['error']['message']}")
+        print(f"[agent] create_booking_tool error: {result['error']['message']}")
 
     print("\n[agent] Done.")
 

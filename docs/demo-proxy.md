@@ -42,7 +42,7 @@ Two-layer model:
 
 ## Demo 1 — Proxy is in the path (30 s)
 
-1. Open [the UI](https://mcp-tool-guard-ui.vercel.app/).
+1. Open [the flight demo](https://mcp-tool-guard-ui.vercel.app/flight-demo.html).
 2. Sign in (Auth0) or pick a guest JWT → **Initialize**.
 3. Open **DevTools → Network**.
 4. Chat: *Search flights from SFO to JFK*.
@@ -170,7 +170,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$PROXY/audit" | jq '.entries[-3:]'
 
 **Talking point:** Same JWT scope model as flight — different upstream credential for the vendor MCP.
 
-**Browser demo:** keep [Flight demo `/`](../ui/index.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision GitHub agents and review the shipped approval queue panel.
+**Browser demo:** keep [Flight demo (POC)](../ui/flight-demo.html) **Server enforcement** panel for enforce + audit; use [`/agents.html`](../ui/agents.html) to provision GitHub agents and review the shipped approval queue panel.
 
 ---
 

@@ -10,7 +10,7 @@ Prove it with one scoped JWT, one denied tool call, and one `/audit` query — n
 |---|------|
 | **Agent gateway** | [mcp-tool-guard-ui.vercel.app/agents.html](https://mcp-tool-guard-ui.vercel.app/agents.html) — register MCPs, scoped M2M agents, GitHub upstream proof |
 | **Guard proxy** | [mcp-tool-guard-proxy.onrender.com/health](https://mcp-tool-guard-proxy.onrender.com/health) — `flight` + **`github`** live |
-| **Flight demo** | [mcp-tool-guard-ui.vercel.app](https://mcp-tool-guard-ui.vercel.app/) — WebLLM chat (demo UX; enforcement story is proxy + curl) |
+| **Flight demo (POC)** | [mcp-tool-guard-ui.vercel.app/flight-demo.html](https://mcp-tool-guard-ui.vercel.app/flight-demo.html) — WebLLM chat (demo UX; enforcement story is proxy + curl) |
 | **Flight health** | [mcp-tool-guard-flight-server.vercel.app/health](https://mcp-tool-guard-flight-server.vercel.app/health) |
 
 Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Vercel flight (`POST /{serverId}/mcp`). Flight chat UI uses `/mcp` only. Demo script: [docs/demo-proxy.md](docs/demo-proxy.md) · GitHub proof: [docs/track2-github-proof.md](docs/track2-github-proof.md).
@@ -106,7 +106,7 @@ Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo 
 make dev    # flight :8000 → proxy :8787 → ui :5173
 ```
 
-Open http://localhost:5173, pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
+Open http://localhost:5173, then [**Agent gateway**](http://localhost:5173/agents.html) to start, or [**Flight demo (POC)**](http://localhost:5173/flight-demo.html) — pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
 
 - **Auth0 on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` + `AUTH0_MGMT_*` (servers don't read `ui/.env.local`).
 - **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).

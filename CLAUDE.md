@@ -45,7 +45,7 @@ Three services, npm workspaces (`gateway`, `ui`) + a standalone Python server (`
 
 ### Two agent paths in the UI
 
-- **FlightAgent** (`ui/src/agent.ts`, demo `/`) — heuristics + in-browser WebLLM, talks to the flight MCP server through the client `ToolGuard`.
+- **FlightAgent** (`ui/src/agent.ts`, `/flight-demo.html`, POC) — heuristics + in-browser WebLLM, talks to the flight MCP server through the client `ToolGuard`.
 - **GatewayAgent** (`ui/src/gateway-agent.ts`, `/agents.html`) — M2M agent provisioning: creates an Auth0 M2M client (`POST /agents` -> `gateway/proxy-routes-agents-token.ts` -> `gateway/auth0-mgmt.ts`), vends a JWT (`gateway/token-vendor.ts`), then drives Gemini/Groq/Mistral via `gateway/llm-proxy.ts`. Supports registering arbitrary vendor MCPs (e.g. GitHub, Slack) at runtime via `/servers`.
 
 ### Policy is single-sourced, enforcement is layered

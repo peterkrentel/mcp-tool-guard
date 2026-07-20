@@ -40,6 +40,42 @@ header h1 {
   font-size: 0.9rem;
 }
 
+.poc-badge {
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.landing-main {
+  display: block;
+  max-width: 640px;
+  padding: 1.5rem 2rem 2rem;
+}
+
+.landing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.landing-card:hover {
+  border-color: var(--accent);
+}
+
+.landing-card span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 main {
   display: grid;
   grid-template-columns: 1fr 380px;

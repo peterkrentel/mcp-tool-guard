@@ -29,7 +29,15 @@ export default defineConfig({
       },
       "/token": { target: "http://localhost:8787", changeOrigin: true },
       "/health": { target: "http://localhost:8787", changeOrigin: true },
-      "/flight": { target: "http://localhost:8787", changeOrigin: true },
+      "/flight": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+        bypass(req) {
+          // Let Vite serve flight-demo.html (ignore query string); API: /flight/mcp etc.
+          const path = req.url?.split("?")[0] ?? "";
+          if (path.endsWith(".html")) return req.url;
+        },
+      },
       "/pending": { target: "http://localhost:8787", changeOrigin: true },
       "/llm": { target: "http://localhost:8787", changeOrigin: true },
     },
@@ -39,6 +47,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
+        flightDemo: resolve(__dirname, "flight-demo.html"),
         agents: resolve(__dirname, "agents.html"),
         claudeOps: resolve(__dirname, "claude-ops.html"),
       },

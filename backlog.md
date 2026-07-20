@@ -20,13 +20,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P0 (next)
 
-- BL-038
-  priority: P1
-  status: todo
-  item: Multi-agent delegation trust model and guard policy extension
-  acceptance: Define parent/subagent delegation model (scope attenuation vs independently minted JWT per subagent), add parent/child trace correlation fields, document cross-agent prompt-injection risks and mitigation boundaries, and propose risk-tiered approval policy for high-volume autonomous tool calls (instead of per-call human approval only)
-  owner: unassigned
-  source: threat-model note 2026-07-14 — moving from single-agent loops to orchestrated subagents introduces agent-to-agent trust boundaries not covered by current harness-to-tool enforcement
 - BL-003
   priority: P0
   status: todo
@@ -95,6 +88,27 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: `docs/ARCHITECTURE.md` (or `guard-proxy.md`) explicitly documents that `control_plane_auth` (admin-gating for `/agents`, `/servers`, `/pending`) is conditional on JWT trust config being present (`adminAuthRequired()` in `gateway/admin-auth.ts`), including the operational risk of deploying without JWT trust configured; decide whether `GET /agents` should require `gateway:admin` (currently intentionally open — metadata only, no secrets — per existing `guard-proxy.md` route table) or stay as-is with the rationale made explicit; decide whether the vending-config-check-before-admin-auth-check ordering in `gateway/proxy-routes-agents-token.ts` (`POST /token`, `POST /agents/:clientId/token`) should be reordered to avoid revealing `AUTH0_DOMAIN`/`AUTH0_AUDIENCE` configuration state to unauthenticated callers, or is acceptable given `/health` already exposes the same booleans unauthenticated; add a guardrail test asserting the desired behavior for "guard enabled + partial JWT trust config" (currently untested)
   owner: unassigned
   source: external code review (VS Code Copilot) during BL-020 PR review 2026-07-19 — all three observations confirmed pre-existing (present in the codebase before BL-020, not introduced by it) and are already partially documented (guard-proxy.md route table, /health field, UI "control plane auth is off" banner) rather than undocumented; filed as its own item since fixing it in BL-020 would violate that PR's own "preserve existing behavior exactly" acceptance criterion
+- BL-038
+  priority: P1
+  status: todo
+  item: Multi-agent delegation trust model and guard policy extension
+  acceptance: Define parent/subagent delegation model (scope attenuation vs independently minted JWT per subagent), add parent/child trace correlation fields, document cross-agent prompt-injection risks and mitigation boundaries, and propose risk-tiered approval policy for high-volume autonomous tool calls (instead of per-call human approval only)
+  owner: unassigned
+  source: threat-model note 2026-07-14 — moving from single-agent loops to orchestrated subagents introduces agent-to-agent trust boundaries not covered by current harness-to-tool enforcement
+- BL-046
+  priority: P1
+  status: todo
+  item: Formal `X-Client-Type` header for client attribution, replacing trace-id-prefix pattern matching
+  acceptance: Guard proxy accepts and forwards a caller-supplied `X-Client-Type` header (e.g. `claude-code`, `browser-gui`) alongside the existing `cc-`/`tr_` trace-id prefix convention; `ui/src/client-type.ts`'s `classifyClientType()` is updated to prefer the header when present, falling back to trace-id pattern matching for older callers; no change to the Claude Code ops view's page/dropdown/filtering behavior, since it only depends on the function's return value
+  owner: unassigned
+  source: cited in `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md` as a formal follow-on to the trace-id-prefix heuristic shipped with that page; had no backlog row until 2026-07-20 cleanup pass
+- BL-048
+  priority: P1
+  status: todo
+  item: Surface a `clientSecret` from `/agents.html`'s create-agent flow so non-browser clients can get short-lived vended tokens
+  acceptance: `/agents.html`'s "Create agent" flow returns (or otherwise surfaces to the operator) the created M2M agent's `clientSecret`, so a non-browser MCP client (e.g. Claude Code) can drive `gateway/token-vendor.ts`'s normal short-lived-token vending path itself instead of relying on a hand-provisioned static long-lived token; document the credential-handling tradeoffs (one-time display vs. re-mintable) before shipping
+  owner: unassigned
+  source: cited in `docs/claude-code-demo.md` as the reason `scripts/claude-mcp-token-helper-prod-demo.sh` uses a static pre-vended token instead of minting fresh ones; had no backlog row until 2026-07-20 cleanup pass
 - BL-006
   priority: P1
   status: todo
@@ -281,10 +295,17 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 - BL-047
   priority: P3
   status: deferred
-  item: Cross-project note (investigate only, not mcp-tool-guard work) — does Chris Keen's AI Proxy Engine log full LLM response content in its audit trail?
-  acceptance: Not an mcp-tool-guard implementation task. mcp-tool-guard's own browser `GatewayAgent` (`ui/src/gateway-agent.ts`) already surfaces full LLM response content in its chat/trace panel as part of tool-call orchestration. Worth checking whether Chris's AI Proxy Engine's admin console/audit trail captures equivalent LLM response bodies (not just request metadata/decisions) for compliance/debugging value — addressed in his project, not this one; this entry exists only so the observation isn't lost before the next cross-project feedback pass.
+  item: Cross-project note (investigate only, not mcp-tool-guard work) — does an internal colleague's AI Proxy Engine log full LLM response content in its audit trail?
+  acceptance: Not an mcp-tool-guard implementation task. mcp-tool-guard's own browser `GatewayAgent` (`ui/src/gateway-agent.ts`) already surfaces full LLM response content in its chat/trace panel as part of tool-call orchestration. Worth checking whether that colleague's AI Proxy Engine's admin console/audit trail captures equivalent LLM response bodies (not just request metadata/decisions) for compliance/debugging value — addressed in that project, not this one; this entry exists only so the observation isn't lost before the next cross-project feedback pass.
   owner: unassigned
-  source: raised 2026-07-19 while scoping BL-045/BL-046 — part of the ongoing mcp-tool-guard-as-precursor-learner thread with Chris Keen's Fast AI Initiative work (see memory)
+  source: raised 2026-07-19 while scoping BL-045/BL-046 — part of the ongoing mcp-tool-guard-as-precursor-learner thread with an internal colleague's Fast AI Initiative work (see memory)
+- BL-049
+  priority: P3
+  status: todo
+  item: Friction getting a `gateway:admin` token for local Claude Code ops testing — needs a documented or automated path
+  acceptance: Not yet scoped — needs more thought before acceptance criteria are written. Starting point: `docs/identity.md`'s admin/agent token split documents that `gateway:admin` is deliberately a human-user-only Auth0 SPA login role, never grantable via `client_credentials` — so there's no legitimate "mint an admin token via curl" shortcut by design. Candidate directions to evaluate: document `MCP_GUARD_ENABLED=false` as the intended local-dev bypass more prominently near `/claude-ops.html`, and/or extend the `smoke-deployed` agent's existing headless-Playwright `SMOKE_ADMIN_EMAIL`/`SMOKE_ADMIN_PASSWORD` login pattern into a reusable local script, instead of manually copying a token out of the browser.
+  owner: unassigned
+  source: raised 2026-07-20 — testing `/claude-ops.html` locally required manually copying an Auth0 access token out of the browser into `scripts/dev.env`, which doesn't scale as a workflow
 
 ## Notes
 
