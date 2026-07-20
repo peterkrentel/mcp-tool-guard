@@ -233,9 +233,9 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | MCP path | UI → proxy → flight or `/{id}/mcp` | UI/curl → Render proxy → flight, **GitHub MCP**, and registered vendor MCPs (for example Slack) | More vendor MCPs; backend agent examples |
 | Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
 | `/audit` | `entries[]` with `source`: `proxy` / `mcp` / `agent`; response `sources` array | Same on Render | Audit export / OTel sink |
-| **FlightAgent** (demo `/`) | Browser WebLLM + heuristics | Same — guest or Auth0 login | Deferred or replaced |
+| **FlightAgent** (`/flight-demo.html`, POC) | Browser WebLLM + heuristics | Same — guest or Auth0 login | Deferred or replaced |
 | **GatewayAgent** (`/agents.html`) | M2M agents (Gemini/Groq/Mistral) + approval queue | Same + prod servers | SDK agents + packaged gateway integrations |
-| Multi-server | `/agents.html` per-server routing; `/` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
+| Multi-server | `/agents.html` per-server routing; `/flight-demo.html` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md); Slack registration + scope enforcement validated via `/agents.html` | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Browser panels + `/audit` + shipped OTel traces/logs from proxy to Grafana | External sink expansion (alerts, long-term retention, SIEM routing) |
 

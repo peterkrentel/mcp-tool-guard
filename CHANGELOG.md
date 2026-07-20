@@ -15,7 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **BL-038 moved to `## P1 (important)`** — its own `priority:` field already said P1; it was filed under the `## P0 (next)` header by mistake. No content change.
 - **`examples/python-agent`** — fixed tool names (`search_flights`/`create_booking` → `search_flights_tool`/`create_booking_tool`, matching `servers/flight/server.py`) and swapped the README's reference to a nonexistent `full_access` demo token for the real `booking` key.
-- **Stale flight-at-root doc references** — `docs/ARCHITECTURE.md`, `docs/NEXT-STEPS.md`, `docs/deploy-overview.md`, `docs/demo-proxy.md`, `docs/render-deploy.md`, `README.md` still pointed readers at `/`/`index.html` for the flight demo after it moved to `flight-demo.html`; updated.
+- **Stale flight-at-root doc references** — `docs/ARCHITECTURE.md`, `docs/NEXT-STEPS.md`, `docs/deploy-overview.md`, `docs/demo-proxy.md`, `docs/render-deploy.md`, `README.md` still pointed readers at `/`/`index.html` for the flight demo after it moved to `flight-demo.html`; updated. Second pass caught 2 more: `docs/ARCHITECTURE.md`'s "Today vs next" table (2 cells) and `CLAUDE.md`'s own FlightAgent description.
 
 ### Removed
 
