@@ -20,18 +20,27 @@
 
     <main class="landing-main">
       <section class="card-list">
-        <a class="card landing-card" href="/agents.html">
-          <strong>Agent gateway</strong>
-          <span>The control plane: register MCPs, create scoped M2M agents, chat with any LLM, and watch three-layer audit telemetry. Start here.</span>
-        </a>
-        <a class="card landing-card" href="/claude-ops.html">
-          <strong>Claude Code ops</strong>
-          <span>Pending approvals and audit activity for non-browser MCP clients, filtered by client type.</span>
-        </a>
-        <a class="card landing-card" href="/flight-demo.html">
-          <strong>Flight demo (POC)</strong>
-          <span>The original browser + WebLLM proof of concept — where this project started, kept for teaching scope enforcement in a toy domain.</span>
-        </a>
+        <div class="card landing-card">
+          <a class="landing-card-link" href="/agents.html">
+            <strong>Agent gateway</strong>
+            <span>The control plane: register MCPs, create scoped M2M agents, chat with any LLM, and watch three-layer audit telemetry. Start here.</span>
+          </a>
+          <a class="landing-card-doc" href="https://github.com/peterkrentel/mcp-tool-guard/blob/main/docs/guard-proxy.md">docs: guard proxy →</a>
+        </div>
+        <div class="card landing-card">
+          <a class="landing-card-link" href="/claude-ops.html">
+            <strong>Claude Code ops</strong>
+            <span>Pending approvals and audit activity for non-browser MCP clients, filtered by client type.</span>
+          </a>
+          <a class="landing-card-doc" href="https://github.com/peterkrentel/mcp-tool-guard/blob/main/docs/claude-code-demo.md">docs: Claude Code demo →</a>
+        </div>
+        <div class="card landing-card">
+          <a class="landing-card-link" href="/flight-demo.html">
+            <strong>Flight demo (POC)</strong>
+            <span>The original browser + WebLLM proof of concept — where this project started, kept for teaching scope enforcement in a toy domain.</span>
+          </a>
+          <a class="landing-card-doc" href="https://github.com/peterkrentel/mcp-tool-guard/blob/main/docs/demo-proxy.md">docs: demo script →</a>
+        </div>
       </section>
     </main>
   </body>
