@@ -67,6 +67,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
+- BL-048
+  priority: P2
+  status: todo
+  item: Guard proxy should normalize upstream MCP response framing (SSE vs plain JSON) before forwarding to clients
+  acceptance: `gateway/mcp-upstream.ts`'s `forwardMcpPost` currently forwards the upstream's response largely as-is. Some real-world MCP servers respond to `tools/list`/`tools/call` with plain `application/json` (e.g. Slack's official remote MCP, `mcp.slack.com`), others with `text/event-stream` SSE framing (e.g. GitHub Copilot's MCP). Claude Code's MCP client reliably discovers/calls tools only against the SSE-framed shape — a plain-JSON upstream response leaves the connection reporting "Connected" but registers zero callable tools, with no error surfaced anywhere. This project's own clients (`ui/src/mcp-client.ts`, `gateway/mcp-upstream.ts`'s `discoverMcpTools`) already branch on `content-type` and handle both shapes correctly — the guard proxy should do the same for *outgoing* responses, rewrapping a plain-JSON upstream reply into the SSE shape before forwarding, so any downstream client (including third-party ones we don't control) gets a consistent response shape regardless of which framing the specific upstream MCP chose. Add a regression test using a fake upstream that responds with plain JSON, asserting the client-facing response is SSE-framed.
+  owner: unassigned
+  source: discovered 2026-07-19 while trying to add `slack-prod` as a second demo MCP for Claude Code — confirmed via direct comparison that GitHub's upstream returns `text/event-stream` (Claude Code discovers tools fine) while Slack's returns `application/json` (Claude Code discovers zero tools, no error). Not an mcp-tool-guard bug — the proxy correctly forwards whatever the upstream sends — but a real, buildable interop improvement: normalizing this is exactly the kind of thing a governance/compatibility proxy should do for clients it doesn't control.
 - BL-045
   priority: P1
   status: in-progress
