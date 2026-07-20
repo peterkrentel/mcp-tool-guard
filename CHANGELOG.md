@@ -11,6 +11,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **New UI landing page** (`ui/index.html`) — root now shows a minimal title/description page linking to Agent gateway, Claude Code ops, and Flight demo (POC), instead of defaulting straight into the flight chat POC. Flight demo moved to `ui/flight-demo.html`; nav bar across all 4 pages updated to the new order and labels, each page's tagline doubles as a one-line role caption. `ui/vite.config.ts`'s dev proxy and build inputs updated accordingly. Implements `docs/superpowers/specs/2026-07-20-repo-cleanup-and-landing-page-design.md`.
 - **BL-046, BL-048 backlog rows** — filed proper `backlog.md` entries for two items already referenced in shipped docs (`claude-ops-view-design.md`, `claude-code-demo.md`) but missing their own row.
 - **Auth0 tenant application inventory** — `docs/auth0-setup.md` now documents which apps in the shared Auth0 tenant are load-bearing vs safe to delete, after the tenant hit its free-tier `too_many_entities` limit and blocked CI. Confirms `mcp-tool-guard-proxy-m2m` (not `Default App`) is the real Management API client, based on its actual API Access Policies grants rather than its name.
+- **BL-049** — filed, not yet scoped: local `/claude-ops.html` testing currently requires manually copying an Auth0 access token out of the browser into `scripts/dev.env`, which isn't a sustainable workflow.
 
 ### Changed
 

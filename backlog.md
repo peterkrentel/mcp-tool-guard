@@ -299,6 +299,13 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Not an mcp-tool-guard implementation task. mcp-tool-guard's own browser `GatewayAgent` (`ui/src/gateway-agent.ts`) already surfaces full LLM response content in its chat/trace panel as part of tool-call orchestration. Worth checking whether that colleague's AI Proxy Engine's admin console/audit trail captures equivalent LLM response bodies (not just request metadata/decisions) for compliance/debugging value — addressed in that project, not this one; this entry exists only so the observation isn't lost before the next cross-project feedback pass.
   owner: unassigned
   source: raised 2026-07-19 while scoping BL-045/BL-046 — part of the ongoing mcp-tool-guard-as-precursor-learner thread with an internal colleague's Fast AI Initiative work (see memory)
+- BL-049
+  priority: P3
+  status: todo
+  item: Friction getting a `gateway:admin` token for local Claude Code ops testing — needs a documented or automated path
+  acceptance: Not yet scoped — needs more thought before acceptance criteria are written. Starting point: `docs/identity.md`'s admin/agent token split documents that `gateway:admin` is deliberately a human-user-only Auth0 SPA login role, never grantable via `client_credentials` — so there's no legitimate "mint an admin token via curl" shortcut by design. Candidate directions to evaluate: document `MCP_GUARD_ENABLED=false` as the intended local-dev bypass more prominently near `/claude-ops.html`, and/or extend the `smoke-deployed` agent's existing headless-Playwright `SMOKE_ADMIN_EMAIL`/`SMOKE_ADMIN_PASSWORD` login pattern into a reusable local script, instead of manually copying a token out of the browser.
+  owner: unassigned
+  source: raised 2026-07-20 — testing `/claude-ops.html` locally required manually copying an Auth0 access token out of the browser into `scripts/dev.env`, which doesn't scale as a workflow
 
 ## Notes
 
