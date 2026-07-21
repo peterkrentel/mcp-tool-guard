@@ -8,6 +8,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`kvMget` batch-fetch primitive** (`gateway/kv.ts`) — one Redis `MGET` command for N keys instead of N individual `GET` commands. Verified against Upstash's official REST API docs (`/mget/{key1}/{key2}/...` path, `{"result": [...]}` response, null for missing keys, same order as requested).
+
+### Changed
+
+- **KV command usage fix (BL-044-adjacent)** — `gateway/pending-store.ts`'s `listPendingRequests` and `gateway/agent-store.ts`'s `listAgents` both did a `SCAN` followed by one individual `GET` per matching key (an N+1 pattern) — replaced with `kvScan` + a single batched `kvMget`. This is what actually caused the Upstash free-tier quota exhaustion on 2026-07-21: combined with 2-5s UI polling intervals, every poll cost `1 + N` commands where N grows with however many records have ever accumulated (no pruning yet, that's BL-044's separate remaining scope).
+- **UI poll intervals reduced** — `ui/src/agents-main.ts`'s audit poll (2s→10s) and pending poll (5s→15s); `ui/src/claude-ops-main.ts`'s combined pending+audit poll (2s→10s). A human-watched dashboard doesn't need sub-10-second refresh, and this alone cuts command volume roughly 4-7x on top of the batching fix.
+- **Ephemeral k3d's KV shim kept in sync** — `deploy/ephemeral/kv-rest-adapter/server.mjs` only implemented `/get`, `/set`, `/del`, `/scan` (mirroring whatever `gateway/kv.ts` needed when it was first written), so it had already drifted behind the new `kvMget` call and would have failed if exercised. Added a `/mget/*` route (`redis.mGet`, matching Upstash's real response shape). Also added a `GET /agents` check to `scripts/smoke-auth0-k3d.sh` (asserting the newly created ephemeral agent appears in the list) so this class of change actually gets exercised by CI going forward — previously the smoke script never called the list endpoints at all, so this whole code path was untested by the ephemeral lane despite it being intended as the pre-deployment validation gate.
+
 - **Landing page sign-in** — `ui/index.html` now has working Sign in/Sign out controls (`ui/src/landing-main.ts`), matching the other pages. Previously the landing page had zero JavaScript at all and couldn't reflect auth state or process an Auth0 callback.
 - **Upstash plan/quota guidance in `docs/vercel-deploy.md`** — documents that Vercel's Storage tab doesn't show KV usage/plan (only a "Connect" action); the actual Upstash console is where to check quota and upgrade plans. Notes the Free tier's 500K commands/month cap and why Pay as You Go is the practical fix for this project's usage pattern.
 

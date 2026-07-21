@@ -88,7 +88,13 @@ AGENT_CLIENT_ID="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("dat
 [[ -n "$AGENT_CLIENT_ID" ]] || fail "No clientId in create response"
 pass "Created ephemeral agent: $AGENT_CLIENT_ID"
 
-echo "5. Vend agent token via POST /agents/:clientId/token..."
+echo "5. GET /agents should list the newly created agent..."
+LIST_JSON="$(curl -sS "$GUARD_BASE_URL/agents" -H "Authorization: Bearer $OPERATOR_TOKEN")"
+LIST_HAS_AGENT="$(echo "$LIST_JSON" | node -e "let d=\"\";process.stdin.on(\"data\",c=>d+=c);process.stdin.on(\"end\",()=>{try{const j=JSON.parse(d);const found=(j.agents||[]).some(a=>a.auth0ClientId===\"$AGENT_CLIENT_ID\");process.stdout.write(found?\"ok\":\"missing\");}catch{process.stdout.write(\"bad\")}})")"
+[[ "$LIST_HAS_AGENT" == "ok" ]] || fail "Expected GET /agents to include the newly created agent (batched KV fetch)"
+pass "Agent list includes the new agent"
+
+echo "6. Vend agent token via POST /agents/:clientId/token..."
 VEND_JSON="$(curl -sS -X POST "$GUARD_BASE_URL/agents/$AGENT_CLIENT_ID/token" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -97,14 +103,14 @@ VEND_STATUS="$(echo "$VEND_JSON" | node -e 'let d="";process.stdin.on("data",c=>
 [[ "$VEND_STATUS" == "ok" ]] || fail "Expected token/expiresIn from POST /agents/:clientId/token"
 pass "Agent token vending works"
 
-echo "6. Delete ephemeral agent via DELETE /agents/:clientId..."
+echo "7. Delete ephemeral agent via DELETE /agents/:clientId..."
 DEL_HTTP="$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE "$GUARD_BASE_URL/agents/$AGENT_CLIENT_ID" \
   -H "Authorization: Bearer $OPERATOR_TOKEN")"
 [[ "$DEL_HTTP" == "200" ]] || fail "Expected 200 from DELETE /agents/:clientId, got $DEL_HTTP"
 pass "Deleted ephemeral agent"
 AGENT_CLIENT_ID=""
 
-echo "7. GET /audit should work with valid bearer..."
+echo "8. GET /audit should work with valid bearer..."
 AUDIT_HTTP="$(curl -sS -o /dev/null -w "%{http_code}" "$GUARD_BASE_URL/audit" -H "Authorization: Bearer $OPERATOR_TOKEN")"
 [[ "$AUDIT_HTTP" == "200" ]] || fail "Expected 200 for audit read, got $AUDIT_HTTP"
 pass "Audit read works"
