@@ -134,6 +134,10 @@ main {
   gap: 0.5rem;
 }
 
+.auth-controls[hidden] {
+  display: none;
+}
+
 .auth-controls button {
   background: var(--surface);
   color: var(--text);

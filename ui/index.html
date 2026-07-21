@@ -16,6 +16,11 @@
       </nav>
       <h1>MCPToolGuard</h1>
       <p class="tagline">A firewall for AI agent tool calls — the proxy enforces JWT scopes on every MCP tool call, so an agent can't escalate its own access.</p>
+      <div id="auth-controls" class="auth-controls" hidden>
+        <button id="auth-login" type="button">Sign in</button>
+        <button id="auth-logout" type="button" hidden>Sign out</button>
+        <span id="auth-status" class="auth-status"></span>
+      </div>
     </header>
 
     <main class="landing-main">
@@ -43,5 +48,7 @@
         </div>
       </section>
     </main>
+
+    <script type="module" src="/src/landing-main.ts"></script>
   </body>
 </html>
