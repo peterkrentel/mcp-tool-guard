@@ -53,6 +53,22 @@ export async function kvGet<T>(relativeKey: string): Promise<T | null> {
   }
 }
 
+/** Batched GET — one Redis MGET command instead of one GET per key. Order matches `relativeKeys`. */
+export async function kvMget<T>(relativeKeys: string[]): Promise<(T | null)[]> {
+  if (!kvEnabled() || relativeKeys.length === 0) return relativeKeys.map(() => null);
+  const encoded = relativeKeys.map((k) => encodeURIComponent(fullKey(k))).join("/");
+  const raw = (await kvRequest<(string | null)[]>(`/mget/${encoded}`)) ?? [];
+  return relativeKeys.map((_, i) => {
+    const value = raw[i];
+    if (value == null) return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as unknown as T;
+    }
+  });
+}
+
 export async function kvSet(relativeKey: string, value: unknown, ttlSec?: number): Promise<void> {
   if (!kvEnabled()) return;
   const encoded = encodeURIComponent(fullKey(relativeKey));

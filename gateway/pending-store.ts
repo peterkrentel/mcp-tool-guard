@@ -1,4 +1,4 @@
-import { kvDel, kvEnabled, kvGet, kvScan, kvSet } from "./kv.js";
+import { kvDel, kvEnabled, kvGet, kvMget, kvScan, kvSet } from "./kv.js";
 
 export type PendingStatus = "pending" | "approved" | "denied";
 
@@ -91,14 +91,12 @@ export async function listPendingRequests(status?: PendingStatus): Promise<Pendi
     entries = Array.from(memPending.values());
   } else {
     const keys = await kvScan(`${PENDING_PREFIX}*`);
-    entries = [];
-    for (const key of keys) {
+    const relevantKeys = keys.filter((key) => {
       const suffix = key.slice(PENDING_PREFIX.length);
-      if (!suffix || suffix === "index") continue;
-      const record = await kvGet<PendingRequest>(key);
-      if (!record) continue;
-      entries.push(record);
-    }
+      return suffix && suffix !== "index";
+    });
+    const records = await kvMget<PendingRequest>(relevantKeys);
+    entries = records.filter((r): r is PendingRequest => r != null);
   }
 
   if (status) entries = entries.filter((e) => e.status === status);

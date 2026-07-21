@@ -1,5 +1,5 @@
 import { decryptClientSecret } from "./agent-secrets.js";
-import { kvDel, kvGet, kvScan, kvSet } from "./kv.js";
+import { kvDel, kvGet, kvMget, kvScan, kvSet } from "./kv.js";
 
 export interface StoredAgentRecord {
   id: string;
@@ -42,13 +42,10 @@ export async function deleteAgent(clientId: string): Promise<void> {
 
 export async function listAgents(): Promise<PublicAgentRecord[]> {
   const keys = await kvScan(`${AGENT_PREFIX}*`);
-  const records: PublicAgentRecord[] = [];
-  for (const relativeKey of keys) {
-    const record = await kvGet<StoredAgentRecord>(relativeKey);
-    if (record && record.status === "active") {
-      records.push(toPublicAgent(record));
-    }
-  }
+  const stored = await kvMget<StoredAgentRecord>(keys);
+  const records = stored
+    .filter((r): r is StoredAgentRecord => r != null && r.status === "active")
+    .map(toPublicAgent);
   records.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return records;
 }

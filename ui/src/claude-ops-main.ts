@@ -162,7 +162,7 @@ function startOpsPoll(): void {
   poll = setInterval(() => {
     void refreshOpsPending();
     void refreshOpsAudit();
-  }, 2000);
+  }, 10000);
 }
 
 clientTypeSelect.addEventListener("change", () => {

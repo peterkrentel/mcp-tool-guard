@@ -362,7 +362,7 @@ async function refreshAudit(): Promise<void> {
 
 function startAuditPoll(): void {
   if (auditPoll) clearInterval(auditPoll);
-  auditPoll = setInterval(() => void refreshAudit(), 2000);
+  auditPoll = setInterval(() => void refreshAudit(), 10000);
 }
 
 async function refreshPending(): Promise<void> {
@@ -555,6 +555,6 @@ void syncAdminUi().then(() =>
       updateAgentMcpSelect();
       setInterval(updateAgentMcpSelect, 3000);
       void refreshPending();
-      setInterval(() => void refreshPending(), 5000);
+      setInterval(() => void refreshPending(), 15000);
     }),
 );
