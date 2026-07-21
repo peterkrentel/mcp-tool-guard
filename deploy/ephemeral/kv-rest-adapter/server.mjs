@@ -88,6 +88,12 @@ app.post("/set/:key", express.text({ type: "*/*" }), async (req, res) => {
   return res.json({ result: "OK" });
 });
 
+app.get("/mget/*", async (req, res) => {
+  const keys = req.params[0].split("/").map((k) => decodeURIComponent(k));
+  const values = await redis.mGet(keys);
+  res.json({ result: values.map((v) => v ?? null) });
+});
+
 app.post("/del/:key", async (req, res) => {
   const key = decodeURIComponent(req.params.key);
   const deleted = await redis.del(key);
