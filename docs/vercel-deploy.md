@@ -120,6 +120,10 @@ Key layout: [kv-design.md](kv-design.md) — `audit:recent`, `audit:session:{id}
 
 Local dev works without KV (in-memory fallback). No UI env changes.
 
+**Managing the actual database (plan, usage, quota):** the KV store Vercel provisions here is Upstash Redis under the hood. Vercel's own Storage tab only offers a "Connect" action for linking it to a project — it doesn't show usage/plan details. To check quota, current usage, or change plans, go to **console.upstash.com** directly and sign in there (the database appears under Redis with the same auto-generated name, e.g. `upstash-kv-<word>-<word>`).
+
+The **Free** tier caps at 500K commands/month — not bandwidth or storage, just command count. This project hit that cap in practice (2026-07-21): the pending-approval and audit-list UI panels poll on short intervals (2-5s), and the pending/agent list endpoints do a KV `SCAN` followed by an individual `GET` per matching key (an N+1 pattern) rather than a batched fetch — so command usage scales with both poll frequency and however many records have accumulated. **Pay as You Go** ($0.20/100K commands, no monthly cap) is the practical fix for a low-average, spiky-usage project like this one; it's cheaper than the $20/month **Fixed** tier unless sustained usage exceeds roughly 10M commands/month. Upgrade via Vercel Dashboard → Integrations → Upstash → Installed Products → Settings → Change Configuration, or directly in the Upstash console.
+
 ---
 
 ## Part 2 — Demo UI (Vite + WebLLM)

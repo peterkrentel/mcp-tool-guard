@@ -52,7 +52,7 @@ export async function getAuth0Client(): Promise<Auth0Client> {
       clientId: config.clientId,
       authorizationParams: {
         audience: config.audience,
-        redirect_uri: window.location.origin,
+        redirect_uri: window.location.origin + window.location.pathname,
       },
       cacheLocation: "localstorage",
     });
