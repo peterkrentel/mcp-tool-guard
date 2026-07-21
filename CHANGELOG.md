@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **BL-050** — re-filed "guard proxy should normalize upstream MCP response framing (SSE vs plain JSON)" under a fresh number. Originally filed as BL-048 on an unmerged branch (`docs/bl-048-mcp-response-normalization`); that number collided with BL-048 being independently used for the clientSecret-surfacing gap during the repo cleanup PR, stranding the original entry.
 - **Landing page doc links** — each card on `ui/index.html` now has a small secondary link to its most relevant doc (`guard-proxy.md`, `claude-code-demo.md`, `demo-proxy.md`).
 - **BL-051** — filed live: denying a pending `create_or_update_file` request didn't stop the call from being retried. The proxy's own deny logic is confirmed correct in isolation (verified via dual-logged deny rows terminating the held connection cleanly), but a brand-new trace_id and pending request appeared ~2s later for what was one single explicit tool call, eventually getting approved and completing. Root cause not yet identified — candidates are Claude Code's own transport-level retry, or the long-poll's deny path not returning a clean enough response to prevent client-side retry.
+- **BL-052** — filed: research how the MCP/agent ecosystem already handles non-interactive credential refresh for remote MCP servers (Claude Code's own MCP client, the MCP spec itself, other clients like VS Code/OpenCode) before committing to a custom guard-side token-vending design for BL-048/BL-049.
 
 ### Fixed
 
