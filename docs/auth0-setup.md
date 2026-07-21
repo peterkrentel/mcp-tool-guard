@@ -360,10 +360,10 @@ This tenant is shared across prod agents, local dev, and CI (the k3d ephemeral w
 |---|---|
 | `mcp-tool-guard` (SPA) | The UI's own Auth0 login application |
 | `mcp-tool-guard-proxy-m2m` | The real Management API client — confirmed via its API Access Policies grant (5/265 permissions: `create:clients`, `delete:clients`, `create:client_grants`, `delete:client_grants`, `read:clients`, matching what this doc's Management API app needs). The guard proxy and the k3d CI workflow both use this to create/delete every `mcp-agent-*` client. |
-| `mcp-agent-github-prod` | Live GitHub demo agent |
+| `mcp-agent-github-prod` (`repo:read`) | Live GitHub demo agent, used by the **browser** Agent gateway demo |
 | `mcp-agent-slack-agent-prod02` | Live Slack demo agent |
 | `mcp-agent-test-flight-prod` | Live flight demo agent |
-| `mcp-agent-claude-code-prod` | Live Claude Code prod demo agent — backs the static token in `docs/claude-code-demo.md` |
+| `mcp-agent-claude-code-prod` (`repo:read`) | Live Claude Code prod demo agent — backs the static token in `docs/claude-code-demo.md`. Recreated 2026-07-21 after this name was found repurposed to `slack:read`; now a distinct agent from `github-prod` despite both targeting `github`/`repo:read` — one is for Claude Code, one for the browser. |
 
 **Unclear — kept out of caution:**
 
@@ -375,6 +375,10 @@ This tenant is shared across prod agents, local dev, and CI (the k3d ephemeral w
 
 - `api-for-mcp-tool-guard (Test Application)` — Auth0's auto-generated companion to this project's API definition, used only for the dashboard's own "Test" tab. Confirmed never used.
 - `mcp-agent-claude-code-local` — the disposable local-dev validation agent referenced by `scripts/dev.env`'s `MCP_AGENT_CLIENT_ID`/`MCP_AGENT_CLIENT_SECRET`. Deleting it breaks local agent-token minting until you create a fresh agent (`POST /agents` via `/agents.html` or a script) and update those two `dev.env` values to match.
+
+**Revoked and recreated 2026-07-21:**
+
+- `mcp-agent-claude-code-prod` — the original agent under this name had drifted to `slack:read`/`slack-prod` at some point (unrelated Slack testing), discovered live when a re-vended token decoded to the wrong scope. Revoked and recreated fresh with `github`/`repo:read` to match its actual purpose.
 
 ---
 
