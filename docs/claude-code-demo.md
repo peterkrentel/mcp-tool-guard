@@ -177,6 +177,8 @@ Real commit [`6f48fd6`](https://github.com/peterkrentel/mcp-tool-guard/commit/6f
 - This demo proves the **mechanism** works, not the **policy** question of when to use it: should every write from every agent pause for human approval, or should some scopes/agents be trusted enough to skip that gate? That's a product decision, not something this run answers.
 - Approval currently requires a human watching a dashboard in real time. For unattended/scheduled agent runs, a policy for what happens if no one approves within the long-poll window (`pendingLongPollMaxMs`, default 120s) is worth deciding explicitly.
 
+**The bigger picture:** "Securing Claude Code" is a much larger problem than this project claims to solve — prompt injection, filesystem/shell access, and general agent behavior are all out of scope here. This is one deliberate, specific step: governing what an agent can do *through MCP tool calls*. It's also a genuinely raw work in progress, built while still learning Claude Code's own internals alongside it — the rough edges surfaced across this session (a static, non-refreshing token; every control-plane route requiring a human admin, not just approval; a second MCP vendor's response framing silently breaking tool discovery, BL-050) are evidence of that, not something to gloss over. Treat this demo as grounding for a step toward better things, not a finished product.
+
 ## Links
 
 - [Claude Code ops view](https://mcp-tool-guard-ui.vercel.app/claude-ops.html) (requires Auth0 admin sign-in)

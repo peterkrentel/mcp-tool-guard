@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **`claude-code-demo.md` Setup section** — documents, for the first time, exactly how `ghprod` got registered against prod: sign in as admin on `/agents.html`, create the M2M agent, grab the `clientSecret` from DevTools (BL-048), mint a token via `POST /token`, store it as `MCP_PROD_STATIC_TOKEN`, then `claude mcp add-json ghprod ...`. Previously this doc assumed `ghprod` pre-existed and never showed the setup, unlike `claude-code-integration.md`'s local equivalent. Doubles as a template for wiring up a different MCP server the same way.
+- **`claude-code-demo.md` "The bigger picture" note** — makes explicit that this project addresses one deliberate slice of "securing Claude Code" (MCP tool-call governance), not the whole problem, and that it's a raw work in progress — naming the session's own rough edges (static token, admin-only control-plane routes, BL-050) as evidence rather than glossing over them.
 - **BL-050** — re-filed "guard proxy should normalize upstream MCP response framing (SSE vs plain JSON)" under a fresh number. Originally filed as BL-048 on an unmerged branch (`docs/bl-048-mcp-response-normalization`); that number collided with BL-048 being independently used for the clientSecret-surfacing gap during the repo cleanup PR, stranding the original entry.
 - **Landing page doc links** — each card on `ui/index.html` now has a small secondary link to its most relevant doc (`guard-proxy.md`, `claude-code-demo.md`, `demo-proxy.md`).
 
