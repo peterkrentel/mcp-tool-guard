@@ -63,17 +63,35 @@ header h1 {
   flex-direction: column;
   gap: 0.35rem;
   padding: 1rem;
-  color: var(--text);
-  text-decoration: none;
 }
 
 .landing-card:hover {
   border-color: var(--accent);
 }
 
+.landing-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
 .landing-card span {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.landing-card-doc {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.landing-card-doc:hover {
+  color: var(--accent);
 }
 
 main {

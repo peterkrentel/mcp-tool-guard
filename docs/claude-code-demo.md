@@ -43,6 +43,39 @@ Skip this section if these terms are already familiar.
 | The human approver | you, signed into the Claude Code ops view with an admin Auth0 login |
 | The target | this repo, `peterkrentel/mcp-tool-guard`, file `demo-guard.md` |
 
+## Setup — how `ghprod` actually got wired up
+
+`claude-code-integration.md`'s equivalent section covers the **local** `github-guarded` connection, which is fully scriptable end-to-end because local dev runs with control-plane auth off (`MCP_GUARD_ENABLED=false` — see `docs/identity.md`). Prod is different: `gateway/proxy-routes-agents-token.ts` requires a `gateway:admin` bearer token on **every** control-plane route — `POST /agents`, `POST /token`, and `POST /agents/:clientId/token` alike — whenever control-plane auth is enabled, which it is in prod. That means creating the agent and minting its first token both genuinely need a human, logged in as admin, at least once. Here's exactly how that happened for `ghprod`:
+
+1. **Sign in as admin.** Opened [`/agents.html`](https://mcp-tool-guard-ui.vercel.app/agents.html), signed in with Auth0 (an account with the `gateway:admin` role).
+2. **Created the M2M agent via the "Create agent" form** — name `claude-code-prod`, MCP server `github` (already registered), scope `repo:read`. This calls `POST /agents`, satisfied by the admin session from step 1.
+3. **Grabbed the `clientSecret` from DevTools.** The UI never displays it after creation (BL-048) — opened DevTools → Network, found the `POST /agents` response, and copied `clientId`/`clientSecret` out of the raw JSON body. This produced the Auth0 application `mcp-agent-claude-code-prod` (see `docs/auth0-setup.md`'s tenant inventory).
+
+   **Correction, twice over (2026-07-21):** the *first* version of this section correctly said `claude-code-prod` here. It turned out that name had, at some point, been repurposed to a `slack:read`-scoped agent unrelated to GitHub — discovered live when a re-vended token for it decoded to the wrong scope. That produced a *second*, wrong correction pointing at `github-prod` (a real, separate agent, but the one used for the **browser** Agent gateway demo, not this one). The confusion was resolved by revoking the drifted `claude-code-prod` and recreating it fresh with `github`/`repo:read` — so as of now, `claude-code-prod` and `github-prod` are two distinct, correctly-scoped agents for two distinct clients (Claude Code vs. browser), and the name in this step is accurate again. Lesson: verify an agent's actual current scope by decoding a live token's `azp`/`scope` claims — never assume from the name alone, even a name that sounds obviously right.
+4. **Minted a token.** `POST /token` also needs `gateway:admin`, so the same admin's bearer token (also grabbed from DevTools/`localStorage`) went in the `Authorization` header, with the new agent's `clientId`/`clientSecret` in the body:
+
+   ```bash
+   curl -X POST https://mcp-tool-guard-proxy.onrender.com/token \
+     -H "Authorization: Bearer <admin access token>" \
+     -H "Content-Type: application/json" \
+     -d '{"clientId":"<clientId>","clientSecret":"<clientSecret>"}'
+   # -> {"token": "...", "expiresIn": ...}
+   ```
+
+5. **Stored the resulting JWT as a static token** — `MCP_PROD_STATIC_TOKEN` in `scripts/dev.env` (gitignored), alongside `MCP_PROD_SERVER_URL=https://mcp-tool-guard-proxy.onrender.com/github/mcp`.
+6. **`scripts/claude-mcp-token-helper-prod-demo.sh`** (already in the repo) just sources `MCP_PROD_STATIC_TOKEN` and prints the headers Claude Code needs — no per-connection minting, since there's no scripted way to repeat step 4 without a human admin present.
+7. **Registered the server with Claude Code:**
+
+   ```bash
+   claude mcp add-json ghprod '{"type":"http","url":"https://mcp-tool-guard-proxy.onrender.com/github/mcp","headersHelper":"./scripts/claude-mcp-token-helper-prod-demo.sh"}' --scope local
+   ```
+
+   Stored in `~/.claude.json` under `local` scope, same as `github-guarded` — nothing MCP-config-related is committed to this repo.
+
+**Known limitation:** this token is static — no refresh, good only until its own `exp` claim (BL-048). Rotating it means repeating steps 1–5 by hand. This is also exactly why BL-049 exists: every step above needs a human admin in the loop, with no scripted shortcut today.
+
+**To wire up a different MCP server the same way:** swap `github`/`repo:read` in step 2 for the new server's `serverId` and the scope it needs, and swap the URL/registered name in steps 5–7 accordingly — everything else (the admin-gate reason, the DevTools-secret step, the static-token tradeoff) applies identically regardless of which upstream MCP is behind it.
+
 ## Step by step: what happened, in order
 
 1. Claude Code checked the target file didn't already exist (`get_file_contents`) — allowed immediately; the credential has `repo:read`.
@@ -145,6 +178,8 @@ Real commit [`6f48fd6`](https://github.com/peterkrentel/mcp-tool-guard/commit/6f
 - The credential used here is a **static** token (BL-048) — a production integration would need Claude Code to get short-lived, dynamically-vended tokens the same way the browser flow does; `/agents.html`'s current "create agent" flow doesn't surface a `clientSecret` to make that possible yet.
 - This demo proves the **mechanism** works, not the **policy** question of when to use it: should every write from every agent pause for human approval, or should some scopes/agents be trusted enough to skip that gate? That's a product decision, not something this run answers.
 - Approval currently requires a human watching a dashboard in real time. For unattended/scheduled agent runs, a policy for what happens if no one approves within the long-poll window (`pendingLongPollMaxMs`, default 120s) is worth deciding explicitly.
+
+**The bigger picture:** "Securing Claude Code" is a much larger problem than this project claims to solve — prompt injection, filesystem/shell access, and general agent behavior are all out of scope here. This is one deliberate, specific step: governing what an agent can do *through MCP tool calls*. It's also a genuinely raw work in progress, built while still learning Claude Code's own internals alongside it — the rough edges surfaced across this session (a static, non-refreshing token; every control-plane route requiring a human admin, not just approval; a second MCP vendor's response framing silently breaking tool discovery, BL-050) are evidence of that, not something to gloss over. Treat this demo as grounding for a step toward better things, not a finished product.
 
 ## Links
 
