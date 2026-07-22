@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`research/` folder** — background research on where tool-call authorization for agentic AI is
+  supposed to live across deployment types (local MCP client, browser agent, enterprise backend
+  agent, managed/hosted agent), with cited findings on the MCP authorization spec's scope,
+  OWASP's Agentic AI / LLM Top 10 framing of "excessive agency," what real AI-gateway products
+  (Cloudflare, Kong, Portkey, LiteLLM) actually enforce vs. market, and where this project's
+  approach is and isn't differentiated against that landscape. Not project documentation —
+  background material for reasoning about the wider ecosystem this project sits in.
 - **`kvMget` batch-fetch primitive** (`gateway/kv.ts`) — one Redis `MGET` command for N keys instead of N individual `GET` commands. Verified against Upstash's official REST API docs (`/mget/{key1}/{key2}/...` path, `{"result": [...]}` response, null for missing keys, same order as requested).
 
 ### Changed
