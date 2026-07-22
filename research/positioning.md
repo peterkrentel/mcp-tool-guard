@@ -6,48 +6,45 @@ this project's own code.
 
 > Every claim below about this project's own behavior (not the external market/spec claims) has
 > been verified line-by-line against `gateway/*.ts`, `servers/flight/guard.py`,
-> `servers/flight/guard_middleware.py`, and the relevant `docs/*.md` files. Where the first draft
-> of this file overclaimed or omitted a caveat, that's noted explicitly below rather than silently
-> fixed — the corrections are as informative as the claims.
+> `servers/flight/guard_middleware.py`, and the relevant `docs/*.md` files. An earlier pass through
+> this file flagged a few things as "gaps" that turned out, on closer inspection, to be either
+> deliberate fail-closed design or an artifact of build order rather than an oversight — those
+> corrections are kept visible below rather than silently smoothed over, because getting the
+> calibration wrong the first time is itself informative.
 
 ## What this project actually demonstrates
 
-1. **An agent gets its own identity with its own scopes** — confirmed. Auth0 M2M clients are
-   persisted with their own `scopes` (`gateway/agent-store.ts`), and every check reads scope from
-   the live JWT, not from anything pinned at agent-creation time.
-2. **Authorization happens at call time**, against the specific tool being invoked — confirmed.
-   `checkScope`/`authorize` (`gateway/guard.ts`) run fresh on every `tools/call`, called per-request
-   from both the TS proxy (`gateway/proxy-routes-mcp.ts`) and the flight demo server's own
-   middleware (`servers/flight/guard_middleware.py`).
-3. **High-impact actions can be held for a human decision** — real, but **opt-in and one-sided**.
-   The pending-approval mechanism (`gateway/pending-store.ts`) is a genuine third state (not just
-   allow/deny — see `GuardDecision` in `gateway/types.ts`), with a real create → wait → resolve flow
-   and single-use approval/poll tokens. But it only activates when `MCP_APPROVAL_QUEUE=true` is set;
-   unset (the default), a scope mismatch skips straight to a hard deny
-   (`gateway/proxy-routes-mcp.ts`, confirmed in `docs/CONCEPT.md`). And it exists **only** in the TS
-   proxy — the flight server's embedded guard has no approval-queue concept at all; it can only
-   allow or return a hard JSON-RPC error.
-4. **Every decision is logged with a correlating trace ID** — true, but narrower than it sounds.
-   The `trace_id` is a shared *string value* threaded across three **independently-owned** audit
-   stores (the TS proxy's, the flight server's own separate KV/audit store, and a client-submitted
-   "agent" log) — not a single unified trace. The flight server's audit rows are not part of the
-   OpenTelemetry span tree described below; `docs/otel.md` says as much directly. And the *agent*
-   layer of that correlation is self-reported by the browser client and, depending on config, not
-   independently verified — see the "thinner" section below.
-5. **M2M agent revocation is checked on every call, not just at token mint** *(confirmed this
-   session, not in the original draft)*. `guard.ts`'s `assertActiveM2mAgent` runs inside
-   `validateToken`, called on every `authorize()`. It's wired up whenever `m2mRevocationEnabled()`
-   is true, which defaults to `kvEnabled()` — true in every real deployment (KV persistence is how
-   the proxy stores agents/audit/pending state at all), false only in a bare local session with no
-   Upstash configured. The check itself is a single local KV `GET`, not a live Auth0 API round
-   trip — cheap enough to run unconditionally.
-6. **Real distributed tracing, not just log lines** *(confirmed this session)*. `gateway/telemetry.ts`
-   emits actual OpenTelemetry spans per `tools/call` decision (tool, server, decision, scopes,
-   trace_id, approval method as attributes), nests the allow-path span as a parent of the upstream
-   forward call, and bridges `console.*` output into OTel logs — all genuinely first-class, safely
-   no-op when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, and a documented real deploy path
-   (`docs/render-deploy.md`). Whether the live Render deployment currently has a collector endpoint
-   configured isn't something code can confirm — that's a dashboard setting, not a code fact.
+1. **Config-based default-deny, before scope is even checked.** `gateway/config.yaml` defines
+   exactly which tools exist per server and what scope each requires. A tool with no config entry
+   isn't "unscoped" — it's unreachable: `checkScope` (`gateway/guard.ts:242-256`) hard-denies it
+   before ever inspecting the token. Scope isn't granted to "all MCP tools" by default; the config
+   is the allowlist.
+2. **An agent gets its own identity with its own scopes** — an Auth0 M2M client, persisted with its
+   own `scopes` (`gateway/agent-store.ts`), read fresh from the live JWT on every call.
+3. **A third credential layer separates the agent's identity from the upstream MCP server's.**
+   `gateway/proxy-routes-mcp.ts:35-43` (`buildReqHeadersWithUpstreamAuth`) **replaces** the agent's
+   Authorization header with the proxy's own static `upstream_token` before forwarding to the real
+   MCP server, when one is configured. The agent's own identity is checked *at the proxy* and never
+   reaches the upstream tool at all — only the proxy's own service credential does. That's a real
+   credential-vaulting pattern: three distinct credentials in play (agent → proxy, proxy → upstream
+   server, and the one-time human-approval token below), not one token doing everything.
+4. **Authorization happens at call time**, against the specific tool being invoked — `checkScope`/
+   `authorize` (`gateway/guard.ts`) run fresh on every `tools/call`, from both the TS proxy and the
+   flight demo server's own middleware.
+5. **A one-time, opaque, human-in-the-loop grant for calls that fail scope.** When a call is denied
+   by scope, it can be escalated to a human via `gateway/pending-store.ts`'s pending-request flow. The
+   resulting **approval token** (`at_...`) is genuinely opaque (a random ID, not a JWT — no decodable
+   claims) and genuinely single-use (`validateApprovalToken` deletes its KV record on first successful
+   use — "burn on first use," `pending-store.ts:196-218`). This activates only via
+   `MCP_APPROVAL_QUEUE=true`; unset, a scope failure hard-denies immediately instead — a deliberate
+   fail-closed default, not a shortcoming.
+6. **M2M agent revocation is checked on every call, not just at token mint.** `guard.ts`'s
+   `assertActiveM2mAgent` runs inside `validateToken`, wired up whenever `m2mRevocationEnabled()` is
+   true — which defaults to `kvEnabled()`, true in every real deployment. The check is a single local
+   KV lookup, not a live Auth0 API round trip.
+7. **Real distributed tracing, not just log lines.** `gateway/telemetry.ts` emits actual OpenTelemetry
+   spans per decision, nests the allow-path span as a parent of the upstream forward call, bridges
+   console output into OTel logs, and is a safe no-op when unconfigured.
 
 ## Where the market has already caught up
 
@@ -56,88 +53,75 @@ OAuth2 scope-based tool filtering (3.14)** does the same core thing — gate ind
 calls based on scopes in an incoming token — as a shipped, supported product. **LiteLLM's Tool
 Permission Guardrail** covers similar ground with regex-based rules, open-source and self-hostable.
 
-That matters for honest positioning: "a gateway that scopes MCP tool calls" is not a gap in the
-market anymore, if it ever fully was. What's more defensibly a gap:
+"A gateway that scopes MCP tool calls" is not an open gap in the market, if it ever fully was. What
+looks more defensibly differentiated:
 
 - Most "AI gateway" products (Cloudflare AI Gateway, Portkey, and similar) still market
-  authorization but ship **observability and coarse-grained (team/user-level) access**, not the
-  per-request scope intersection OWASP's framework describes.
-- The **human-in-the-loop pending-approval queue** as a first-class middle state is less commonly
-  a headline feature in the gateway products surveyed — though within this project it's currently
-  a TS-proxy-only, opt-in feature, not something implemented uniformly across every enforcement
-  point (see below).
-- A **compact, readable reference implementation** you can point at to explain the whole pattern
-  in one sitting is genuinely rarer than the pattern itself.
+  authorization but ship observability and coarse-grained (team/user-level) access, not per-request
+  scope enforcement.
+- The **one-time opaque approval-token escalation flow**, layered on top of a separate credential
+  boundary between agent and upstream server, is a more specific and more complete pattern than a
+  generic "human-in-the-loop" feature flag — it's less commonly a headline feature elsewhere.
+- A **compact, readable reference implementation** of all three credential layers together is
+  genuinely rarer than any one piece of the pattern alone.
 
-## Where the current implementation is thinner than the "converged" pattern
+## Things previously flagged here as "gaps" that, on reflection, aren't
 
-- **No intersection logic — confirmed, not hypothetical.** OWASP's framing is effective permission
-  = intersection of (user scope, agent scope, tool requirements). `checkScope`
-  (`gateway/guard.ts`) takes exactly **one** permission set — `tokenScopes: string[]` — and compares
-  it 1:1 against the tool's `required_scope`. `JwtPayload` (`gateway/types.ts`) has no separate
-  "user scope" field anywhere; `scope`/`scopes`/`scp`/`permissions` are all read from the *same*
-  token and merged into one array. The flight server's Python guard mirrors this exactly. There is
-  no second permission set consulted at call time, in either language.
-- **Tokens are long-lived and cached, not JIT — confirmed, and the opposite of what I assumed
-  going in.** `gateway/token-vendor.ts`'s `vend()` explicitly caches a token per `clientId` and
-  reuses it across every call until ~60 seconds before the IdP's own expiry. That's standard OAuth
-  client-credentials caching — reasonable — but it is structurally the opposite of a just-in-time,
-  per-task token, and there's no `jti`/nonce/single-use mechanism anywhere in this codebase (grepped
-  for it — nothing). If ephemeral tokens matter to the threat model, this is a real, deliberate gap
-  to revisit, not a detail to double-check.
-- **Agent identity is "an OAuth client," not a distinct principal type.** The persisted agent
-  record (`gateway/agent-store.ts`) is exactly an Auth0 M2M client with scopes and a KV
-  `status: "active"` flag. No SPIFFE-style identity, no separate agent-principal lifecycle beyond
-  that flag. Reasonable for this project's scale — just not the leading-edge model.
-- **Transitive scope composition** (tool A triggers tool B triggers tool C) — there's no code path
-  in this repo to even evaluate this against; the flight demo's tools are all leaf handlers with no
-  outbound calls to other tools. Genuinely open, not yet a live gap.
-- **The two "authoritative" enforcement layers are not functionally equivalent** *(a real gap
-  neither draft of this file named)*. The TS proxy and the flight server's embedded middleware
-  enforce the *same scope policy* (kept aligned by a CI check, not at runtime) — but the flight
-  guard has **no equivalent of the M2M revocation check** and **no approval-queue concept**. In the
-  demo topology this is moot in practice because flight is only ever reached through the proxy, but
-  that protection comes from network topology, not from the flight guard's own logic. If flight
-  were ever reachable directly, a revoked agent's still-unexpired token would pass there.
-- **"Every decision is logged" glosses over trust asymmetry between log sources.** The proxy's and
-  flight's audit rows are server-generated and authoritative. The "agent" observability layer's rows
-  are submitted by the (untrusted) browser client and, depending on config
-  (`MCP_AUDIT_AGENT_TRUSTED_MODE`, or guard disabled entirely), can be accepted without independently
-  verifying their content. Any future claim about audit completeness should distinguish
-  "authoritative" rows from "self-reported" ones rather than treating all three sources as equally
-  trustworthy.
-- **A global kill switch exists.** `MCP_GUARD_ENABLED=false` disables enforcement in both the proxy
-  and the flight guard at once, for local dev, with a runtime warning. Deliberate and documented,
-  not a bug — but worth naming explicitly in any discussion of single points of failure, since it
-  is exactly that: one flag that turns off every enforcement point simultaneously.
+Keeping these visible rather than deleting them, because the miscalibration is worth remembering:
 
-**Worth crediting, found but not previously mentioned in this file:**
+- **"No three-way (user × agent × tool) scope intersection."** True as a fact about the code — but
+  OWASP's intersection principle targets *user-delegated* agents, where a human logs in and the
+  agent should be constrained to what that specific human can see. This project's agents are
+  **service agents**: there's no separate human user in the request path to intersect against — the
+  M2M client's own granted scope already *is* the authorization ceiling. That's a different, valid
+  pattern, not a thinner version of the same one. It would become a real gap only if a
+  user-delegated agent pattern gets added later.
+- **"The approval queue is opt-in, not unconditional."** Still true, but framing it as a weakness was
+  wrong — defaulting to hard-deny unless human-escalation is explicitly turned on is the correct
+  fail-closed choice, not a shortcoming.
+- **"Tokens are cached and reused, not JIT/single-use."** Still true of the agent's own JWT — but
+  that's standard OAuth client-credentials behavior, not an oversight. It's only worth revisiting if
+  a threat model specifically calls for per-task ephemeral tokens (and note the *approval* token
+  already is single-use, where single-use actually matters — a one-time human grant).
 
-- **Layered rate limiting** — an in-memory sliding window plus a KV-backed distributed fixed-window
-  limiter (`gateway/proxy-server.ts`). Real operational hardening, independent of the scope-check
-  logic above.
-- **Dual-trust JWT verification** — both the TS and Python guards verify via JWKS when the token's
-  issuer matches the configured Auth0 tenant, and fall back to PEM-only verification otherwise (the
-  demo-guest-key path). Deliberate, documented (`docs/identity.md`) — worth naming when discussing
-  how uniformly tokens are actually verified across the two enforcement points.
+## Where a real, narrower gap remains
+
+**The two "authoritative" enforcement layers are not functionally equivalent** — and this is where
+history matters. `servers/flight/` was the **original proof-of-concept**, built before the TS proxy
+existed at all; the M2M revocation check and the approval-token escalation flow were added later,
+to the proxy only, and never backported to flight's embedded guard
+(`servers/flight/guard.py`/`guard_middleware.py`). So the asymmetry isn't an unexplained design gap —
+it's an artifact of build order: flight is the first iteration of the experiment, and the two
+newer capabilities simply came after it. In the current demo topology this is low-risk because
+flight is only ever reached through the proxy, so it inherits protection from network placement even
+though its own logic doesn't implement those two checks. Worth an explicit decision (backport, or
+accept flight stays demo-only and frozen at POC-era capability) rather than leaving it implicit —
+but it's a "what do we do with the first iteration" question, not a flaw in the current design.
+
+**Also still real and unrelated to the above:** the "agent" observability layer's audit rows are
+self-reported by the browser client and, depending on config, not independently verified — distinct
+from the proxy's and flight's own server-generated audit rows, which are authoritative. And a global
+`MCP_GUARD_ENABLED=false` kill switch disables both enforcement points at once, for local dev —
+deliberate and documented, but worth naming in any single-point-of-failure discussion.
+
+**Worth crediting, found but easy to overlook:** layered rate limiting (in-memory sliding window +
+KV-backed distributed fixed-window, `gateway/proxy-server.ts`), and dual-trust JWT verification
+(JWKS-or-PEM fallback by issuer, in both the TS and Python guards) — deliberate support for both
+Auth0-issued and demo-PEM-signed tokens.
 
 ## Avenues worth pursuing next, roughly in priority order
 
-1. **Decide, and document, what to do about the proxy/flight asymmetry.** Right now flight's
-   protection from a revoked agent or an unapproved high-risk call depends entirely on it only
-   being reachable through the proxy. Either that's an accepted, explicitly-stated limitation of a
-   demo-only server, or it's a gap worth closing — but it shouldn't stay implicit.
-2. **Decide whether true intersection-based authorization is in scope.** The code confirms
-   single-layer checking today. That may be entirely fine for this project's current threat model
-   — but it should be a stated decision, not an assumption inherited from not having looked yet.
-3. **Revisit token lifetime deliberately if ephemeral/JIT tokens matter.** Today's caching behavior
-   is a design choice, not an oversight — but it's worth being explicit about whether that choice
-   still holds as the threat model gets more specific.
-4. **Tighten the audit-trust story.** Either surface self-reported (agent-layer) rows differently
-   from server-generated ones in whatever consumes the audit trail, or stop describing "every
-   decision is logged" without that distinction.
-5. **Read Kong's MCP Tool ACL / OAuth2 scope-filtering docs in detail** as the closest real-world
+1. **Decide what to do with flight as the original POC** — backport the revocation check and
+   approval-token flow so both enforcement layers are equivalent, or explicitly freeze flight as a
+   demo-only artifact that intentionally doesn't get new proxy-side capabilities. Either is fine;
+   leaving it undecided isn't.
+2. **Tighten the audit-trust story** — distinguish self-reported (agent-layer) rows from
+   server-generated (proxy/flight) ones wherever the audit trail is presented or described.
+3. **Read Kong's MCP Tool ACL / OAuth2 scope-filtering docs in detail** as the closest real-world
    analog — a precise "here's how this differs from Kong" beats a vague one.
-6. **Leave agent-identity-as-principal-type (SPIFFE / Entra Agent ID) as a watch item**, not a
-   near-term build target — it's the bleeding edge, not yet the baseline, and adopting it before
-   this project needs it would be solving a problem it doesn't have yet.
+4. **Revisit token lifetime only if a user-delegated agent pattern or a stricter threat model shows
+   up later** — today's cached-JWT-plus-single-use-approval-token split is already correct for a
+   service-agent design; don't build ephemeral agent tokens speculatively.
+5. **Leave agent-identity-as-principal-type (SPIFFE / Entra Agent ID) and three-way scope
+   intersection as watch items**, not near-term build targets — both are real trends, but they solve
+   a user-delegated-agent problem this project doesn't currently have.
