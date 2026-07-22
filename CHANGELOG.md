@@ -15,6 +15,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (Cloudflare, Kong, Portkey, LiteLLM) actually enforce vs. market, and where this project's
   approach is and isn't differentiated against that landscape. Not project documentation —
   background material for reasoning about the wider ecosystem this project sits in.
+  `research/positioning.md` was subsequently fact-checked line-by-line against `gateway/*.ts`,
+  `servers/flight/guard*.py`, and `docs/*.md`: corrected several overclaims (the pending-approval
+  queue and M2M revocation check are opt-in/flag-gated, not unconditional; agent tokens are cached
+  and reused, not JIT/single-use) and surfaced gaps neither draft had named (the flight demo
+  server's embedded guard has no revocation check or approval-queue equivalent at all, and there's
+  a global `MCP_GUARD_ENABLED=false` kill switch covering both enforcement points at once).
 - **`kvMget` batch-fetch primitive** (`gateway/kv.ts`) — one Redis `MGET` command for N keys instead of N individual `GET` commands. Verified against Upstash's official REST API docs (`/mget/{key1}/{key2}/...` path, `{"result": [...]}` response, null for missing keys, same order as requested).
 
 ### Changed
