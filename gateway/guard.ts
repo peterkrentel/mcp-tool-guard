@@ -97,6 +97,9 @@ export class DefaultJwtValidator implements JwtValidator {
     if (Array.isArray(payload.permissions)) {
       scopes.push(...payload.permissions.map(String));
     }
+    if (Array.isArray(payload.roles)) {
+      scopes.push(...payload.roles.map(String));
+    }
     return [...new Set(scopes)];
   }
 

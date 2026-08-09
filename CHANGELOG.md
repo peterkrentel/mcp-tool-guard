@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Entra ID `roles` claim support in `extractScopes()`** — `gateway/guard.ts`'s `DefaultJwtValidator.extractScopes()` now reads Entra's `roles` claim (array of strings, equivalent to Auth0's `permissions`) in addition to the existing `scope`, `scopes`, `scp`, and `permissions` claims. Roles are merged with other scopes and deduplicated, enabling Microsoft Entra ID as a second identity provider without requiring custom scope-extraction logic.
 - **`research/` folder** — background research on where tool-call authorization for agentic AI is
   supposed to live across deployment types (local MCP client, browser agent, enterprise backend
   agent, managed/hosted agent), with cited findings on the MCP authorization spec's scope,
@@ -16,11 +17,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   approach is and isn't differentiated against that landscape. Not project documentation —
   background material for reasoning about the wider ecosystem this project sits in.
   `research/positioning.md` was subsequently fact-checked line-by-line against `gateway/*.ts`,
-  `servers/flight/guard*.py`, and `docs/*.md`: corrected several overclaims (the pending-approval
-  queue and M2M revocation check are opt-in/flag-gated, not unconditional; agent tokens are cached
-  and reused, not JIT/single-use) and surfaced gaps neither draft had named (the flight demo
-  server's embedded guard has no revocation check or approval-queue equivalent at all, and there's
-  a global `MCP_GUARD_ENABLED=false` kill switch covering both enforcement points at once).
+  `servers/flight/guard*.py`, and `docs/*.md`, then recalibrated a second time after review: the
+  design actually has three separate credential layers (agent JWT → proxy; the proxy's own
+  `upstream_token` → the real MCP server, so the agent's identity never reaches upstream; a
+  one-time opaque approval token for human-in-the-loop escalation of a scope-denied call), and two
+  things earlier flagged as "gaps" — no three-way scope intersection, and the approval queue being
+  opt-in — are actually correct design for a service-agent (M2M) model with a deliberate
+  fail-closed default, not thinness. The one enforcement-layer asymmetry that remains (the flight
+  demo server's embedded guard has no revocation check or approval-queue equivalent) is because
+  `servers/flight/` was this project's original proof-of-concept, predating both features, which
+  were added later to the TS proxy only and never backported — an artifact of build order, not an
+  unexplained inconsistency.
 - **`kvMget` batch-fetch primitive** (`gateway/kv.ts`) — one Redis `MGET` command for N keys instead of N individual `GET` commands. Verified against Upstash's official REST API docs (`/mget/{key1}/{key2}/...` path, `{"result": [...]}` response, null for missing keys, same order as requested).
 
 ### Changed

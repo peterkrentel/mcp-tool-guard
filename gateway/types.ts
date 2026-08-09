@@ -70,6 +70,8 @@ export interface JwtPayload {
   scp?: string | string[];
   /** Auth0 RBAC — API permissions when "Add Permissions in the Access Token" is enabled. */
   permissions?: string[];
+  /** Entra ID — Azure App Roles when "Emit groups as role claims" is enabled. */
+  roles?: unknown[];
   [key: string]: unknown;
 }
 
