@@ -129,6 +129,8 @@ Setup: [Entra ID setup guide](entra-setup.md).
 | Auth0 | `MCP_IDP_PROVIDER=auth0` (or unset for guest-only) | `MCP_JWT_ISSUER=https://tenant.auth0.com/` |
 | Entra ID | `MCP_IDP_PROVIDER=entra` (or unset for guest-only) | `MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0` |
 
+`MCP_JWT_ISSUER` and `MCP_JWT_AUDIENCE` must always be set explicitly — neither the gateway nor the flight server derives them from a tenant ID or app ID. **`MCP_JWT_JWKS_URL` also needs setting explicitly for Entra:** when unset, both auto-derive it as `${MCP_JWT_ISSUER}/.well-known/jwks.json`, which happens to be correct for Auth0 but is the wrong path for Entra (Entra's real JWKS endpoint is `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys`). See [Entra ID setup guide → Step 5](entra-setup.md#step-5--flight-server-entra-path) for the exact vars.
+
 Rationale: [BL-034 — Single-active-provider trust model design](superpowers/specs/2026-07-18-idp-trust-model-design.md).
 
 ---
