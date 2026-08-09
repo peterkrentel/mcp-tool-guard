@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Entra ID `roles` claim support in `extractScopes()`** — `gateway/guard.ts`'s `DefaultJwtValidator.extractScopes()` now reads Entra's `roles` claim (array of strings, equivalent to Auth0's `permissions`) in addition to the existing `scope`, `scopes`, `scp`, and `permissions` claims. Roles are merged with other scopes and deduplicated, enabling Microsoft Entra ID as a second identity provider without requiring custom scope-extraction logic.
+- **`EntraTokenVendor` for Entra ID M2M token vending** — `gateway/entra-token-vendor.ts` provides client_credentials token exchange for Microsoft Entra ID, mirroring `gateway/token-vendor.ts` (Auth0) with an in-memory token cache (60s skew) and invalidation support. Exported factories: `entraTokenVendorFromEnv()` reads `ENTRA_TENANT_ID`; `entraApiAppIdFromEnv()` reads `ENTRA_API_APP_ID`. Task 3's `EntraIdpAdapter` uses these to vend scoped M2M tokens for Entra-backed agents.
 - **`research/` folder** — background research on where tool-call authorization for agentic AI is
   supposed to live across deployment types (local MCP client, browser agent, enterprise backend
   agent, managed/hosted agent), with cited findings on the MCP authorization spec's scope,
