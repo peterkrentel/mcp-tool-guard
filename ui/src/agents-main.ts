@@ -26,15 +26,19 @@ import { renderThreeLayerAudit } from "./agents-audit-view.js";
 import { renderPendingList } from "./pending-view.js";
 import {
   GATEWAY_ADMIN_PERMISSION,
+  getAccessToken,
   getAuth0AccessToken,
   getAuth0Config,
-  getAuth0UserLabel,
+  getIdpConfig,
+  getSignInLabel,
+  getUserLabel,
   handleAuthRedirect,
-  hasGatewayAdminPermission,
+  hasGatewayAdminAccess,
   isAuth0Authenticated,
+  isSignedIn,
   jwtTrustFromAuth0,
-  loginWithAuth0,
-  logoutAuth0,
+  login,
+  logout,
 } from "./auth.js";
 import { resolveProxyBase } from "./config.js";
 
@@ -134,7 +138,7 @@ async function loadControlPlaneAuthFlag(): Promise<void> {
 }
 
 async function syncAdminUi(): Promise<void> {
-  const auth0Config = getAuth0Config();
+  const idpConfig = getIdpConfig();
   await loadControlPlaneAuthFlag();
 
   if (!controlPlaneAuthRequired) {
@@ -147,7 +151,7 @@ async function syncAdminUi(): Promise<void> {
     return;
   }
 
-  if (!auth0Config) {
+  if (!idpConfig) {
     authControls.hidden = true;
     adminGateHintEl.textContent =
       "Set VITE_AUTH0_* on the UI and MCP_JWT_* on the proxy for operator sign-in.";
@@ -158,9 +162,10 @@ async function syncAdminUi(): Promise<void> {
   }
 
   authControls.hidden = false;
+  authLoginBtn.textContent = getSignInLabel();
   await handleAuthRedirect();
 
-  const authenticated = await isAuth0Authenticated();
+  const authenticated = await isSignedIn();
   authLoginBtn.hidden = authenticated;
   authLogoutBtn.hidden = !authenticated;
 
@@ -173,8 +178,8 @@ async function syncAdminUi(): Promise<void> {
     return;
   }
 
-  authStatusEl.textContent = await getAuth0UserLabel();
-  const isAdmin = await hasGatewayAdminPermission();
+  authStatusEl.textContent = await getUserLabel();
+  const isAdmin = await hasGatewayAdminAccess();
   if (!isAdmin) {
     adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in Auth0, then sign out/in.`;
     adminOpsEnabled = false;
@@ -575,12 +580,12 @@ inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendBtn.click();
 });
 
-authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLoginBtn.addEventListener("click", () => void login());
 authLogoutBtn.addEventListener("click", () => {
   gatewayAgent = null;
   selectedAgent = null;
   syncSendButtonState();
-  void logoutAuth0().then(() => syncAdminUi());
+  void logout().then(() => syncAdminUi());
 });
 
 populateLlmSelect();

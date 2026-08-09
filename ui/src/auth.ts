@@ -1,4 +1,96 @@
 import { Auth0Client } from "@auth0/auth0-spa-js";
+import {
+  PublicClientApplication,
+  type AccountInfo,
+  type Configuration,
+} from "@azure/msal-browser";
+import { normalizeIdpProvider, type IdpProviderId } from "./auth-provider.js";
+
+export function getIdpProvider(): IdpProviderId {
+  return normalizeIdpProvider(import.meta.env.VITE_IDP_PROVIDER);
+}
+
+export interface EntraConfig {
+  tenantId: string;
+  clientId: string;
+  apiAppId: string;
+}
+
+export function getEntraConfig(): EntraConfig | null {
+  const tenantId = import.meta.env.VITE_ENTRA_TENANT_ID?.trim();
+  const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID?.trim();
+  const apiAppId = import.meta.env.VITE_ENTRA_API_APP_ID?.trim();
+  if (!tenantId || !clientId || !apiAppId) return null;
+  return { tenantId, clientId, apiAppId };
+}
+
+export function jwtTrustFromEntra(config: EntraConfig): JwtTrustOptions {
+  return {
+    jwtIssuer: `https://login.microsoftonline.com/${config.tenantId}/v2.0`,
+    jwtAudience: `api://${config.apiAppId}`,
+    jwksUrl: `https://login.microsoftonline.com/${config.tenantId}/discovery/v2.0/keys`,
+  };
+}
+
+let msalClient: PublicClientApplication | null = null;
+let msalAccount: AccountInfo | null = null;
+
+async function getMsalClient(): Promise<PublicClientApplication> {
+  const config = getEntraConfig();
+  if (!config) {
+    throw new Error("Entra is not configured (set VITE_ENTRA_* env vars)");
+  }
+  if (!msalClient) {
+    const msalConfig: Configuration = {
+      auth: {
+        clientId: config.clientId,
+        authority: `https://login.microsoftonline.com/${config.tenantId}`,
+        redirectUri: window.location.origin + window.location.pathname,
+      },
+      cache: { cacheLocation: "localStorage" },
+    };
+    msalClient = new PublicClientApplication(msalConfig);
+    await msalClient.initialize();
+    const redirectResult = await msalClient.handleRedirectPromise();
+    if (redirectResult?.account) msalAccount = redirectResult.account;
+  }
+  return msalClient;
+}
+
+export async function isEntraAuthenticated(): Promise<boolean> {
+  if (!getEntraConfig()) return false;
+  const client = await getMsalClient();
+  const accounts = client.getAllAccounts();
+  if (accounts.length > 0) msalAccount = accounts[0];
+  return msalAccount !== null;
+}
+
+export async function loginWithEntra(): Promise<void> {
+  const client = await getMsalClient();
+  const config = getEntraConfig();
+  if (!config) throw new Error("Entra is not configured");
+  await client.loginRedirect({ scopes: [`api://${config.apiAppId}/.default`] });
+}
+
+export async function logoutEntra(): Promise<void> {
+  const client = await getMsalClient();
+  await client.logoutRedirect();
+}
+
+export async function getEntraAccessToken(): Promise<string> {
+  const client = await getMsalClient();
+  const config = getEntraConfig();
+  if (!config || !msalAccount) throw new Error("Not signed in with Entra");
+  const result = await client.acquireTokenSilent({
+    scopes: [`api://${config.apiAppId}/.default`],
+    account: msalAccount,
+  });
+  return result.accessToken;
+}
+
+export async function getEntraUserLabel(): Promise<string> {
+  return msalAccount?.username ?? msalAccount?.name ?? "Signed in";
+}
 
 export interface Auth0Config {
   domain: string;
@@ -61,6 +153,10 @@ export async function getAuth0Client(): Promise<Auth0Client> {
 }
 
 export async function handleAuthRedirect(): Promise<void> {
+  if (getIdpProvider() === "entra") {
+    await getMsalClient(); // handleRedirectPromise() runs inside its lazy init, see getMsalClient() above
+    return;
+  }
   const config = getAuth0Config();
   if (!config) return;
 
@@ -125,4 +221,65 @@ export async function hasGatewayAdminPermission(): Promise<boolean> {
   if (!(await isAuth0Authenticated())) return false;
   const token = await getAuth0AccessToken();
   return tokenHasPermission(token, GATEWAY_ADMIN_PERMISSION);
+}
+
+// --- Generic, provider-dispatching functions used by the rest of the UI ---
+
+export function getIdpConfig(): Auth0Config | EntraConfig | null {
+  return getIdpProvider() === "entra" ? getEntraConfig() : getAuth0Config();
+}
+
+export function getSignInLabel(): string {
+  return getIdpProvider() === "entra" ? "Sign in with Microsoft" : "Sign in with Auth0";
+}
+
+export async function isSignedIn(): Promise<boolean> {
+  return getIdpProvider() === "entra" ? isEntraAuthenticated() : isAuth0Authenticated();
+}
+
+export async function login(): Promise<void> {
+  if (getIdpProvider() === "entra") await loginWithEntra();
+  else await loginWithAuth0();
+}
+
+export async function logout(): Promise<void> {
+  if (getIdpProvider() === "entra") await logoutEntra();
+  else await logoutAuth0();
+}
+
+export async function getAccessToken(): Promise<string> {
+  return getIdpProvider() === "entra" ? getEntraAccessToken() : getAuth0AccessToken();
+}
+
+export async function getUserLabel(): Promise<string> {
+  return getIdpProvider() === "entra" ? getEntraUserLabel() : getAuth0UserLabel();
+}
+
+export async function hasGatewayAdminAccess(): Promise<boolean> {
+  if (!getIdpConfig()) return false;
+  if (!(await isSignedIn())) return false;
+  const token = await getAccessToken();
+  if (getIdpProvider() === "entra") {
+    return tokenHasEntraRole(token, GATEWAY_ADMIN_PERMISSION);
+  }
+  return tokenHasPermission(token, GATEWAY_ADMIN_PERMISSION);
+}
+
+export function rolesFromAccessToken(token: string): string[] {
+  try {
+    const segment = token.split(".")[1];
+    if (!segment) return [];
+    const padded = segment.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(padded)) as { roles?: string[] };
+    return Array.isArray(payload.roles) ? payload.roles.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function tokenHasEntraRole(token: string, role: string): boolean {
+  const roles = rolesFromAccessToken(token);
+  if (roles.includes(role)) return true;
+  const [resource] = role.split(":");
+  return roles.includes(`${resource}:*`) || roles.includes("*");
 }

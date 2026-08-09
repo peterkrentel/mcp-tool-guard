@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.23.0",
+    "@azure/msal-browser": "^5.18.0",
     "@mcp-tool-guard/gateway": "*",
     "@mlc-ai/web-llm": "^0.2.84",
     "yaml": "^2.8.0"
