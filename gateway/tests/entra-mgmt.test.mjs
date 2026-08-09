@@ -9,6 +9,13 @@ import {
 
 const ENV_KEYS = ["ENTRA_TENANT_ID", "ENTRA_CLIENT_ID", "ENTRA_CLIENT_SECRET", "ENTRA_API_APP_ID"];
 
+const API_APP_ID = "api-app-id";
+const API_SP_ID = "api-sp-object-id";
+const APP_ROLES = [
+  { id: "role-guid-read", value: "flights:read" },
+  { id: "role-guid-write", value: "flights:write" },
+];
+
 function clearEntraEnv() {
   const saved = {};
   for (const key of ENV_KEYS) {
@@ -23,6 +30,71 @@ function clearEntraEnv() {
   };
 }
 
+function setEntraEnv() {
+  process.env.ENTRA_TENANT_ID = "tenant-id";
+  process.env.ENTRA_CLIENT_ID = "mgmt-client-id";
+  process.env.ENTRA_CLIENT_SECRET = "mgmt-client-secret";
+  process.env.ENTRA_API_APP_ID = API_APP_ID;
+}
+
+/**
+ * Builds a mock `global.fetch` for createEntraAgent()'s happy-path dependency
+ * chain (token -> API servicePrincipal lookup -> application -> agent
+ * servicePrincipal -> appRoleAssignments -> addPassword), recording every
+ * call. `overrides` lets a specific URL/method combination be replaced with a
+ * failing response to exercise a particular failure branch.
+ */
+function makeFetchMock(overrides = {}) {
+  const calls = [];
+  const fetchMock = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    let body;
+    if (typeof opts?.body === "string") {
+      try {
+        body = JSON.parse(opts.body);
+      } catch {
+        // non-JSON body (e.g. URLSearchParams for the token request) — ignore
+      }
+    }
+    calls.push({ url: u, method, body });
+
+    for (const [matcher, response] of Object.entries(overrides)) {
+      const [matchMethod, matchFragment] = matcher.split(" ");
+      if (method === matchMethod && u.includes(matchFragment)) {
+        return typeof response === "function" ? response(u, opts) : response;
+      }
+    }
+
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/servicePrincipals?$filter=") && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({ value: [{ id: API_SP_ID, appRoles: APP_ROLES }] }),
+      };
+    }
+    if (u.endsWith("/applications") && method === "POST") {
+      return { ok: true, json: async () => ({ appId: "new-client-id", id: "new-object-id" }) };
+    }
+    if (u.endsWith("/servicePrincipals") && method === "POST") {
+      return { ok: true, json: async () => ({ id: "new-sp-id" }) };
+    }
+    if (u.includes("/appRoleAssignments") && method === "POST") {
+      return { ok: true, json: async () => ({}) };
+    }
+    if (u.includes("/addPassword") && method === "POST") {
+      return { ok: true, json: async () => ({ secretText: "new-client-secret" }) };
+    }
+    if (u.match(/\/applications\/[^/?]+$/) && method === "DELETE") {
+      return { ok: true, status: 204, text: async () => "" };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  return { fetchMock, calls };
+}
+
 test("isEntraMgmtConfigured() is false when ENTRA_* unset", () => {
   const restore = clearEntraEnv();
   try {
@@ -35,10 +107,7 @@ test("isEntraMgmtConfigured() is false when ENTRA_* unset", () => {
 test("isEntraMgmtConfigured() is true when all ENTRA_* mgmt vars set", () => {
   const restore = clearEntraEnv();
   try {
-    process.env.ENTRA_TENANT_ID = "tenant-id";
-    process.env.ENTRA_CLIENT_ID = "mgmt-client-id";
-    process.env.ENTRA_CLIENT_SECRET = "mgmt-client-secret";
-    process.env.ENTRA_API_APP_ID = "api-app-id";
+    setEntraEnv();
     assert.equal(isEntraMgmtConfigured(), true);
   } finally {
     restore();
@@ -72,39 +141,272 @@ test("deleteEntraAgent() rejects with clear message when mgmt not configured", a
 test("createEntraAgent() registers app, service principal, role assignment, and secret", async () => {
   const restore = clearEntraEnv();
   const originalFetch = global.fetch;
-  process.env.ENTRA_TENANT_ID = "tenant-id";
-  process.env.ENTRA_CLIENT_ID = "mgmt-client-id";
-  process.env.ENTRA_CLIENT_SECRET = "mgmt-client-secret";
-  process.env.ENTRA_API_APP_ID = "api-app-id";
-  const calls = [];
-  global.fetch = async (url, opts) => {
-    calls.push({ url: String(url), method: opts?.method ?? "GET" });
-    if (String(url).includes("/oauth2/v2.0/token")) {
-      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
-    }
-    if (String(url).endsWith("/applications") && opts?.method === "POST") {
-      return { ok: true, json: async () => ({ appId: "new-client-id", id: "new-object-id" }) };
-    }
-    if (String(url).endsWith("/servicePrincipals") && opts?.method === "POST") {
-      return { ok: true, json: async () => ({ id: "new-sp-id" }) };
-    }
-    if (String(url).includes("/appRoleAssignments") && opts?.method === "POST") {
-      return { ok: true, json: async () => ({}) };
-    }
-    if (String(url).includes("/addPassword") && opts?.method === "POST") {
-      return { ok: true, json: async () => ({ secretText: "new-client-secret" }) };
-    }
-    throw new Error(`Unexpected fetch: ${opts?.method} ${url}`);
-  };
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
   try {
     const result = await createEntraAgent("test-agent", ["flights:read"]);
     assert.equal(result.clientId, "new-client-id");
     assert.equal(result.clientSecret, "new-client-secret");
     assert.equal(result.name, "test-agent");
+    assert.ok(calls.some((c) => c.url.includes("/servicePrincipals?$filter=") && c.method === "GET"));
     assert.ok(calls.some((c) => c.url.endsWith("/applications") && c.method === "POST"));
     assert.ok(calls.some((c) => c.url.endsWith("/servicePrincipals") && c.method === "POST"));
     assert.ok(calls.some((c) => c.url.includes("/appRoleAssignments")));
     assert.ok(calls.some((c) => c.url.includes("/addPassword")));
+
+    const assignCall = calls.find((c) => c.url.includes("/appRoleAssignments"));
+    assert.equal(assignCall.body.resourceId, API_SP_ID);
+    assert.equal(assignCall.body.appRoleId, "role-guid-read");
+    assert.notEqual(assignCall.body.appRoleId, "flights:read");
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() with multiple scopes makes two role-assignment calls with distinct appRoleIds and shared resourceId", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    const result = await createEntraAgent("test-agent", ["flights:read", "flights:write"]);
+    assert.equal(result.clientId, "new-client-id");
+
+    const assignCalls = calls.filter((c) => c.url.includes("/appRoleAssignments"));
+    assert.equal(assignCalls.length, 2);
+
+    const roleIds = assignCalls.map((c) => c.body.appRoleId).sort();
+    assert.deepEqual(roleIds, ["role-guid-read", "role-guid-write"].sort());
+
+    for (const c of assignCalls) {
+      assert.equal(c.body.resourceId, API_SP_ID);
+      assert.equal(c.body.principalId, "new-sp-id");
+    }
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() throws without rollback when API servicePrincipal lookup fails", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock({
+    "GET /servicePrincipals?$filter=": { ok: false, status: 500, text: async () => "graph down" },
+  });
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:read"]),
+      /Entra API servicePrincipal lookup failed: 500 graph down/,
+    );
+    assert.ok(!calls.some((c) => c.method === "POST" && c.url.endsWith("/applications")));
+    assert.ok(!calls.some((c) => c.method === "DELETE"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() throws without rollback when a requested scope has no matching App Role", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:delete"]),
+      /no App Role with value 'flights:delete' found/,
+    );
+    assert.ok(!calls.some((c) => c.method === "POST" && c.url.endsWith("/applications")));
+    assert.ok(!calls.some((c) => c.method === "DELETE"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() rolls back (deletes application) when servicePrincipal creation fails", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /servicePrincipals": (u) =>
+      u.endsWith("/servicePrincipals")
+        ? { ok: false, status: 400, text: async () => "sp create failed" }
+        : { ok: true, json: async () => ({}) },
+  });
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:read"]),
+      /Entra create servicePrincipal failed: 400 sp create failed/,
+    );
+    const deleteCall = calls.find((c) => c.method === "DELETE");
+    assert.ok(deleteCall, "expected rollback DELETE call");
+    assert.ok(deleteCall.url.endsWith("/applications/new-object-id"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() rolls back (deletes application) when an app role assignment fails", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /appRoleAssignments": { ok: false, status: 403, text: async () => "forbidden" },
+  });
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:read"]),
+      /Entra app role assignment failed for scope 'flights:read': 403 forbidden/,
+    );
+    const deleteCall = calls.find((c) => c.method === "DELETE");
+    assert.ok(deleteCall, "expected rollback DELETE call");
+    assert.ok(deleteCall.url.endsWith("/applications/new-object-id"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() rolls back (deletes application) when secret creation fails", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /addPassword": { ok: false, status: 500, text: async () => "secret failed" },
+  });
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:read"]),
+      /Entra add secret failed: 500 secret failed/,
+    );
+    const deleteCall = calls.find((c) => c.method === "DELETE");
+    assert.ok(deleteCall, "expected rollback DELETE call");
+    assert.ok(deleteCall.url.endsWith("/applications/new-object-id"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("deleteEntraAgent() looks up object id and deletes it", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const calls = [];
+  global.fetch = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    calls.push({ url: u, method });
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return { ok: true, json: async () => ({ value: [{ id: "existing-object-id" }] }) };
+    }
+    if (u.endsWith("/applications/existing-object-id") && method === "DELETE") {
+      return { ok: true, status: 204, text: async () => "" };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  try {
+    await deleteEntraAgent("client-app-id");
+    assert.ok(calls.some((c) => c.url.includes("/applications?$filter=") && c.method === "GET"));
+    assert.ok(
+      calls.some((c) => c.url.endsWith("/applications/existing-object-id") && c.method === "DELETE"),
+    );
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("deleteEntraAgent() returns without deleting when lookup finds no application (already gone)", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const calls = [];
+  global.fetch = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    calls.push({ url: u, method });
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return { ok: true, json: async () => ({ value: [] }) };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  try {
+    await deleteEntraAgent("already-gone-client-id");
+    assert.ok(!calls.some((c) => c.method === "DELETE"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("deleteEntraAgent() treats a 404 on delete as success", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  global.fetch = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return { ok: true, json: async () => ({ value: [{ id: "existing-object-id" }] }) };
+    }
+    if (u.endsWith("/applications/existing-object-id") && method === "DELETE") {
+      return { ok: false, status: 404, text: async () => "not found" };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  try {
+    await assert.doesNotReject(deleteEntraAgent("client-app-id"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("deleteEntraAgent() throws on a real (non-404) delete error", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  global.fetch = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return { ok: true, json: async () => ({ value: [{ id: "existing-object-id" }] }) };
+    }
+    if (u.endsWith("/applications/existing-object-id") && method === "DELETE") {
+      return { ok: false, status: 500, text: async () => "internal error" };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  try {
+    await assert.rejects(
+      deleteEntraAgent("client-app-id"),
+      /Entra delete application failed: 500 internal error/,
+    );
   } finally {
     global.fetch = originalFetch;
     restore();
