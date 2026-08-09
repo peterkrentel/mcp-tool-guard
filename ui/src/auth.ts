@@ -265,6 +265,16 @@ export async function hasGatewayAdminAccess(): Promise<boolean> {
   return tokenHasPermission(token, GATEWAY_ADMIN_PERMISSION);
 }
 
+export function jwtTrustFromIdpConfig(): JwtTrustOptions | Record<string, never> {
+  if (getIdpProvider() === "entra") {
+    const entraConfig = getEntraConfig();
+    if (entraConfig) return jwtTrustFromEntra(entraConfig);
+  }
+  const auth0Config = getAuth0Config();
+  if (auth0Config) return jwtTrustFromAuth0(auth0Config);
+  return {};
+}
+
 export function rolesFromAccessToken(token: string): string[] {
   try {
     const segment = token.split(".")[1];

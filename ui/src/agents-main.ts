@@ -27,16 +27,13 @@ import { renderPendingList } from "./pending-view.js";
 import {
   GATEWAY_ADMIN_PERMISSION,
   getAccessToken,
-  getAuth0AccessToken,
-  getAuth0Config,
   getIdpConfig,
   getSignInLabel,
   getUserLabel,
   handleAuthRedirect,
   hasGatewayAdminAccess,
-  isAuth0Authenticated,
   isSignedIn,
-  jwtTrustFromAuth0,
+  jwtTrustFromIdpConfig,
   login,
   logout,
 } from "./auth.js";
@@ -109,8 +106,8 @@ let controlPlaneAuthRequired = false;
 let adminOpsEnabled = false;
 
 setAdminTokenProvider(async () => {
-  if (!getAuth0Config() || !(await isAuth0Authenticated())) return null;
-  return getAuth0AccessToken();
+  if (!getIdpConfig() || !(await isSignedIn())) return null;
+  return getAccessToken();
 });
 
 function setFormEnabled(form: HTMLFormElement, enabled: boolean): void {
@@ -133,7 +130,7 @@ async function loadControlPlaneAuthFlag(): Promise<void> {
     const data = (await res.json()) as { control_plane_auth?: boolean };
     controlPlaneAuthRequired = Boolean(data.control_plane_auth);
   } catch {
-    controlPlaneAuthRequired = Boolean(getAuth0Config());
+    controlPlaneAuthRequired = Boolean(getIdpConfig());
   }
 }
 
@@ -520,8 +517,7 @@ initBtn.addEventListener("click", () => {
     if (!serverMeta) throw new Error("Selected MCP server not found");
     const tools = await discoverTools(selectedAgent.serverId, selectedAgent.token);
     const { GatewayAgent } = await import("./gateway-agent.js");
-    const auth0 = getAuth0Config();
-    const jwtTrust = auth0 ? jwtTrustFromAuth0(auth0) : {};
+    const jwtTrust = jwtTrustFromIdpConfig();
     gatewayAgent = new GatewayAgent({
       serverId: selectedAgent.serverId,
       guardConfig: guardConfigForServer(serverMeta),
