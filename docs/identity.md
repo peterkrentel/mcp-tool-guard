@@ -116,6 +116,23 @@ Swap IdP = change env vars + issuer dashboard — **no change** to scope middlew
 
 ---
 
+## Entra ID setup (shipped 0.5.0)
+
+**Microsoft Entra ID is a shipped alternative to Auth0** — same scope enforcement code, different IdP dashboard and environment variables.
+
+Setup: [Entra ID setup guide](entra-setup.md).
+
+**Single-active-provider model:** MCPToolGuard validates the issuer (`iss` claim) against **one** expected IdP at runtime. Select it via env:
+
+| If you want | Set | Example |
+|-------------|-----|---------|
+| Auth0 | `MCP_IDP_PROVIDER=auth0` (or unset for guest-only) | `MCP_JWT_ISSUER=https://tenant.auth0.com/` |
+| Entra ID | `MCP_IDP_PROVIDER=entra` (or unset for guest-only) | `MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0` |
+
+Rationale: [BL-034 — Single-active-provider trust model design](superpowers/specs/2026-07-18-idp-trust-model-design.md).
+
+---
+
 ## Target architecture (current)
 
 ```
