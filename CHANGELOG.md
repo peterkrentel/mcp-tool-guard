@@ -44,6 +44,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Backlog: BL-048 marked done** — removed the completed `BL-048` (surface `client_secret` from `/agents.html`) entry from `backlog.md`'s P1 list; see the `client_secret` entry above for the shipped implementation.
 - **Backlog: BL-052 marked done** — removed the completed `BL-052` (research non-interactive credential refresh in the MCP/agent ecosystem before committing to a custom design) entry from `backlog.md`'s Deferred list. Research finding: Claude Code's own MCP client does have native OAuth support for remote HTTP MCP servers (RFC 8414/9728 discovery, PKCE, a one-time browser popup, OS-keychain token caching, and silent refresh) — but it's a human-delegated-auth flow, and this project's agents (Claude Code included) authenticate with their own M2M `client_credentials` identity instead, which is the right fit for a service-agent model, not a human-delegated one. Native Claude Code OAuth was deliberately not adopted here for that reason.
 - **Backlog: BL-030's `depends_on` updated** — dropped the now-satisfied `BL-021` dependency from `BL-030` (per-user audit attribution) since Entra is shipped; `BL-030` remains open/blocked on `BL-005`/`BL-020`.
+- **`backlog.md` formatting fix** — restored a blank-line separator before the `## Notes` section that the BL-052 row removal above had accidentally consumed.
 
 ### Removed
 
