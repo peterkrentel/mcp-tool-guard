@@ -612,6 +612,33 @@ button:disabled {
   font-family: ui-monospace, monospace;
 }
 
+.card-secret-warning {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.card-secret-warning p {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.card-secret-warning code {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
 .log-highlight {
   outline: 1px solid var(--warn);
 }

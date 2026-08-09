@@ -42,6 +42,7 @@ interface ActiveAgent {
   name: string;
   clientId: string;
   clientSecret: string;
+  secretShown: boolean;
   token: string;
   scopes: string[];
   serverId: string;
@@ -242,6 +243,7 @@ async function refreshAgents(): Promise<void> {
         name: record.name,
         clientId: record.auth0ClientId,
         clientSecret: "",
+        secretShown: true,
         token: session?.token ?? "",
         scopes: record.scopes,
         serverId: record.serverId,
@@ -294,11 +296,41 @@ function renderAgentCards(): void {
         <strong>${a.name}</strong>
         <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
+        ${
+          !a.secretShown
+            ? `<div class="card-secret-warning">
+                 <p>client_secret — shown once, save it now:</p>
+                 <code class="mono" data-secret-for="${a.clientId}">${a.clientSecret}</code>
+                 <button type="button" data-copy-secret="${a.clientId}">Copy</button>
+                 <button type="button" data-dismiss-secret="${a.clientId}">I've saved it</button>
+               </div>`
+            : ""
+        }
         <button type="button" data-select-agent="${a.clientId}">Use</button>
         <button type="button" data-revoke-agent="${a.clientId}" ${adminOpsEnabled ? "" : "disabled"}>Revoke</button>
       </div>`,
     )
     .join("");
+
+  agentListEl.querySelectorAll("[data-copy-secret]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = (btn as HTMLElement).dataset.copySecret!;
+      const agent = agents.find((a) => a.clientId === id);
+      if (agent) void navigator.clipboard.writeText(agent.clientSecret);
+    });
+  });
+
+  agentListEl.querySelectorAll("[data-dismiss-secret]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = (btn as HTMLElement).dataset.dismissSecret!;
+      const agent = agents.find((a) => a.clientId === id);
+      if (agent) {
+        agent.secretShown = true;
+        agent.clientSecret = ""; // clear from memory once acknowledged saved
+        renderAgentCards();
+      }
+    });
+  });
 
   agentListEl.querySelectorAll("[data-select-agent]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -436,7 +468,8 @@ createAgentForm.addEventListener("submit", (e) => {
     const agent: ActiveAgent = {
       name: created.name,
       clientId: created.clientId,
-      clientSecret: "",
+      clientSecret: created.clientSecret,
+      secretShown: false,
       token: vended.token,
       scopes,
       serverId: created.serverId ?? serverId,

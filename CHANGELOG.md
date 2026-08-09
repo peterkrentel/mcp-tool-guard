@@ -32,6 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   were added later to the TS proxy only and never backported — an artifact of build order, not an
   unexplained inconsistency.
 - **`kvMget` batch-fetch primitive** (`gateway/kv.ts`) — one Redis `MGET` command for N keys instead of N individual `GET` commands. Verified against Upstash's official REST API docs (`/mget/{key1}/{key2}/...` path, `{"result": [...]}` response, null for missing keys, same order as requested).
+- **`client_secret` surfaced once in `/agents.html` create-agent flow (BL-048)** — `ui/src/agents-main.ts`'s `createAgent()` call already got a `client_secret` back from the server, but it was discarded (`clientSecret: ""`) instead of shown to the operator, leaving no way to recover the M2M credential after creation. `ActiveAgent` gained a `secretShown` flag; the create-agent handler now keeps the real secret and `renderAgentCards()` displays it exactly once in a `.card-secret-warning` box with "Copy" (clipboard API) and "I've saved it" buttons — clicking the latter clears `clientSecret` from memory and flips `secretShown` so it can never render again, including across re-renders. Agents loaded from `listAgents()` (an existing session, not a fresh creation) are marked `secretShown: true` since the server never returns a secret for those. New `.card-secret-warning` CSS added to `ui/styles.css` alongside the existing `.card-meta` rules.
 
 ### Changed
 
