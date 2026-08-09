@@ -268,11 +268,10 @@ export async function hasGatewayAdminAccess(): Promise<boolean> {
 export function jwtTrustFromIdpConfig(): JwtTrustOptions | Record<string, never> {
   if (getIdpProvider() === "entra") {
     const entraConfig = getEntraConfig();
-    if (entraConfig) return jwtTrustFromEntra(entraConfig);
+    return entraConfig ? jwtTrustFromEntra(entraConfig) : {};
   }
   const auth0Config = getAuth0Config();
-  if (auth0Config) return jwtTrustFromAuth0(auth0Config);
-  return {};
+  return auth0Config ? jwtTrustFromAuth0(auth0Config) : {};
 }
 
 export function rolesFromAccessToken(token: string): string[] {
