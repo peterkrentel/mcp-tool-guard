@@ -154,3 +154,68 @@ test("JWKS token with gty but no client_id/sub@clients is rejected", async () =>
   assert.equal(result.allowed, false);
   assert.match(String(result.reason ?? ""), /M2M token missing client_id\/sub claim shape/i);
 });
+
+test("Entra-shaped M2M token (azp, roles, no client_id/@clients sub) is detected as M2M-like and hits the revocation check", async () => {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  jwk.use = "sig";
+  jwk.alg = "RS256";
+  jwk.kid = "entra-m2m-test";
+  const jwksUrl = await startJwksServer(jwk);
+
+  const guard = new ToolGuard({
+    config: makeConfig(),
+    isM2mClientActive: async () => false,
+    jwtIssuer: ISSUER,
+    jwtAudience: AUDIENCE,
+    jwksUrl,
+  });
+
+  const token = await new SignJWT({
+    roles: ["repo:read"],
+    azp: "entra-app-client-id",
+    sub: "entra-app-client-id", // Entra v2 M2M tokens set sub = azp, not "<id>@clients"
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "entra-m2m-test" })
+    .setIssuer(`${ISSUER}/`)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(privateKey);
+
+  const result = await guard.authorize("github", "search_repositories", token);
+  assert.equal(result.allowed, false);
+  assert.match(String(result.reason ?? ""), /Agent revoked or deleted/i);
+});
+
+test("Entra-shaped M2M token with only appid (v1 shape) is also detected as M2M-like", async () => {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  jwk.use = "sig";
+  jwk.alg = "RS256";
+  jwk.kid = "entra-v1-m2m-test";
+  const jwksUrl = await startJwksServer(jwk);
+
+  const guard = new ToolGuard({
+    config: makeConfig(),
+    isM2mClientActive: async () => true,
+    jwtIssuer: ISSUER,
+    jwtAudience: AUDIENCE,
+    jwksUrl,
+  });
+
+  const token = await new SignJWT({
+    roles: ["repo:read"],
+    appid: "entra-app-client-id-v1",
+    sub: "some-object-id",
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "entra-v1-m2m-test" })
+    .setIssuer(`${ISSUER}/`)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(privateKey);
+
+  const result = await guard.authorize("github", "search_repositories", token);
+  assert.equal(result.allowed, true);
+});

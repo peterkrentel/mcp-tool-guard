@@ -65,6 +65,8 @@ export interface JwtPayload {
   gty?: string;
   client_id?: string;
   azp?: string;
+  /** Entra ID v1 tokens — application (client) ID; the v1 counterpart of `azp` (v2). */
+  appid?: string;
   scope?: string;
   scopes?: string | string[];
   scp?: string | string[];

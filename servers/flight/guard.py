@@ -133,6 +133,9 @@ class FlightToolGuard:
         perms = payload.get("permissions")
         if isinstance(perms, list):
             scopes.extend(str(p) for p in perms)
+        roles = payload.get("roles")
+        if isinstance(roles, list):
+            scopes.extend(str(r) for r in roles)
         seen: set[str] = set()
         out: list[str] = []
         for s in scopes:

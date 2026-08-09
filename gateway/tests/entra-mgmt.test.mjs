@@ -384,6 +384,58 @@ test("deleteEntraAgent() treats a 404 on delete as success", async () => {
   }
 });
 
+test("createEntraAgent() escapes a single quote in ENTRA_API_APP_ID before building the OData $filter", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  process.env.ENTRA_API_APP_ID = "api-app-id' or appId eq 'other";
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    await createEntraAgent("test-agent", ["flights:read"]);
+    const lookupCall = calls.find((c) => c.url.includes("/servicePrincipals?$filter="));
+    assert.ok(lookupCall, "expected an API servicePrincipal lookup call");
+    const decoded = decodeURIComponent(lookupCall.url.split("$filter=")[1]);
+    assert.equal(decoded, "appId eq 'api-app-id'' or appId eq ''other'");
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("deleteEntraAgent() escapes a single quote in clientId before building the OData $filter", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const calls = [];
+  global.fetch = async (url, opts) => {
+    const method = opts?.method ?? "GET";
+    const u = String(url);
+    calls.push({ url: u, method });
+    if (u.includes("/oauth2/v2.0/token")) {
+      return { ok: true, json: async () => ({ access_token: "mgmt-token" }) };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return { ok: true, json: async () => ({ value: [] }) };
+    }
+    throw new Error(`Unexpected fetch: ${method} ${u}`);
+  };
+  try {
+    // A single quote must be doubled ('' ) per OData string-literal escaping
+    // rules — otherwise it would break out of the `eq '...'` literal and
+    // could broaden the filter to match an unintended application.
+    await deleteEntraAgent("evil' or appId eq 'other-app");
+    const lookupCall = calls.find((c) => c.url.includes("/applications?$filter="));
+    assert.ok(lookupCall, "expected a lookup call");
+    const decoded = decodeURIComponent(lookupCall.url.split("$filter=")[1]);
+    assert.equal(decoded, "appId eq 'evil'' or appId eq ''other-app'");
+    assert.ok(!decoded.includes("eq 'evil' or"), "raw unescaped quote must not survive in the filter");
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
 test("deleteEntraAgent() throws on a real (non-404) delete error", async () => {
   const restore = clearEntraEnv();
   const originalFetch = global.fetch;

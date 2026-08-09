@@ -15,6 +15,20 @@ export interface CreatedAgentClient {
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
+/**
+ * Escape a value for safe interpolation inside an OData `$filter` string
+ * literal (e.g. `appId eq '<value>'`). Per OData string-literal escaping
+ * rules, a single quote is escaped by doubling it. `encodeURIComponent`
+ * alone does NOT do this — it percent-encodes URL-reserved characters but
+ * leaves a literal `'` untouched, which would let a value containing a quote
+ * break out of the intended string literal and broaden the filter to match
+ * unintended resources. Always combine with `encodeURIComponent` for the
+ * rest of the URL; this only handles the OData-level escaping.
+ */
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 function mgmtConfigFromEnv(): EntraMgmtConfig | null {
   const tenantId = process.env.ENTRA_TENANT_ID?.trim();
   const clientId = process.env.ENTRA_CLIENT_ID?.trim();
@@ -60,7 +74,7 @@ async function getApiServicePrincipal(
   headers: Record<string, string>,
 ): Promise<{ id: string; appRoles: Array<{ id: string; value: string }> }> {
   const res = await fetch(
-    `${GRAPH_BASE}/servicePrincipals?$filter=appId eq '${encodeURIComponent(cfg.apiAppId)}'`,
+    `${GRAPH_BASE}/servicePrincipals?$filter=appId eq '${encodeURIComponent(escapeODataString(cfg.apiAppId))}'`,
     { headers },
   );
   if (!res.ok) {
@@ -197,7 +211,7 @@ export async function deleteEntraAgent(clientId: string): Promise<void> {
   const headers = { Authorization: `Bearer ${mgmtToken}` };
 
   const lookupRes = await fetch(
-    `${GRAPH_BASE}/applications?$filter=appId eq '${encodeURIComponent(clientId)}'`,
+    `${GRAPH_BASE}/applications?$filter=appId eq '${encodeURIComponent(escapeODataString(clientId))}'`,
     { headers },
   );
   if (!lookupRes.ok) {

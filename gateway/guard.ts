@@ -115,15 +115,30 @@ export class DefaultJwtValidator implements JwtValidator {
   }
 
   private isM2mLikeToken(payload: JwtPayload): boolean {
-    // Primary signal: Auth0 M2M token subject/client-id shape.
-    // Secondary signal: explicit grant type claim when present.
+    // Primary signal: Auth0 M2M token subject/client-id shape, or an
+    // Entra M2M token's azp/appid claim (see clientIdFromPayload).
+    // Secondary signal: explicit grant type claim when present — this exists
+    // only for Auth0, whose M2M `sub` shape needs a fallback; Entra's
+    // azp/appid presence is already an unambiguous primary signal and needs
+    // no equivalent secondary check.
     return this.clientIdFromPayload(payload) !== null || payload.gty === "client-credentials";
   }
 
   private clientIdFromPayload(payload: JwtPayload): string | null {
+    // Provider-specific client-id claims are unambiguous, so check them
+    // first: Auth0 M2M tokens carry `client_id`; Entra M2M tokens carry
+    // `azp` (v2 tokens) or `appid` (v1 tokens) instead.
     if (typeof payload.client_id === "string" && payload.client_id.trim()) {
       return payload.client_id.trim();
     }
+    if (typeof payload.azp === "string" && payload.azp.trim()) {
+      return payload.azp.trim();
+    }
+    if (typeof payload.appid === "string" && payload.appid.trim()) {
+      return payload.appid.trim();
+    }
+    // Fallback heuristic: Auth0's `@clients`-suffixed `sub` shape, used when
+    // `client_id` itself isn't present on the token.
     if (typeof payload.sub === "string") {
       const match = payload.sub.match(/^([^@]+)@clients$/);
       if (match?.[1]) return match[1];
