@@ -316,7 +316,11 @@ function renderAgentCards(): void {
     btn.addEventListener("click", () => {
       const id = (btn as HTMLElement).dataset.copySecret!;
       const agent = agents.find((a) => a.clientId === id);
-      if (agent) void navigator.clipboard.writeText(agent.clientSecret);
+      if (agent) {
+        navigator.clipboard.writeText(agent.clientSecret).catch((err) => {
+          statusEl.textContent = `Clipboard copy failed — manually copy the secret from the field above: ${err instanceof Error ? err.message : String(err)}`;
+        });
+      }
     });
   });
 
