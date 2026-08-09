@@ -30,7 +30,7 @@ flowchart LR
 | Component | Entra role |
 |-----------|-----------|
 | **SPA** (`mcp-tool-guard`) | User logs in; gets access token |
-| **API** (`api://<api-app-id>`) | Protected API; defines flight, repo, gateway roles |
+| **API** (`api://<api-app-id>`) | Protected API; v2 access tokens; defines flight, repo, slack, gateway roles + one delegated scope for SPA sign-in |
 | **Management app** | Service principal for M2M agent provisioning (Graph API) |
 | **Flight server** | Validates token (JWKS + scopes); **not** an Entra app |
 
@@ -79,12 +79,14 @@ scripts/entra-setup.sh
 
 The script will:
 1. Read your tenant ID
-2. Create a protected API app registration
-3. Define Entra App Roles matching scope strings (`flights:read`, `repo:write`, `gateway:admin`, etc.)
+2. Create a protected API app registration, request **v2 access tokens** (`api.requestedAccessTokenVersion: 2`), and define a delegated scope (`access_as_user`) for SPA sign-in
+3. Define Entra App Roles matching scope strings (`flights:read`, `repo:write`, `slack:read`, `gateway:admin`, etc.) — dual-assignable to users and service principals except `gateway:admin`
 4. Create a management app (for M2M agent provisioning)
 5. Grant Graph API permissions with admin consent
-6. Create an SPA app registration (for browser login)
+6. Create an SPA app registration (for browser login), grant it the API's delegated scope, and admin-consent that grant
 7. Output all required env vars
+
+**Why the delegated scope matters:** `ui/src/auth.ts`'s `loginWithEntra()` requests `api://<apiAppId>/access_as_user` in an interactive (delegated) sign-in flow. Entra requires at least one statically pre-configured delegated permission on the target resource for that to work — App Roles alone (Application/M2M permissions) don't satisfy it. Without step 6 above, sign-in fails with `AADSTS650057`. The script's `az ad app permission admin-consent` call grants this non-interactively via Graph, but it requires the `az`-logged-in principal to hold sufficient tenant admin rights (Global Administrator, Privileged Role Administrator, or Application Administrator with admin-consent-workflow rights) — if that fails, grant consent once manually in the portal (API app registration → **Expose an API**, or the SPA app's **API permissions** tab → **Grant admin consent**).
 
 **Example output:**
 
@@ -151,9 +153,11 @@ Guest demo works without these. For **Sign in** tokens, both the gateway proxy a
 
 ```bash
 export MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
-export MCP_JWT_AUDIENCE=api://<ENTRA_API_APP_ID>
+export MCP_JWT_AUDIENCE=<ENTRA_API_APP_ID>
 export MCP_JWT_JWKS_URL=https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys
 ```
+
+**`MCP_JWT_AUDIENCE` is the bare API app GUID, not `api://<guid>`.** `scripts/entra-setup.sh` sets `api.requestedAccessTokenVersion: 2` on the API app, so Entra mints v2 access tokens whose `aud` claim is the bare app ID — the `api://` prefix is only used in the *scope request* (e.g. `api://<id>/access_as_user` at sign-in), never in the token's own `aud` claim.
 
 Then start flight with the gateway env:
 
@@ -179,6 +183,8 @@ Then assign the user an App Role:
 3. **Users and groups** tab → **+ Add user/group**
 4. Select your test user
 5. Assign a role (e.g., `flights:read` for read-only demo, or `flights:read`, `flights:write`, `flights:delete` for admin testing)
+
+This works because `flights:*`/`repo:*`/`slack:*` App Roles are defined with `allowedMemberTypes: ["User", "Application"]` — dual-assignable to both a human test user (here) and an M2M service principal (agent tokens). `gateway:admin` is deliberately `["User"]`-only and will not appear as assignable to a service principal; that's by design (see the Troubleshooting table).
 
 When the user signs in, their access token will carry the assigned roles as `roles` claim (Entra's equivalent to Auth0 `permissions`).
 
@@ -211,15 +217,15 @@ Decode at [jwt.io](https://jwt.io). **Good access token payload (Entra):**
 ```json
 {
   "iss": "https://login.microsoftonline.com/<tenant-id>/v2.0",
-  "aud": "api://<entra-api-app-id>",
+  "aud": "<entra-api-app-id>",
   "roles": ["flights:read", "flights:write"]
 }
 ```
 
 | Claim | Meaning |
 |-------|---------|
-| `iss` | Entra token issuer (matches your tenant ID) |
-| `aud` | API app ID (matches `ENTRA_API_APP_ID`) |
+| `iss` | Entra token issuer (matches your tenant ID); `/v2.0` suffix because the API app requests v2 tokens |
+| `aud` | Bare API app GUID — matches `ENTRA_API_APP_ID` exactly, **not** prefixed with `api://` (that prefix is scope-request syntax only, not the `aud` claim shape for v2 tokens) |
 | `roles` | Entra App Roles assigned to the user (enforced by MCPToolGuard) |
 
 After assigning or changing roles: **Sign out → Sign in** (old tokens do not update).
@@ -245,13 +251,14 @@ After assigning or changing roles: **Sign out → Sign in** (old tokens do not u
 
 | Symptom | Cause | Fix |
 |---------|--------|-----|
-| Sign in redirect error | Redirect URI mismatch | Add exact `http://localhost:5173` to SPA Settings under **Authentication → Redirect URIs** |
+| Sign in redirect error | Redirect URI mismatch | Add exact `http://localhost:5173/agents.html` (the actual login page, not the bare origin) to SPA Settings under **Authentication → Redirect URIs**. This exact class of bug already happened once with Auth0's callback URLs in this project — see `docs/auth0-setup.md`'s equivalent troubleshooting row. |
+| Sign-in fails with `AADSTS650057` ("invalid resource" / no pre-configured permission) | SPA has no delegated (`Scope`-type) permission granted on the API app — App Roles alone don't satisfy a delegated `/.default`-style scope request | Re-run `scripts/entra-setup.sh` — the `az ad app permission add ... =Scope` + `az ad app permission admin-consent` steps grant this. If admin consent failed (insufficient tenant admin rights), grant it once manually in the portal: SPA app registration → **API permissions** → **Grant admin consent**. |
 | Token missing `roles` claim | User has no App Roles assigned | Step 6 — open the managed app, Users and groups tab, assign the user a role |
-| "App Role not assignable to service principal" error assigning `flights:*` / `repo:*` to an M2M agent | App Role `allowedMemberTypes` not set to `"Application"` | Re-run `scripts/entra-setup.sh` — the `az rest PATCH` step (line 51–54) sets these roles with `"allowedMemberTypes": ["Application"]`. If the script ran but the role still lacks this setting, check the protected API app's **App roles** tab in Entra portal and confirm it shows "Application" under "Allowed member types". |
+| "App Role not assignable to service principal" error assigning `flights:*` / `repo:*` / `slack:*` to an M2M agent | App Role `allowedMemberTypes` not set to include `"Application"` | Re-run `scripts/entra-setup.sh` — the `az rest PATCH` step that sets `appRoles` defines these roles with `"allowedMemberTypes": ["User", "Application"]`. If the script ran but the role still lacks this setting, check the protected API app's **App roles** tab in Entra portal and confirm it shows both "Application" and "User" under "Allowed member types". |
 | Same error assigning **`gateway:admin`** to a service principal | Not a bug — `gateway:admin` is intentionally defined with `"allowedMemberTypes": ["User"]` only (see `scripts/entra-setup.sh`). It is a human-operator-only permission and is never meant to be assignable to an M2M agent. | Don't assign `gateway:admin` to an M2M agent. Assign it to a human user in the Entra directory instead (Step 6-style: **Users and groups** on the API app's managed application). Re-running the PATCH step will not change this — re-running it would not fix anything here. |
 | No `roles` in token but user has role assigned | User roles not synced to token | Entra caches tokens for ~1 hour; sign out completely, clear browser cache, and sign in again |
-| Guest works, Entra fails on server | Missing `MCP_IDP_PROVIDER=entra` in flight terminal | Step 3–5: source `scripts/dev.env` or export `MCP_IDP_PROVIDER` before `make flight`; restart flight process |
-| Token `aud` mismatch | Using wrong app (user app instead of protected API app) | Verify sign-in is using the **mcp-tool-guard-spa** app, not the **mcp-tool-guard-api** (API) app. If both exist, remove the duplicate. |
+| Guest works, Entra fails on server | Missing `MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` in flight terminal | Step 5: source `scripts/dev.env` (with the `MCP_JWT_*` exports added) or export them directly before `make flight`; restart flight process. Note: the flight server never reads `MCP_IDP_PROVIDER` or any `ENTRA_*` var directly — only the three generic `MCP_JWT_*` vars (see Step 5). |
+| Token `aud` mismatch | Using wrong app (user app instead of protected API app), or comparing against `api://<id>` instead of the bare GUID | Verify sign-in is using the **mcp-tool-guard-spa** app, not the **mcp-tool-guard-api** (API) app. If both exist, remove the duplicate. Also confirm you're comparing the token's `aud` against the bare `ENTRA_API_APP_ID` GUID, not an `api://`-prefixed value (v2 tokens use the bare GUID). |
 
 ---
 
@@ -261,13 +268,12 @@ Deploy **flight first**, then **UI**. See [vercel-deploy.md](vercel-deploy.md).
 
 ### Flight (`mcp-tool-guard-flight-server`)
 
+The flight server (`servers/flight/guard.py`'s `JwtTrustConfig.from_env()`) only ever reads the three generic `MCP_JWT_*` vars below — it never reads `MCP_IDP_PROVIDER` or any `ENTRA_*` var (those are gateway/proxy-side only, for the Graph API management calls in `gateway/entra-mgmt.ts`/`gateway/entra-token-vendor.ts`). Do not set `MCP_IDP_PROVIDER`, `ENTRA_TENANT_ID`, or `ENTRA_API_APP_ID` on the flight project — they have no effect there.
+
 | Variable | Example |
 |----------|---------|
-| `MCP_IDP_PROVIDER` | `entra` |
-| `ENTRA_TENANT_ID` | From Step 1 |
-| `ENTRA_API_APP_ID` | From Step 1 |
 | `MCP_JWT_ISSUER` | `https://login.microsoftonline.com/<tenant-id>/v2.0` |
-| `MCP_JWT_AUDIENCE` | `api://<ENTRA_API_APP_ID>` |
+| `MCP_JWT_AUDIENCE` | `<ENTRA_API_APP_ID>` (bare GUID — v2 token `aud`, not `api://<id>`) |
 | `MCP_JWT_JWKS_URL` | `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys` — required, does not auto-derive correctly for Entra (see Step 5) |
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Keep — guest demo PEM (dual trust) |
 

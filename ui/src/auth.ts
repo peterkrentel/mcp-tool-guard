@@ -27,7 +27,12 @@ export function getEntraConfig(): EntraConfig | null {
 export function jwtTrustFromEntra(config: EntraConfig): JwtTrustOptions {
   return {
     jwtIssuer: `https://login.microsoftonline.com/${config.tenantId}/v2.0`,
-    jwtAudience: `api://${config.apiAppId}`,
+    // Bare GUID, not `api://<guid>`: scripts/entra-setup.sh sets
+    // api.requestedAccessTokenVersion: 2 on the API app, so Entra mints v2
+    // access tokens whose `aud` claim is the bare API app ID. The `api://`
+    // form is only correct for the *scope request* syntax (see
+    // loginWithEntra()/getEntraAccessToken() below), not the resulting `aud`.
+    jwtAudience: config.apiAppId,
     jwksUrl: `https://login.microsoftonline.com/${config.tenantId}/discovery/v2.0/keys`,
   };
 }
@@ -69,7 +74,12 @@ export async function loginWithEntra(): Promise<void> {
   const client = await getMsalClient();
   const config = getEntraConfig();
   if (!config) throw new Error("Entra is not configured");
-  await client.loginRedirect({ scopes: [`api://${config.apiAppId}/.default`] });
+  // `api://<apiAppId>/access_as_user` — the delegated scope registered by
+  // scripts/entra-setup.sh (oauth2PermissionScopes) and pre-consented for
+  // this SPA app. The `api://` prefix is the correct *scope request* syntax
+  // here regardless of token version; it does not affect the resulting
+  // `aud` claim shape (see jwtTrustFromEntra() above, which is bare-GUID).
+  await client.loginRedirect({ scopes: [`api://${config.apiAppId}/access_as_user`] });
 }
 
 export async function logoutEntra(): Promise<void> {
@@ -82,7 +92,7 @@ export async function getEntraAccessToken(): Promise<string> {
   const config = getEntraConfig();
   if (!config || !msalAccount) throw new Error("Not signed in with Entra");
   const result = await client.acquireTokenSilent({
-    scopes: [`api://${config.apiAppId}/.default`],
+    scopes: [`api://${config.apiAppId}/access_as_user`],
     account: msalAccount,
   });
   return result.accessToken;
