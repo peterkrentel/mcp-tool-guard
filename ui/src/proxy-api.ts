@@ -22,6 +22,7 @@ export interface ListedAgent {
   scopes: string[];
   auth0ClientId: string;
   auth0AppName: string;
+  provider: string;
   status: "active";
   createdAt: string;
 }

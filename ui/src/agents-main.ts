@@ -48,6 +48,7 @@ interface ActiveAgent {
   token: string;
   scopes: string[];
   serverId: string;
+  provider: string;
 }
 
 const authControls = document.getElementById("auth-controls")!;
@@ -251,6 +252,7 @@ async function refreshAgents(): Promise<void> {
         token: session?.token ?? "",
         scopes: record.scopes,
         serverId: record.serverId,
+        provider: record.provider,
       };
     });
     if (
@@ -298,7 +300,7 @@ function renderAgentCards(): void {
     .map(
       (a) => `<div class="card ${selectedAgent?.clientId === a.clientId ? "card-active" : ""}">
         <strong>${a.name}</strong>
-        <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
+        <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")} · ${a.provider}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
         ${
           !a.secretShown
@@ -481,6 +483,7 @@ createAgentForm.addEventListener("submit", (e) => {
       token: vended.token,
       scopes,
       serverId: created.serverId ?? serverId,
+      provider: getIdpProvider(),
     };
     agents.push(agent);
     selectedAgent = agent;

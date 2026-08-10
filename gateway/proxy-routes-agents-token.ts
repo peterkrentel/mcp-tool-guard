@@ -66,6 +66,7 @@ export async function handleAgentsTokenRoutes(
         scopes: body.scopes ?? [],
         auth0ClientId: created.clientId,
         auth0AppName: `mcp-agent-${created.name}`,
+        provider: idpAdapter.providerId,
         clientSecretEnc: encryptClientSecret(created.clientSecret),
       });
       await saveAgent(record);
