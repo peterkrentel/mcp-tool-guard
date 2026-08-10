@@ -20,6 +20,16 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P0 (next)
 
+- BL-053
+  priority: P0
+  status: done
+  item: IdP scope/App-Role declaration is not dynamic — `entra-setup.sh` wrongly bundles per-MCP-server roles into one-time tenant bootstrap, and neither `createEntraAgent()` nor `createM2mAgent()` can grant a scope that isn't already pre-declared on the IdP
+  acceptance: (1) `scripts/entra-setup.sh` reduced to pure tenant bootstrap — API app + SP, management app + SP + Graph consent, SPA app + redirects + delegated scope + consent, plus only the `gateway:admin` App Role (the one role that can never be auto-provisioned via an agent-creation call, since it's User-only and assigned to humans via the portal, not via any Graph/Management API call this codebase makes) — no `flights:*`/`repo:*`/`slack:*` roles declared there. (2) `gateway/entra-mgmt.ts`'s `createEntraAgent()` auto-provisions a missing App Role on the API application (Graph `PATCH .../applications/{id}` appending to `appRoles`) instead of throwing when a requested scope isn't found, then proceeds with the assignment. (3) `gateway/auth0-mgmt.ts`'s `createM2mAgent()` auto-provisions a missing scope on the Auth0 resource server (Management API `PATCH /api/v2/resource-servers/{id}`) instead of relying on `/client-grants` to fail. (4) Both changes tested (mocked Graph/Management API calls, matching this file's existing test conventions). (5) Docs (`docs/entra-setup.md`, `docs/auth0-setup.md`) updated to describe the new self-service behavior instead of the old "manually add a permission first" instructions.
+  owner: unassigned
+  source: design discussion 2026-08-10 on branch feature/entra-idp-adapter — user identified that `entra-setup.sh` conflated "stand up the tenant" (the actual `az` automation ask) with "declare every current+future MCP server's scopes upfront," which doesn't match how Auth0 ever worked (permissions were added incrementally per-server, always manually, never automated) and directly blocks the stated goal of registering arbitrary vendor MCPs at runtime (`POST /servers`) without a corresponding manual IdP step
+
+## P0 (next)
+
 - BL-003
   priority: P0
   status: todo

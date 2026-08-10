@@ -3,6 +3,12 @@
 # Prerequisite (manual, portal-only): an Entra tenant must already exist
 # (Azure Portal -> Microsoft Entra ID -> Manage tenants -> + Create, ~5 min).
 # Run `az login` against that tenant before running this script.
+#
+# Scope: pure tenant bootstrap only — protected API app + SP, management app
+# + SP + Graph consent, SPA app + redirects + delegated scope + consent, and
+# the single gateway:admin App Role. Per-MCP-server scopes (flights:*,
+# repo:*, slack:*, ...) are NOT declared here; gateway/entra-mgmt.ts
+# auto-provisions those on demand the first time an agent requests one.
 set -euo pipefail
 
 API_APP_NAME="${API_APP_NAME:-mcp-tool-guard-api}"
@@ -18,43 +24,34 @@ API_APP_ID="$(az ad app create --display-name "$API_APP_NAME" --query appId -o t
 echo "ENTRA_API_APP_ID=$API_APP_ID"
 az ad sp create --id "$API_APP_ID" >/dev/null
 
-echo "== Expose an API + define App Roles matching existing scope strings =="
+echo "== Expose an API + define the gateway:admin App Role =="
 az ad app update --id "$API_APP_ID" --identifier-uris "api://$API_APP_ID"
 
-# App Roles: allowedMemberTypes "Application" makes these assignable to
-# service principals (M2M agents), not just interactive users. Extend this
-# list to match gateway/config.yaml's required_scope values as new tools/
-# servers are added.
+# App Roles: this bootstrap declares exactly one App Role, gateway:admin — a
+# human-operator control-plane permission (manage registered MCP servers,
+# M2M agents, and pending-approval decisions), assigned to users via the
+# Entra portal's "Users and groups" tab, a manual action with no
+# corresponding API call anywhere in this codebase. It is the one role that
+# can never be auto-provisioned via an agent-creation call (it stays
+# ["User"]-only by design and is never granted to an M2M agent), so it has no
+# other place to get declared and belongs here in tenant bootstrap.
 #
-# flights:*, repo:*, and slack:* are dual-assignable (["User", "Application"])
-# so the *same* role can be assigned to a human test user for interactive SPA
-# testing (docs/entra-setup.md Step 6) *and* to an M2M service principal for
-# agent tokens. gateway:admin stays ["User"]-only by design: it is a
-# human-operator control-plane permission and must never be assignable to an
-# M2M agent.
+# Per-MCP-server scopes (flights:*, repo:*, slack:*, and any future vendor
+# server registered at runtime via POST /servers) are deliberately NOT
+# declared here. gateway/entra-mgmt.ts's createEntraAgent() auto-provisions
+# any missing App Role on demand (Graph PATCH .../applications/{id}
+# appending to appRoles, dual-assignable ["User", "Application"]) the first
+# time an agent requests that scope — matching how Auth0 permissions were
+# always added incrementally per-server in this project, never all upfront.
 #
-# Each role id is generated into its own standalone variable *before* the
+# The role id is generated into its own standalone variable *before* the
 # heredoc below is built. A plain `VAR=$(cmd)` assignment correctly trips
 # `set -e` if `uuidgen` is missing/fails; a command substitution nested
 # inside a heredoc that itself feeds a `$(...)` does not propagate failure
 # the same way, so this order matters, not just the uuidgen swap.
-ROLE_ID_FLIGHTS_READ="$(uuidgen)"
-ROLE_ID_FLIGHTS_WRITE="$(uuidgen)"
-ROLE_ID_FLIGHTS_DELETE="$(uuidgen)"
-ROLE_ID_REPO_READ="$(uuidgen)"
-ROLE_ID_REPO_WRITE="$(uuidgen)"
-ROLE_ID_SLACK_READ="$(uuidgen)"
-ROLE_ID_SLACK_WRITE="$(uuidgen)"
 ROLE_ID_GATEWAY_ADMIN="$(uuidgen)"
 ROLE_JSON=$(cat <<EOF
 [
-  {"allowedMemberTypes": ["User", "Application"], "description": "Read access to flight search and booking details", "displayName": "flights:read", "id": "$ROLE_ID_FLIGHTS_READ", "isEnabled": true, "value": "flights:read"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Create and modify flight bookings, check-ins, seats, and baggage", "displayName": "flights:write", "id": "$ROLE_ID_FLIGHTS_WRITE", "isEnabled": true, "value": "flights:write"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Cancel existing flight bookings", "displayName": "flights:delete", "id": "$ROLE_ID_FLIGHTS_DELETE", "isEnabled": true, "value": "flights:delete"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Read access to repository files, commits, issues, and pull requests", "displayName": "repo:read", "id": "$ROLE_ID_REPO_READ", "isEnabled": true, "value": "repo:read"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Create and modify repository files, branches, issues, and pull requests", "displayName": "repo:write", "id": "$ROLE_ID_REPO_WRITE", "isEnabled": true, "value": "repo:write"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Read access to Slack channels and threads", "displayName": "slack:read", "id": "$ROLE_ID_SLACK_READ", "isEnabled": true, "value": "slack:read"},
-  {"allowedMemberTypes": ["User", "Application"], "description": "Send messages to Slack channels", "displayName": "slack:write", "id": "$ROLE_ID_SLACK_WRITE", "isEnabled": true, "value": "slack:write"},
   {"allowedMemberTypes": ["User"], "description": "Manage gateway control-plane resources: registered MCP servers, M2M agents, and pending-approval decisions", "displayName": "gateway:admin", "id": "$ROLE_ID_GATEWAY_ADMIN", "isEnabled": true, "value": "gateway:admin"}
 ]
 EOF

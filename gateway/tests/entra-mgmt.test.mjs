@@ -11,6 +11,7 @@ const ENV_KEYS = ["ENTRA_TENANT_ID", "ENTRA_CLIENT_ID", "ENTRA_CLIENT_SECRET", "
 
 const API_APP_ID = "api-app-id";
 const API_SP_ID = "api-sp-object-id";
+const API_APPLICATION_OBJECT_ID = "api-application-object-id";
 const APP_ROLES = [
   { id: "role-guid-read", value: "flights:read" },
   { id: "role-guid-write", value: "flights:write" },
@@ -74,6 +75,15 @@ function makeFetchMock(overrides = {}) {
         ok: true,
         json: async () => ({ value: [{ id: API_SP_ID, appRoles: APP_ROLES }] }),
       };
+    }
+    if (u.includes("/applications?$filter=") && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({ value: [{ id: API_APPLICATION_OBJECT_ID }] }),
+      };
+    }
+    if (u.endsWith(`/applications/${API_APPLICATION_OBJECT_ID}`) && method === "PATCH") {
+      return { ok: true, json: async () => ({}) };
     }
     if (u.endsWith("/applications") && method === "POST") {
       return { ok: true, json: async () => ({ appId: "new-client-id", id: "new-object-id" }) };
@@ -212,17 +222,116 @@ test("createEntraAgent() throws without rollback when API servicePrincipal looku
   }
 });
 
-test("createEntraAgent() throws without rollback when a requested scope has no matching App Role", async () => {
+test("createEntraAgent() auto-provisions a missing App Role via PATCH and still succeeds", async () => {
   const restore = clearEntraEnv();
   const originalFetch = global.fetch;
   setEntraEnv();
   const { fetchMock, calls } = makeFetchMock();
   global.fetch = fetchMock;
   try {
+    const result = await createEntraAgent("test-agent", ["flights:delete"]);
+    assert.equal(result.clientId, "new-client-id");
+
+    const objectIdLookup = calls.find(
+      (c) => c.url.includes("/applications?$filter=") && c.method === "GET",
+    );
+    assert.ok(objectIdLookup, "expected a lookup for the API application's object id");
+    assert.ok(decodeURIComponent(objectIdLookup.url).includes(`appId eq '${API_APP_ID}'`));
+
+    const patchCall = calls.find(
+      (c) => c.url.endsWith(`/applications/${API_APPLICATION_OBJECT_ID}`) && c.method === "PATCH",
+    );
+    assert.ok(patchCall, "expected a PATCH to append the new App Role");
+    assert.equal(patchCall.body.appRoles.length, APP_ROLES.length + 1);
+    const newRole = patchCall.body.appRoles.find((r) => r.value === "flights:delete");
+    assert.ok(newRole, "expected the new role in the PATCH body");
+    assert.deepEqual(newRole.allowedMemberTypes, ["User", "Application"]);
+    assert.equal(newRole.displayName, "flights:delete");
+    assert.equal(newRole.isEnabled, true);
+    assert.equal(newRole.description, "Auto-provisioned scope for flights:delete");
+    assert.ok(newRole.id && newRole.id !== "flights:delete", "expected a generated GUID, not the scope string");
+    // Existing roles must still be present, untouched, in the PATCH body.
+    for (const existing of APP_ROLES) {
+      assert.ok(patchCall.body.appRoles.some((r) => r.id === existing.id && r.value === existing.value));
+    }
+
+    const assignCall = calls.find((c) => c.url.includes("/appRoleAssignments"));
+    assert.equal(assignCall.body.appRoleId, newRole.id);
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() auto-provisions multiple missing App Roles in a single PATCH", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    const result = await createEntraAgent("test-agent", ["flights:delete", "repo:read"]);
+    assert.equal(result.clientId, "new-client-id");
+
+    const patchCalls = calls.filter(
+      (c) => c.url.endsWith(`/applications/${API_APPLICATION_OBJECT_ID}`) && c.method === "PATCH",
+    );
+    assert.equal(patchCalls.length, 1, "expected exactly one batched PATCH, not one per missing scope");
+    assert.equal(patchCalls[0].body.appRoles.length, APP_ROLES.length + 2);
+    const newValues = patchCalls[0].body.appRoles.map((r) => r.value);
+    assert.ok(newValues.includes("flights:delete"));
+    assert.ok(newValues.includes("repo:read"));
+
+    const assignCalls = calls.filter((c) => c.url.includes("/appRoleAssignments"));
+    assert.equal(assignCalls.length, 2);
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() does not PATCH appRoles when every requested scope already exists", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    await createEntraAgent("test-agent", ["flights:read", "flights:write"]);
+    assert.ok(
+      !calls.some((c) => c.method === "PATCH"),
+      "no App Role provisioning PATCH expected when all scopes already exist",
+    );
+    assert.ok(
+      !calls.some((c) => c.url.includes("/applications?$filter=") && c.method === "GET"),
+      "no application object-id lookup expected when nothing needs provisioning",
+    );
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() rolls back (deletes application) when App Role auto-provisioning PATCH fails", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock({
+    [`PATCH /applications/${API_APPLICATION_OBJECT_ID}`]: {
+      ok: false,
+      status: 403,
+      text: async () => "forbidden",
+    },
+  });
+  global.fetch = fetchMock;
+  try {
     await assert.rejects(
       createEntraAgent("test-agent", ["flights:delete"]),
-      /no App Role with value 'flights:delete' found/,
+      /Entra App Role auto-provisioning failed for scope\(s\) 'flights:delete': 403 forbidden/,
     );
+    // No application/servicePrincipal was ever created for this agent, so
+    // there is nothing to roll back — confirm no agent app was created and
+    // no DELETE was issued.
     assert.ok(!calls.some((c) => c.method === "POST" && c.url.endsWith("/applications")));
     assert.ok(!calls.some((c) => c.method === "DELETE"));
   } finally {

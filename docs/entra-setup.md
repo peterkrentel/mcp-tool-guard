@@ -30,7 +30,7 @@ flowchart LR
 | Component | Entra role |
 |-----------|-----------|
 | **SPA** (`mcp-tool-guard`) | User logs in; gets access token |
-| **API** (`api://<api-app-id>`) | Protected API; v2 access tokens; defines flight, repo, slack, gateway roles + one delegated scope for SPA sign-in |
+| **API** (`api://<api-app-id>`) | Protected API; v2 access tokens; bootstrap declares the `gateway:admin` role + one delegated scope for SPA sign-in — per-server roles (`flights:*`, `repo:*`, `slack:*`, ...) are auto-provisioned on demand, not declared here |
 | **Management app** | Service principal for M2M agent provisioning (Graph API) |
 | **Flight server** | Validates token (JWKS + scopes); **not** an Entra app |
 
@@ -80,11 +80,13 @@ scripts/entra-setup.sh
 The script will:
 1. Read your tenant ID
 2. Create a protected API app registration, request **v2 access tokens** (`api.requestedAccessTokenVersion: 2`), and define a delegated scope (`access_as_user`) for SPA sign-in
-3. Define Entra App Roles matching scope strings (`flights:read`, `repo:write`, `slack:read`, `gateway:admin`, etc.) — dual-assignable to users and service principals except `gateway:admin`
+3. Define the single `gateway:admin` App Role (`["User"]`-only, human-operator control-plane permission) — this is the **only** App Role tenant bootstrap declares
 4. Create a management app (for M2M agent provisioning)
 5. Grant Graph API permissions with admin consent
 6. Create an SPA app registration (for browser login), grant it the API's delegated scope, and admin-consent that grant
 7. Output all required env vars
+
+**Per-server scopes are not declared here.** `flights:read`, `repo:write`, `slack:read`, and any scope for a vendor MCP server registered later at runtime via `POST /servers` are **auto-provisioned on demand**: the first time `POST /agents` requests a scope that has no matching App Role yet, `gateway/entra-mgmt.ts`'s `createEntraAgent()` creates one itself (Graph `PATCH .../applications/{id}` appending to `appRoles`, dual-assignable `["User", "Application"]`) and proceeds — no manual dashboard step or script rerun required. Re-running `entra-setup.sh` is unnecessary for this; it exists only for the one-time tenant bootstrap above.
 
 **Why the delegated scope matters:** `ui/src/auth.ts`'s `loginWithEntra()` requests `api://<apiAppId>/access_as_user` in an interactive (delegated) sign-in flow. Entra requires at least one statically pre-configured delegated permission on the target resource for that to work — App Roles alone (Application/M2M permissions) don't satisfy it. Without step 6 above, sign-in fails with `AADSTS650057`. The script's `az ad app permission admin-consent` call grants this non-interactively via Graph, but it requires the `az`-logged-in principal to hold sufficient tenant admin rights (Global Administrator, Privileged Role Administrator, or Application Administrator with admin-consent-workflow rights) — if that fails, grant consent once manually in the portal (API app registration → **Expose an API**, or the SPA app's **API permissions** tab → **Grant admin consent**).
 
@@ -184,7 +186,9 @@ Then assign the user an App Role:
 4. Select your test user
 5. Assign a role (e.g., `flights:read` for read-only demo, or `flights:read`, `flights:write`, `flights:delete` for admin testing)
 
-This works because `flights:*`/`repo:*`/`slack:*` App Roles are defined with `allowedMemberTypes: ["User", "Application"]` — dual-assignable to both a human test user (here) and an M2M service principal (agent tokens). `gateway:admin` is deliberately `["User"]`-only and will not appear as assignable to a service principal; that's by design (see the Troubleshooting table).
+**The role must already exist to appear in this picker.** Since bootstrap no longer declares `flights:*`/`repo:*`/`slack:*` (see Part 1 above), a per-server role only exists once something has auto-provisioned it — typically the first `POST /agents` call requesting that scope. If you haven't created an M2M agent with the scope you want to test yet, either create one first (`/agents.html`) or add the role manually once via the portal (API app registration → **App roles** → **Create app role**, `allowedMemberTypes` = `Application and User`).
+
+This works because per-server App Roles are auto-provisioned with `allowedMemberTypes: ["User", "Application"]` — dual-assignable to both a human test user (here) and an M2M service principal (agent tokens). `gateway:admin` is deliberately `["User"]`-only and will not appear as assignable to a service principal; that's by design (see the Troubleshooting table).
 
 When the user signs in, their access token will carry the assigned roles as `roles` claim (Entra's equivalent to Auth0 `permissions`).
 
@@ -254,7 +258,7 @@ After assigning or changing roles: **Sign out → Sign in** (old tokens do not u
 | Sign in redirect error | Redirect URI mismatch | Add exact `http://localhost:5173/agents.html` (the actual login page, not the bare origin) to SPA Settings under **Authentication → Redirect URIs**. This exact class of bug already happened once with Auth0's callback URLs in this project — see `docs/auth0-setup.md`'s equivalent troubleshooting row. |
 | Sign-in fails with `AADSTS650057` ("invalid resource" / no pre-configured permission) | SPA has no delegated (`Scope`-type) permission granted on the API app — App Roles alone don't satisfy a delegated `/.default`-style scope request | Re-run `scripts/entra-setup.sh` — the `az ad app permission add ... =Scope` + `az ad app permission admin-consent` steps grant this. If admin consent failed (insufficient tenant admin rights), grant it once manually in the portal: SPA app registration → **API permissions** → **Grant admin consent**. |
 | Token missing `roles` claim | User has no App Roles assigned | Step 6 — open the managed app, Users and groups tab, assign the user a role |
-| "App Role not assignable to service principal" error assigning `flights:*` / `repo:*` / `slack:*` to an M2M agent | App Role `allowedMemberTypes` not set to include `"Application"` | Re-run `scripts/entra-setup.sh` — the `az rest PATCH` step that sets `appRoles` defines these roles with `"allowedMemberTypes": ["User", "Application"]`. If the script ran but the role still lacks this setting, check the protected API app's **App roles** tab in Entra portal and confirm it shows both "Application" and "User" under "Allowed member types". |
+| "App Role not assignable to service principal" error assigning `flights:*` / `repo:*` / `slack:*` to an M2M agent | App Role `allowedMemberTypes` not set to include `"Application"` | Shouldn't happen via `POST /agents` — `gateway/entra-mgmt.ts`'s `createEntraAgent()` auto-provisions any missing App Role with `"allowedMemberTypes": ["User", "Application"]` already set. If you hit this, the role was probably created by hand in the portal without "Application" checked — open the protected API app's **App roles** tab, edit the role, and confirm it shows both "Application" and "User" under "Allowed member types" (or delete the hand-created role and let the next `POST /agents` call for that scope auto-provision it correctly). |
 | Same error assigning **`gateway:admin`** to a service principal | Not a bug — `gateway:admin` is intentionally defined with `"allowedMemberTypes": ["User"]` only (see `scripts/entra-setup.sh`). It is a human-operator-only permission and is never meant to be assignable to an M2M agent. | Don't assign `gateway:admin` to an M2M agent. Assign it to a human user in the Entra directory instead (Step 6-style: **Users and groups** on the API app's managed application). Re-running the PATCH step will not change this — re-running it would not fix anything here. |
 | No `roles` in token but user has role assigned | User roles not synced to token | Entra caches tokens for ~1 hour; sign out completely, clear browser cache, and sign in again |
 | Guest works, Entra fails on server | Missing `MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` in flight terminal | Step 5: source `scripts/dev.env` (with the `MCP_JWT_*` exports added) or export them directly before `make flight`; restart flight process. Note: the flight server never reads `MCP_IDP_PROVIDER` or any `ENTRA_*` var directly — only the three generic `MCP_JWT_*` vars (see Step 5). |

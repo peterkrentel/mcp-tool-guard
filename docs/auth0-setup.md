@@ -66,20 +66,15 @@ Confirm under **Settings → Tenant Settings → General** (Tenant Name + Region
 | **Identifier** | `https://mcp-tool-guard` ← this is **`aud`** everywhere |
 | Signing algorithm | RS256 |
 
-**API → Permissions tab** — add (scope rights MCPToolGuard enforces per tool):
+**API → Permissions tab** — add at minimum `gateway:admin` (the one permission every M2M agent must never receive, and the only one with no auto-provisioning path — see below):
 
 | Permission | Domain | Demo profile |
 |------------|--------|--------------|
-| `flights:read` | Flight demo | read_only |
-| `flights:write` | Flight demo | booking |
-| `flights:delete` | Flight demo | admin cancel |
-| `repo:read` | GitHub MCP | read repos / search / `get_file_contents` |
-| `repo:write` | GitHub MCP | create/update issues, PRs, files (policy tools) |
 | `gateway:admin` | Agent gateway control plane | Operator users on `/agents.html` only — **not** M2M agents |
 
-Optional when policy adds more servers (proxy or multi-server): `docs:read`, `docs:write`, `docs:delete`, `slack:read`, … — same permission model per tool in `gateway/config.yaml`. GitHub tools map to `repo:read` or `repo:write` in [`gateway/config.yaml`](../gateway/config.yaml).
+**Tool-scope permissions (`flights:*`, `repo:*`, `slack:*`, `docs:*`, …) do not need to be added here manually.** `gateway/auth0-mgmt.ts`'s `createM2mAgent()` auto-provisions any scope missing from this API's resource server the first time `POST /agents` requests it (`PATCH /api/v2/resource-servers/{id}`, appending to the `scopes` array) — including scopes for a brand-new vendor MCP server registered at runtime via `POST /servers`. Adding a permission here by hand still works and is harmless (auto-provisioning only adds what's missing), it's just no longer a prerequisite. This mirrors how permissions were always added in this project historically: incrementally, per-server, as each new server showed up — just automated now instead of by hand.
 
-**Agent gateway:** Assign `gateway:admin` to **human operators** (SPA users) via a role such as `platform-admin`. M2M agents created on `/agents.html` must receive only **tool scopes** (`flights:read`, …), never `gateway:admin`.
+**Agent gateway:** Assign `gateway:admin` to **human operators** (SPA users) via a role such as `platform-admin`. M2M agents created on `/agents.html` must receive only **tool scopes** (`flights:read`, …), never `gateway:admin` — the UI/policy layer already prevents this, and auto-provisioning has no special-case knowledge of `gateway:admin` either way since it's simply never requested through that path.
 
 These are **capabilities**, not “access to a server URL.” One access token can carry many scope namespaces.
 
@@ -173,6 +168,8 @@ Open the user → **Permissions** tab → **Assign Permissions**:
 
 - API: `https://mcp-tool-guard` (shown as `api-for-mcp-tool-guard`)
 - Permissions: e.g. all three `flights:*` for admin testing, or a subset per persona below
+
+**The permission must already exist on the resource server to appear in this picker.** Auto-provisioning (see Step 2) only fires through `POST /agents` (M2M path) — it does not run for this human-user flow. If you haven't created an M2M agent with the scope you want to test yet, either create one first (`/agents.html`, which will provision it) or add the permission by hand once here (**API → Permissions tab → Add**).
 
 | Persona | Permissions | Flight demo |
 |---------|-------------|-------------|

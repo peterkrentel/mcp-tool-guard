@@ -1,5 +1,7 @@
 /** Microsoft Graph API — Entra M2M agent app-registration lifecycle (server-side only). */
 
+import { randomUUID } from "node:crypto";
+
 export interface EntraMgmtConfig {
   tenantId: string;
   clientId: string;
@@ -93,6 +95,36 @@ async function getApiServicePrincipal(
 }
 
 /**
+ * Resolve the protected API application's own Graph *object id* — distinct
+ * from `apiSp.id` (the servicePrincipal object id) and from `cfg.apiAppId`
+ * (the `appId`/client id). Appending to `appRoles` requires PATCHing
+ * `/applications/{id}` with this object id specifically; Graph does not
+ * accept the `appId` there. Mirrors the `az ad app show --id "$API_APP_ID"
+ * --query id` lookup `scripts/entra-setup.sh` already does for the same
+ * reason.
+ */
+async function getApiApplicationObjectId(
+  cfg: EntraMgmtConfig,
+  headers: Record<string, string>,
+): Promise<string> {
+  const res = await fetch(
+    `${GRAPH_BASE}/applications?$filter=appId eq '${encodeURIComponent(escapeODataString(cfg.apiAppId))}'`,
+    { headers },
+  );
+  if (!res.ok) {
+    throw new Error(`Entra API application lookup failed: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as { value: Array<{ id: string }> };
+  const objectId = data.value[0]?.id;
+  if (!objectId) {
+    throw new Error(
+      `Entra API application not found for appId '${cfg.apiAppId}' — check ENTRA_API_APP_ID`,
+    );
+  }
+  return objectId;
+}
+
+/**
  * POST /agents — create an Entra app registration + service principal for an
  * M2M agent, assign it the requested App Roles (named identically to the
  * scope strings ToolGuard already enforces, e.g. "flights:read"), and mint a
@@ -118,13 +150,53 @@ export async function createEntraAgent(
   // Read-only lookup — nothing to roll back if this fails.
   const apiSp = await getApiServicePrincipal(cfg, headers);
 
-  // Resolve every requested scope to its App Role GUID up front, before any
-  // mutation happens, so a missing App Role fails fast with nothing to roll back.
-  const roleIds = scopes.map((scope) => {
-    const role = apiSp.appRoles.find((r) => r.value === scope);
-    if (!role) {
+  // Resolve every requested scope to its App Role GUID up front. Scopes that
+  // already have a matching App Role resolve immediately; any that don't get
+  // auto-provisioned first, in a single batched PATCH covering every missing
+  // scope at once — not one PATCH per missing scope. This mutation replaces
+  // the old "resolve everything before any mutation, so a missing App Role
+  // fails fast with nothing to roll back" property (a missing App Role is no
+  // longer a hard failure at all, it's the trigger for provisioning it), but
+  // the batched-single-PATCH shape preserves an equivalent safety property:
+  // the PATCH carries the fully-assembled `appRoles` array (existing +
+  // every newly-generated role) and either succeeds atomically or fails
+  // atomically from Graph's perspective — there is no partial-write state to
+  // roll back, and nothing agent-specific (App/servicePrincipal) has been
+  // created yet when it runs.
+  let appRoles = apiSp.appRoles;
+  const missingScopes = scopes.filter((scope) => !appRoles.some((r) => r.value === scope));
+  if (missingScopes.length > 0) {
+    const apiObjectId = await getApiApplicationObjectId(cfg, headers);
+    const newRoles = missingScopes.map((scope) => ({
+      allowedMemberTypes: ["User", "Application"],
+      description: `Auto-provisioned scope for ${scope}`,
+      displayName: scope,
+      id: randomUUID(),
+      isEnabled: true,
+      value: scope,
+    }));
+    const updatedAppRoles = [...appRoles, ...newRoles];
+    const patchRes = await fetch(`${GRAPH_BASE}/applications/${apiObjectId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ appRoles: updatedAppRoles }),
+    });
+    if (!patchRes.ok) {
       throw new Error(
-        `Entra app role assignment failed for scope '${scope}': no App Role with value '${scope}' found on API servicePrincipal '${apiSp.id}'`,
+        `Entra App Role auto-provisioning failed for scope(s) '${missingScopes.join(", ")}': ${patchRes.status} ${await patchRes.text()}`,
+      );
+    }
+    appRoles = updatedAppRoles;
+  }
+
+  const roleIds = scopes.map((scope) => {
+    const role = appRoles.find((r) => r.value === scope);
+    if (!role) {
+      // Should be unreachable — every scope was either already present or
+      // just appended above — but keep this as a defensive fail-fast rather
+      // than silently proceeding without a role id.
+      throw new Error(
+        `Entra app role assignment failed for scope '${scope}': no App Role with value '${scope}' found on API servicePrincipal '${apiSp.id}' after auto-provisioning`,
       );
     }
     return { scope, id: role.id };
