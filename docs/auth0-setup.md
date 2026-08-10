@@ -231,6 +231,8 @@ make flight
 
 Restart flight after changing env — a stale process without `MCP_JWT_*` causes server scope DENY while the UI client guard ALLOWs.
 
+**This step is flight-only — the gateway proxy doesn't need it.** `servers/flight/guard.py`'s `JwtTrustConfig.from_env()` is fully manual and never reads `AUTH0_DOMAIN`/`AUTH0_AUDIENCE`, so flight needs `MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE` set explicitly as above. The gateway proxy is different: `gateway/env.ts`'s `jwtTrustFromEnv()` auto-derives its own issuer (`https://${AUTH0_DOMAIN}/`) and audience (`AUTH0_AUDIENCE`, verbatim) from the `AUTH0_DOMAIN`/`AUTH0_AUDIENCE` vars it already needs for Auth0 Management API calls — so if those are set (e.g. in `scripts/dev.env`), the gateway needs no separate `MCP_JWT_*` export at all. An explicit `MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` still overrides the derived value per-field on the gateway too, for custom setups.
+
 ![Local flight terminal](images/auth0/09-local-flight-env.png)
 
 Terminal 2: `make ui` → open `http://localhost:5173`

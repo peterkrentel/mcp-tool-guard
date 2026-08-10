@@ -151,7 +151,7 @@ Restart **`make ui`** after any change (Vite reads env at startup).
 
 ### Step 5 — Flight server (Entra path)
 
-Guest demo works without these. For **Sign in** tokens, both the gateway proxy and the flight server validate JWTs via the generic `MCP_JWT_*` trust vars (`gateway/env.ts`'s `jwtTrustFromEnv()`, `servers/flight/guard.py`'s `JwtTrustConfig.from_env()`) — **not** `ENTRA_TENANT_ID` / `ENTRA_API_APP_ID` directly. Those `ENTRA_*` vars only drive the setup script and the M2M management app; they are never read to derive the issuer or JWKS URL. Add the `MCP_JWT_*` vars explicitly to **`scripts/dev.env`**, alongside the `ENTRA_*` vars from Step 3:
+Guest demo works without these. For **Sign in** tokens, the flight server validates JWTs via the generic `MCP_JWT_*` trust vars (`servers/flight/guard.py`'s `JwtTrustConfig.from_env()`) — **not** `ENTRA_TENANT_ID` / `ENTRA_API_APP_ID` directly. This is flight-only: the flight server is a separate deployment that never receives `MCP_IDP_PROVIDER` or any `ENTRA_*` var, so it has no way to derive these itself and needs all three set explicitly. Add the `MCP_JWT_*` vars to **`scripts/dev.env`**, alongside the `ENTRA_*` vars from Step 3:
 
 ```bash
 export MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
@@ -168,7 +168,9 @@ source scripts/dev.env
 make flight
 ```
 
-**Why `MCP_JWT_JWKS_URL` must be set explicitly for Entra (unlike Auth0):** when `MCP_JWT_JWKS_URL` is unset, both `jwtTrustFromEnv()` and `JwtTrustConfig.from_env()` auto-derive it as `${MCP_JWT_ISSUER}/.well-known/jwks.json`. That formula happens to match Auth0's JWKS endpoint, so Auth0 setups can leave `MCP_JWT_JWKS_URL` unset. It does **not** match Entra — Entra's real JWKS endpoint is `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys`, a different path. Leaving `MCP_JWT_JWKS_URL` unset here would silently point at a JWKS URL that doesn't exist, so for Entra you must set all three vars above.
+**Why `MCP_JWT_JWKS_URL` must be set explicitly for Entra on flight (unlike Auth0):** when `MCP_JWT_JWKS_URL` is unset, `JwtTrustConfig.from_env()` auto-derives it as `${MCP_JWT_ISSUER}/.well-known/jwks.json`. That formula happens to match Auth0's JWKS endpoint, so Auth0 setups can leave `MCP_JWT_JWKS_URL` unset on flight. It does **not** match Entra — Entra's real JWKS endpoint is `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys`, a different path. Leaving `MCP_JWT_JWKS_URL` unset on flight would silently point at a JWKS URL that doesn't exist, so for flight you must set all three vars above.
+
+**The gateway proxy is different — it doesn't need any of this set by hand.** `gateway/env.ts`'s `jwtTrustFromEnv()` is provider-aware: since Step 3 already put `MCP_IDP_PROVIDER=entra` and `ENTRA_TENANT_ID`/`ENTRA_API_APP_ID` in `scripts/dev.env`, the gateway proxy auto-derives its own issuer (`https://login.microsoftonline.com/<tenant-id>/v2.0`), audience (the bare `ENTRA_API_APP_ID`), and JWKS URL (the Entra discovery path above, not the Auth0-shaped one) from those same vars — no separate `MCP_JWT_*` export needed for the gateway. Setting `MCP_JWT_*` explicitly still works too (e.g. to point the gateway at a custom issuer) and always takes precedence per-field over the derived value; it's just no longer required in the common case. The `MCP_JWT_*` vars above remain necessary regardless, because flight is a separate process that never sees `ENTRA_TENANT_ID`/`ENTRA_API_APP_ID` and has no auto-derivation of its own.
 
 ### Step 6 — Assign roles and test user (optional)
 
@@ -247,7 +249,7 @@ After assigning or changing roles: **Sign out → Sign in** (old tokens do not u
 | `VITE_IDP_PROVIDER=entra` | ui (`.env.local`) | selects the UI's login flow |
 | `VITE_ENTRA_TENANT_ID`/`VITE_ENTRA_CLIENT_ID`/`VITE_ENTRA_API_APP_ID` | ui | SPA app, `entra-setup.sh` output |
 
-`MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` are separate from the table above — they are not produced by `entra-setup.sh` and must be set by hand (Step 5).
+`MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` are separate from the table above — they are not produced by `entra-setup.sh`. **Flight** needs them set by hand (Step 5), since it never reads the `ENTRA_*` vars above. The **gateway proxy** auto-derives them from `MCP_IDP_PROVIDER=entra` + the `ENTRA_TENANT_ID`/`ENTRA_API_APP_ID` rows already in this table, so setting them by hand for the gateway is optional (Step 5).
 
 ---
 

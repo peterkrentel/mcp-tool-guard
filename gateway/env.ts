@@ -58,14 +58,72 @@ export function auditAgentTrustedMode(): boolean {
   return process.env.MCP_AUDIT_AGENT_TRUSTED_MODE?.toLowerCase() === "true";
 }
 
+/**
+ * Derives the (issuer, audience, jwksUrl) implied by the active IdP provider's
+ * own management/token-vending env vars, so operators don't have to duplicate
+ * that info into MCP_JWT_* by hand. Returns undefined for any field that
+ * can't be derived (missing provider vars, or a provider with no derivation
+ * defined, e.g. "keycloak" — BL-041 deferred, no real support yet).
+ */
+function deriveJwtTrustFromProvider(provider: IdpProviderId): {
+  issuer?: string;
+  audience?: string;
+  jwksUrl?: string;
+} {
+  if (provider === "auth0") {
+    const domain = process.env.AUTH0_DOMAIN?.trim();
+    const audience = process.env.AUTH0_AUDIENCE?.trim();
+    if (!domain) return {};
+    const issuer = `https://${domain}/`.replace(/\/$/, "");
+    return {
+      issuer,
+      audience,
+      jwksUrl: `${issuer}/.well-known/jwks.json`,
+    };
+  }
+  if (provider === "entra") {
+    const tenantId = process.env.ENTRA_TENANT_ID?.trim();
+    const apiAppId = process.env.ENTRA_API_APP_ID?.trim();
+    if (!tenantId) return {};
+    return {
+      issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
+      audience: apiAppId,
+      jwksUrl: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+    };
+  }
+  // "keycloak": no derivation exists yet — fields fall through to "not set".
+  return {};
+}
+
+/**
+ * JWT trust config (issuer/audience/jwksUrl) used by the guard proxy to
+ * validate incoming tokens.
+ *
+ * Precedence, per field independently:
+ *   1. An explicit MCP_JWT_ISSUER / MCP_JWT_AUDIENCE / MCP_JWT_JWKS_URL wins,
+ *      verbatim — today's exact behavior, preserved as an escape hatch.
+ *   2. Otherwise, derive it from the active provider (MCP_IDP_PROVIDER) and
+ *      that provider's own vars (AUTH0_DOMAIN/AUTH0_AUDIENCE or
+ *      ENTRA_TENANT_ID/ENTRA_API_APP_ID). See deriveJwtTrustFromProvider().
+ *
+ * Note this is gateway-only: servers/flight/guard.py's JwtTrustConfig.from_env()
+ * intentionally stays fully manual — the flight server never receives
+ * MCP_IDP_PROVIDER or any provider-specific vars.
+ *
+ * Contract preserved: returns {} unless issuer+audience+jwksUrl all resolve
+ * (explicit or derived) — never throws for incomplete config.
+ */
 export function jwtTrustFromEnv(): {
   jwtIssuer?: string;
   jwtAudience?: string;
   jwksUrl?: string;
 } {
-  const issuer = process.env.MCP_JWT_ISSUER?.trim().replace(/\/$/, "");
-  const audience = process.env.MCP_JWT_AUDIENCE?.trim();
-  let jwksUrl = process.env.MCP_JWT_JWKS_URL?.trim();
+  const derived = deriveJwtTrustFromProvider(idpProviderIdFromEnv());
+
+  const issuer =
+    process.env.MCP_JWT_ISSUER?.trim().replace(/\/$/, "") || derived.issuer;
+  const audience = process.env.MCP_JWT_AUDIENCE?.trim() || derived.audience;
+  let jwksUrl = process.env.MCP_JWT_JWKS_URL?.trim() || derived.jwksUrl;
   if (issuer && !jwksUrl) {
     jwksUrl = `${issuer}/.well-known/jwks.json`;
   }
