@@ -28,6 +28,7 @@ import {
   GATEWAY_ADMIN_PERMISSION,
   getAccessToken,
   getIdpConfig,
+  getIdpProvider,
   getSignInLabel,
   getUserLabel,
   handleAuthRedirect,
@@ -150,8 +151,9 @@ async function syncAdminUi(): Promise<void> {
 
   if (!idpConfig) {
     authControls.hidden = true;
+    const envPrefix = getIdpProvider() === "entra" ? "VITE_ENTRA_*" : "VITE_AUTH0_*";
     adminGateHintEl.textContent =
-      "Set VITE_AUTH0_* on the UI and MCP_JWT_* on the proxy for operator sign-in.";
+      `Set ${envPrefix} on the UI and MCP_JWT_* on the proxy for operator sign-in.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);

@@ -10,14 +10,15 @@ import { renderThreeLayerAudit } from "./agents-audit-view.js";
 import { classifyClientType, type ClientType } from "./client-type.js";
 import {
   GATEWAY_ADMIN_PERMISSION,
-  getAuth0AccessToken,
-  getAuth0Config,
-  getAuth0UserLabel,
+  getAccessToken,
+  getIdpConfig,
+  getSignInLabel,
+  getUserLabel,
   handleAuthRedirect,
-  hasGatewayAdminPermission,
-  isAuth0Authenticated,
-  loginWithAuth0,
-  logoutAuth0,
+  hasGatewayAdminAccess,
+  isSignedIn,
+  login,
+  logout,
 } from "./auth.js";
 import { resolveProxyBase } from "./config.js";
 
@@ -36,8 +37,8 @@ let demoBearer = "";
 let poll: ReturnType<typeof setInterval> | null = null;
 
 setAdminTokenProvider(async () => {
-  if (!getAuth0Config() || !(await isAuth0Authenticated())) return null;
-  return getAuth0AccessToken();
+  if (!getIdpConfig() || !(await isSignedIn())) return null;
+  return getAccessToken();
 });
 
 async function loadControlPlaneAuthFlag(): Promise<void> {
@@ -48,12 +49,12 @@ async function loadControlPlaneAuthFlag(): Promise<void> {
     const data = (await res.json()) as { control_plane_auth?: boolean };
     controlPlaneAuthRequired = Boolean(data.control_plane_auth);
   } catch {
-    controlPlaneAuthRequired = Boolean(getAuth0Config());
+    controlPlaneAuthRequired = Boolean(getIdpConfig());
   }
 }
 
 async function syncOpsAdminGate(): Promise<void> {
-  const auth0Config = getAuth0Config();
+  const idpConfig = getIdpConfig();
   await loadControlPlaneAuthFlag();
 
   if (!controlPlaneAuthRequired) {
@@ -63,31 +64,32 @@ async function syncOpsAdminGate(): Promise<void> {
     return;
   }
 
-  if (!auth0Config) {
+  if (!idpConfig) {
     authControls.hidden = true;
-    adminGateHintEl.textContent = "Set VITE_AUTH0_* on the UI and MCP_JWT_* on the proxy for operator sign-in.";
+    adminGateHintEl.textContent = "Set VITE_AUTH0_* (or VITE_ENTRA_*) on the UI and MCP_JWT_* on the proxy for operator sign-in.";
     opsEnabled = false;
     return;
   }
 
   authControls.hidden = false;
+  authLoginBtn.textContent = getSignInLabel();
   await handleAuthRedirect();
 
-  const authenticated = await isAuth0Authenticated();
+  const authenticated = await isSignedIn();
   authLoginBtn.hidden = authenticated;
   authLogoutBtn.hidden = !authenticated;
 
   if (!authenticated) {
     authStatusEl.textContent = "Sign in to view Claude Code ops";
-    adminGateHintEl.textContent = `Requires Auth0 permission ${GATEWAY_ADMIN_PERMISSION}.`;
+    adminGateHintEl.textContent = `Requires the ${GATEWAY_ADMIN_PERMISSION} permission/role.`;
     opsEnabled = false;
     return;
   }
 
-  authStatusEl.textContent = await getAuth0UserLabel();
-  const isAdmin = await hasGatewayAdminPermission();
+  authStatusEl.textContent = await getUserLabel();
+  const isAdmin = await hasGatewayAdminAccess();
   if (!isAdmin) {
-    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in Auth0, then sign out/in.`;
+    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in the identity provider, then sign out/in.`;
     opsEnabled = false;
     return;
   }
@@ -170,9 +172,9 @@ clientTypeSelect.addEventListener("change", () => {
   void refreshOpsAudit();
 });
 
-authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLoginBtn.addEventListener("click", () => void login());
 authLogoutBtn.addEventListener("click", () => {
-  void logoutAuth0().then(() => syncOpsAdminGate());
+  void logout().then(() => syncOpsAdminGate());
 });
 
 void syncOpsAdminGate().then(() => {

@@ -27,6 +27,8 @@ export interface IdpAdapter {
   isManagementConfigured(): boolean;
   /** Whether client_credentials token vending has its required config. */
   isVendingConfigured(): boolean;
+  /** Provider-specific description of the env vars missing when isVendingConfigured() is false. */
+  vendingConfigError(): string;
   createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient>;
   deleteAgent(clientId: string): Promise<void>;
   vendToken(clientId: string, clientSecret: string): Promise<VendedToken>;
@@ -56,6 +58,10 @@ export class Auth0IdpAdapter implements IdpAdapter {
     return Boolean(this.tokenVendor && this.audience);
   }
 
+  vendingConfigError(): string {
+    return "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending";
+  }
+
   createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient> {
     return createM2mAgent(name, scopes);
   }
@@ -66,7 +72,7 @@ export class Auth0IdpAdapter implements IdpAdapter {
 
   async vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
     if (!this.tokenVendor || !this.audience) {
-      throw new Error("AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending");
+      throw new Error(this.vendingConfigError());
     }
     return this.tokenVendor.vend(clientId, clientSecret, this.audience);
   }
@@ -99,6 +105,10 @@ export class EntraIdpAdapter implements IdpAdapter {
     return Boolean(this.tokenVendor && this.apiAppId);
   }
 
+  vendingConfigError(): string {
+    return "ENTRA_TENANT_ID and ENTRA_API_APP_ID required for token vending";
+  }
+
   createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient> {
     return createEntraAgent(name, scopes);
   }
@@ -109,7 +119,7 @@ export class EntraIdpAdapter implements IdpAdapter {
 
   async vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
     if (!this.tokenVendor || !this.apiAppId) {
-      throw new Error("ENTRA_TENANT_ID and ENTRA_API_APP_ID required for token vending");
+      throw new Error(this.vendingConfigError());
     }
     return this.tokenVendor.vend(clientId, clientSecret, this.apiAppId);
   }

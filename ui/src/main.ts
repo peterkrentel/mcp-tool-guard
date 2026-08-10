@@ -3,15 +3,16 @@ import type { AuditLogEntry } from "@mcp-tool-guard/gateway";
 import { fetchServerAudit, renderAuditPanel } from "./audit-view.js";
 import { FlightAgent } from "./agent.js";
 import {
-  getAuth0AccessToken,
-  getAuth0Config,
-  getAuth0UserLabel,
+  getAccessToken,
+  getIdpConfig,
+  getSignInLabel,
+  getUserLabel,
   handleAuthRedirect,
-  isAuth0Authenticated,
   isGuestDemoEnabled,
-  jwtTrustFromAuth0,
-  loginWithAuth0,
-  logoutAuth0,
+  isSignedIn,
+  jwtTrustFromIdpConfig,
+  login,
+  logout,
 } from "./auth.js";
 import { resolveAuditUrl, resolveMcpUrl } from "./config.js";
 
@@ -34,7 +35,7 @@ interface DemoTokens {
   admin: string;
 }
 
-type AuthMode = "guest" | "auth0";
+type AuthMode = "guest" | "idp";
 
 let agent: FlightAgent | null = null;
 let tokens: DemoTokens | null = null;
@@ -57,8 +58,8 @@ function escapeHtml(text: string): string {
 }
 
 async function resolveBearerToken(): Promise<string> {
-  if (authMode === "auth0") {
-    return getAuth0AccessToken();
+  if (authMode === "idp") {
+    return getAccessToken();
   }
   if (!tokens) throw new Error("Demo tokens not loaded");
   return tokens[tokenSelect.value as keyof DemoTokens];
@@ -95,8 +96,7 @@ async function loadDemoAssets(): Promise<void> {
 }
 
 function buildAgent(jwt: string): FlightAgent {
-  const auth0 = getAuth0Config();
-  const jwtTrust = auth0 ? jwtTrustFromAuth0(auth0) : {};
+  const jwtTrust = jwtTrustFromIdpConfig();
   return new FlightAgent({
     mcpUrl: resolveMcpUrl(),
     jwt,
@@ -116,10 +116,10 @@ function buildAgent(jwt: string): FlightAgent {
 }
 
 async function syncAuthUi(): Promise<void> {
-  const auth0Config = getAuth0Config();
+  const idpConfig = getIdpConfig();
   const guestEnabled = isGuestDemoEnabled();
 
-  if (!auth0Config) {
+  if (!idpConfig) {
     authControls.hidden = true;
     guestTokenLabel.hidden = !guestEnabled;
     authMode = "guest";
@@ -129,18 +129,18 @@ async function syncAuthUi(): Promise<void> {
   authControls.hidden = false;
   await handleAuthRedirect();
 
-  const authenticated = await isAuth0Authenticated();
+  const authenticated = await isSignedIn();
   authLoginBtn.hidden = authenticated;
   authLogoutBtn.hidden = !authenticated;
   guestTokenLabel.hidden = authenticated || !guestEnabled;
 
   if (authenticated) {
-    authMode = "auth0";
-    authStatusEl.textContent = await getAuth0UserLabel();
+    authMode = "idp";
+    authStatusEl.textContent = await getUserLabel();
   } else {
-    authMode = guestEnabled ? "guest" : "auth0";
+    authMode = guestEnabled ? "guest" : "idp";
     authStatusEl.textContent = guestEnabled
-      ? "Guest demo — or sign in for Auth0"
+      ? `Guest demo — or ${getSignInLabel()}`
       : "Sign in required";
   }
 }
@@ -154,8 +154,8 @@ async function initAgent(): Promise<void> {
     await syncAuthUi();
     await loadDemoAssets();
 
-    if (authMode === "auth0" && !(await isAuth0Authenticated())) {
-      throw new Error("Sign in with Auth0 first, or use guest demo");
+    if (authMode === "idp" && !(await isSignedIn())) {
+      throw new Error(`${getSignInLabel()} first, or use guest demo`);
     }
     if (authMode === "guest" && !tokens) {
       throw new Error("Guest demo tokens unavailable");
@@ -168,8 +168,8 @@ async function initAgent(): Promise<void> {
     await refreshAuditPanel();
     appendMessage(
       "system",
-      authMode === "auth0"
-        ? "Agent initialized with Auth0 token. Try: 'Search flights from SFO to JFK'"
+      authMode === "idp"
+        ? "Agent initialized with your signed-in token. Try: 'Search flights from SFO to JFK'"
         : "Agent initialized (guest). Try: 'Search flights from SFO to JFK'",
     );
   } catch (err) {
@@ -202,10 +202,10 @@ async function sendMessage(): Promise<void> {
   }
 }
 
-authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLoginBtn.addEventListener("click", () => void login());
 authLogoutBtn.addEventListener("click", () => {
   agent = null;
-  void logoutAuth0();
+  void logout();
 });
 
 initBtn.addEventListener("click", () => void initAgent());
@@ -232,7 +232,7 @@ tokenSelect.addEventListener("change", () => {
 });
 
 void syncAuthUi().then(() => {
-  statusEl.textContent = getAuth0Config()
+  statusEl.textContent = getIdpConfig()
     ? "Sign in or pick guest scope, then Initialize"
     : "Click Initialize to load WebLLM + MCP";
 });

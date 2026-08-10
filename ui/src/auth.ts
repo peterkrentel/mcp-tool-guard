@@ -1,5 +1,6 @@
 import { Auth0Client } from "@auth0/auth0-spa-js";
 import {
+  InteractionRequiredAuthError,
   PublicClientApplication,
   type AccountInfo,
   type Configuration,
@@ -91,11 +92,21 @@ export async function getEntraAccessToken(): Promise<string> {
   const client = await getMsalClient();
   const config = getEntraConfig();
   if (!config || !msalAccount) throw new Error("Not signed in with Entra");
-  const result = await client.acquireTokenSilent({
-    scopes: [`api://${config.apiAppId}/access_as_user`],
-    account: msalAccount,
-  });
-  return result.accessToken;
+  const scopes = [`api://${config.apiAppId}/access_as_user`];
+  try {
+    const result = await client.acquireTokenSilent({ scopes, account: msalAccount });
+    return result.accessToken;
+  } catch (err) {
+    if (!(err instanceof InteractionRequiredAuthError)) throw err;
+    // Cached session is stale/expired. Fall back to the same redirect-based
+    // flow loginWithEntra() uses (this app never uses MSAL's popup flow) so
+    // the operator is routed back through sign-in instead of hitting a
+    // silent, unexplained failure on every subsequent admin action.
+    await client.acquireTokenRedirect({ scopes, account: msalAccount });
+    // acquireTokenRedirect() navigates the page away; this is unreachable
+    // in practice, but keeps the return type honest if it isn't.
+    throw err;
+  }
 }
 
 export async function getEntraUserLabel(): Promise<string> {
