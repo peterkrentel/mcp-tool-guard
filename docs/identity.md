@@ -126,8 +126,10 @@ Setup: [Entra ID setup guide](entra-setup.md).
 
 | If you want | Set | Example |
 |-------------|-----|---------|
-| Auth0 | `MCP_IDP_PROVIDER=auth0` (or unset for guest-only) | `MCP_JWT_ISSUER=https://tenant.auth0.com/` |
-| Entra ID | `MCP_IDP_PROVIDER=entra` (or unset for guest-only) | `MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0` |
+| Auth0 | `MCP_IDP_PROVIDER=auth0` (also the default when unset — see below) | `MCP_JWT_ISSUER=https://tenant.auth0.com/` |
+| Entra ID | `MCP_IDP_PROVIDER=entra` | `MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0` |
+
+**Leaving `MCP_IDP_PROVIDER` unset does not mean "no provider" / guest-only.** `gateway/env.ts`'s `idpProviderIdFromEnv()` defaults to `"auth0"` when the var is unset — matching this project's behavior before Entra existed, where the Auth0 management/token-vending code paths were always attempted unconditionally. Guest-mode (unauthenticated demo tokens) works independently of this setting either way, since it never goes through an IdP adapter at all — but an unset `MCP_IDP_PROVIDER` still means "Auth0 is the active provider," not "no provider is active."
 
 `MCP_JWT_ISSUER` and `MCP_JWT_AUDIENCE` must always be set explicitly — neither the gateway nor the flight server derives them from a tenant ID or app ID. **`MCP_JWT_JWKS_URL` also needs setting explicitly for Entra:** when unset, both auto-derive it as `${MCP_JWT_ISSUER}/.well-known/jwks.json`, which happens to be correct for Auth0 but is the wrong path for Entra (Entra's real JWKS endpoint is `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys`). See [Entra ID setup guide → Step 5](entra-setup.md#step-5--flight-server-entra-path) for the exact vars.
 

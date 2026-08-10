@@ -276,6 +276,24 @@ test("POST /agents requires admin bearer when control plane auth is enabled", as
   assert.equal(res.status, 401);
 });
 
+test("POST /agents rejects gateway:admin in requested scopes", async () => {
+  const adminToken = await makeToken(["gateway:admin"]);
+  const res = await fetch(`${BASE_URL}/agents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      name: "agent-wants-admin",
+      scopes: ["flights:read", "gateway:admin"],
+    }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(String(body.error ?? ""), /cannot be granted gateway:admin/i);
+});
+
 test("DELETE /agents/:clientId requires admin bearer when control plane auth is enabled", async () => {
   const res = await fetch(`${BASE_URL}/agents/some-client-id`, {
     method: "DELETE",

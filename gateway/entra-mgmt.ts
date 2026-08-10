@@ -304,6 +304,13 @@ export async function deleteEntraAgent(clientId: string): Promise<void> {
   const objectId = lookup.value[0]?.id;
   if (!objectId) return; // already gone — treat like Auth0's 404-is-success
 
+  // Deleting the application also deletes its home-tenant service principal —
+  // no separate servicePrincipal cleanup needed. Confirmed in Microsoft's own
+  // docs: "deleting an application object will also delete its home tenant
+  // service principal object" (learn.microsoft.com/entra/identity-platform/
+  // app-objects-and-service-principals#consequences-of-modifying-and-deleting-applications).
+  // Every app this project creates is single-tenant in its own home tenant,
+  // so that cascade always applies here.
   const deleteRes = await fetch(`${GRAPH_BASE}/applications/${objectId}`, {
     method: "DELETE",
     headers,

@@ -8,7 +8,7 @@ import {
   listAgents,
   saveAgent,
 } from "./agent-store.js";
-import { requireGatewayAdmin } from "./admin-auth.js";
+import { GATEWAY_ADMIN_SCOPE, requireGatewayAdmin } from "./admin-auth.js";
 import type { ToolGuard } from "./guard.js";
 import type { IdpAdapter } from "./idp-adapter.js";
 import { readJson, sendJson } from "./http-helpers.js";
@@ -58,6 +58,12 @@ export async function handleAgentsTokenRoutes(
       return true;
     }
     const body = await readJson<{ name: string; scopes: string[]; serverId?: string }>(req);
+    if ((body.scopes ?? []).includes(GATEWAY_ADMIN_SCOPE)) {
+      sendJson(res, 400, {
+        error: `M2M agents cannot be granted ${GATEWAY_ADMIN_SCOPE} — it is a human-operator-only control-plane permission`,
+      });
+      return true;
+    }
     try {
       const created = await idpAdapter.createAgent(body.name, body.scopes ?? []);
       const record = buildAgentRecord({
