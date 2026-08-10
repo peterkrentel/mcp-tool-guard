@@ -147,6 +147,17 @@ export async function createEntraAgent(
     "Content-Type": "application/json",
   };
 
+  // Dedupe up front — the UI's create-agent form is a free-text
+  // comma-separated field, so e.g. "flights:read, flights:read" arrives here
+  // as two identical array elements. Without this, the missing-scope
+  // computation below would treat both as "missing" independently and the
+  // batched PATCH would write two App Role objects with the same `value` but
+  // different generated GUIDs — a duplicate that, once the PATCH succeeds,
+  // has no rollback path (see the batched-PATCH note below). Every
+  // downstream step (missing-scope computation, role-GUID resolution, the
+  // assignment calls) must use this deduplicated array, not the raw param.
+  const uniqueScopes = [...new Set(scopes)];
+
   // Read-only lookup — nothing to roll back if this fails.
   const apiSp = await getApiServicePrincipal(cfg, headers);
 
@@ -164,7 +175,7 @@ export async function createEntraAgent(
   // roll back, and nothing agent-specific (App/servicePrincipal) has been
   // created yet when it runs.
   let appRoles = apiSp.appRoles;
-  const missingScopes = scopes.filter((scope) => !appRoles.some((r) => r.value === scope));
+  const missingScopes = uniqueScopes.filter((scope) => !appRoles.some((r) => r.value === scope));
   if (missingScopes.length > 0) {
     const apiObjectId = await getApiApplicationObjectId(cfg, headers);
     const newRoles = missingScopes.map((scope) => ({
@@ -189,7 +200,7 @@ export async function createEntraAgent(
     appRoles = updatedAppRoles;
   }
 
-  const roleIds = scopes.map((scope) => {
+  const roleIds = uniqueScopes.map((scope) => {
     const role = appRoles.find((r) => r.value === scope);
     if (!role) {
       // Should be unreachable — every scope was either already present or

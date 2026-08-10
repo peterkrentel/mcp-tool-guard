@@ -290,6 +290,36 @@ test("createEntraAgent() auto-provisions multiple missing App Roles in a single 
   }
 });
 
+test("createEntraAgent() dedupes a repeated missing scope before provisioning — writes exactly one App Role and one assignment", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    const result = await createEntraAgent("test-agent", ["flights:delete", "flights:delete"]);
+    assert.equal(result.clientId, "new-client-id");
+
+    const patchCalls = calls.filter(
+      (c) => c.url.endsWith(`/applications/${API_APPLICATION_OBJECT_ID}`) && c.method === "PATCH",
+    );
+    assert.equal(patchCalls.length, 1, "expected exactly one batched PATCH");
+    const newRoles = patchCalls[0].body.appRoles.filter((r) => r.value === "flights:delete");
+    assert.equal(
+      newRoles.length,
+      1,
+      "expected exactly one App Role with value 'flights:delete', not a duplicate GUID for the same value",
+    );
+
+    const assignCalls = calls.filter((c) => c.url.includes("/appRoleAssignments"));
+    assert.equal(assignCalls.length, 1, "expected exactly one role-assignment call, not one per duplicate input");
+    assert.equal(assignCalls[0].body.appRoleId, newRoles[0].id);
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
 test("createEntraAgent() does not PATCH appRoles when every requested scope already exists", async () => {
   const restore = clearEntraEnv();
   const originalFetch = global.fetch;

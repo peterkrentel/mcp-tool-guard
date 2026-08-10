@@ -140,9 +140,19 @@ export async function createM2mAgent(
     "Content-Type": "application/json",
   };
 
+  // Dedupe up front — the UI's create-agent form is a free-text
+  // comma-separated field, so e.g. "flights:read, flights:read" arrives here
+  // as two identical array elements. Auth0's resource-server `scopes` array
+  // and `/client-grants`'s `scope` field are presumably de-duplicated
+  // server-side, but there's no live tenant handy to confirm that — dedupe
+  // here too so every downstream step (missing-scope computation, the
+  // PATCH, and the client-grant call) is correct regardless of what Auth0
+  // does with duplicates on its end.
+  const uniqueScopes = [...new Set(scopes)];
+
   // Read-then-patch, before creating anything client-specific — a failure
   // here has nothing agent-specific to roll back yet.
-  await ensureResourceServerScopesExist(cfg, headers, scopes);
+  await ensureResourceServerScopesExist(cfg, headers, uniqueScopes);
 
   const createRes = await fetch(`https://${cfg.domain}/api/v2/clients`, {
     method: "POST",
@@ -170,7 +180,7 @@ export async function createM2mAgent(
     body: JSON.stringify({
       client_id: client.client_id,
       audience: cfg.audience,
-      scope: scopes,
+      scope: uniqueScopes,
     }),
   });
 

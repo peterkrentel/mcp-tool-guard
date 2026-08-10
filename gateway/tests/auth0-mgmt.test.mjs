@@ -212,6 +212,36 @@ test("createM2mAgent() auto-provisions multiple missing scopes in a single PATCH
   }
 });
 
+test("createM2mAgent() dedupes a repeated missing scope before provisioning — writes exactly one scope and one grant entry", async () => {
+  const restore = clearAuth0Env();
+  const originalFetch = global.fetch;
+  setAuth0Env();
+  const { fetchMock, calls } = makeFetchMock();
+  global.fetch = fetchMock;
+  try {
+    const result = await createM2mAgent("test-agent", ["flights:delete", "flights:delete"]);
+    assert.equal(result.clientId, "new-client-id");
+
+    const patchCalls = calls.filter(
+      (c) => c.url.endsWith(`/api/v2/resource-servers/${RESOURCE_SERVER_ID}`) && c.method === "PATCH",
+    );
+    assert.equal(patchCalls.length, 1, "expected exactly one batched PATCH");
+    const newScopes = patchCalls[0].body.scopes.filter((s) => s.value === "flights:delete");
+    assert.equal(
+      newScopes.length,
+      1,
+      "expected exactly one scope with value 'flights:delete', not a duplicate entry",
+    );
+
+    const grantCall = calls.find((c) => c.url.endsWith("/api/v2/client-grants") && c.method === "POST");
+    assert.ok(grantCall);
+    assert.deepEqual(grantCall.body.scope, ["flights:delete"]);
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
 test("createM2mAgent() does not PATCH the resource server when every requested scope already exists", async () => {
   const restore = clearAuth0Env();
   const originalFetch = global.fetch;
