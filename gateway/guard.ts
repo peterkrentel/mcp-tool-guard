@@ -177,8 +177,18 @@ export class DefaultJwtValidator implements JwtValidator {
       this.jwtAudience &&
       this.issMatches(unverified.iss)
     ) {
+      // Verify against the token's own iss (already confirmed trusted by
+      // issMatches() above, modulo trailing-slash normalization) rather than
+      // reconstructing an expected shape here — hardcoding `${this.jwtIssuer}/`
+      // assumed every issuer has a trailing slash (true for Auth0's
+      // `https://tenant.auth0.com/`) but Entra's `iss`
+      // (`https://login.microsoftonline.com/<tenant>/v2.0`) has none, so the
+      // added slash made jose's own issuer check reject every Entra token
+      // with "unexpected iss claim value" even though issMatches() had
+      // already passed. Safe: decodeJwt() and jwtVerify() parse the same
+      // token bytes, so unverified.iss and payload.iss are always identical.
       const { payload } = await jwtVerify(token, this.jwks, {
-        issuer: `${this.jwtIssuer}/`,
+        issuer: unverified.iss as string,
         audience: this.jwtAudience,
       });
       const jwtPayload = payload as JwtPayload;
