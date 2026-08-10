@@ -26,15 +26,17 @@ import { renderThreeLayerAudit } from "./agents-audit-view.js";
 import { renderPendingList } from "./pending-view.js";
 import {
   GATEWAY_ADMIN_PERMISSION,
-  getAuth0AccessToken,
-  getAuth0Config,
-  getAuth0UserLabel,
+  getAccessToken,
+  getIdpConfig,
+  getIdpProvider,
+  getSignInLabel,
+  getUserLabel,
   handleAuthRedirect,
-  hasGatewayAdminPermission,
-  isAuth0Authenticated,
-  jwtTrustFromAuth0,
-  loginWithAuth0,
-  logoutAuth0,
+  hasGatewayAdminAccess,
+  isSignedIn,
+  jwtTrustFromIdpConfig,
+  login,
+  logout,
 } from "./auth.js";
 import { resolveProxyBase } from "./config.js";
 
@@ -42,6 +44,7 @@ interface ActiveAgent {
   name: string;
   clientId: string;
   clientSecret: string;
+  secretShown: boolean;
   token: string;
   scopes: string[];
   serverId: string;
@@ -104,8 +107,8 @@ let controlPlaneAuthRequired = false;
 let adminOpsEnabled = false;
 
 setAdminTokenProvider(async () => {
-  if (!getAuth0Config() || !(await isAuth0Authenticated())) return null;
-  return getAuth0AccessToken();
+  if (!getIdpConfig() || !(await isSignedIn())) return null;
+  return getAccessToken();
 });
 
 function setFormEnabled(form: HTMLFormElement, enabled: boolean): void {
@@ -128,12 +131,12 @@ async function loadControlPlaneAuthFlag(): Promise<void> {
     const data = (await res.json()) as { control_plane_auth?: boolean };
     controlPlaneAuthRequired = Boolean(data.control_plane_auth);
   } catch {
-    controlPlaneAuthRequired = Boolean(getAuth0Config());
+    controlPlaneAuthRequired = Boolean(getIdpConfig());
   }
 }
 
 async function syncAdminUi(): Promise<void> {
-  const auth0Config = getAuth0Config();
+  const idpConfig = getIdpConfig();
   await loadControlPlaneAuthFlag();
 
   if (!controlPlaneAuthRequired) {
@@ -146,10 +149,11 @@ async function syncAdminUi(): Promise<void> {
     return;
   }
 
-  if (!auth0Config) {
+  if (!idpConfig) {
     authControls.hidden = true;
+    const envPrefix = getIdpProvider() === "entra" ? "VITE_ENTRA_*" : "VITE_AUTH0_*";
     adminGateHintEl.textContent =
-      "Set VITE_AUTH0_* on the UI and MCP_JWT_* on the proxy for operator sign-in.";
+      `Set ${envPrefix} on the UI and MCP_JWT_* on the proxy for operator sign-in.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);
@@ -157,25 +161,26 @@ async function syncAdminUi(): Promise<void> {
   }
 
   authControls.hidden = false;
+  authLoginBtn.textContent = getSignInLabel();
   await handleAuthRedirect();
 
-  const authenticated = await isAuth0Authenticated();
+  const authenticated = await isSignedIn();
   authLoginBtn.hidden = authenticated;
   authLogoutBtn.hidden = !authenticated;
 
   if (!authenticated) {
     authStatusEl.textContent = "Sign in to manage MCPs and agents";
-    adminGateHintEl.textContent = `Requires Auth0 permission ${GATEWAY_ADMIN_PERMISSION}.`;
+    adminGateHintEl.textContent = `Requires the ${GATEWAY_ADMIN_PERMISSION} permission/role.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);
     return;
   }
 
-  authStatusEl.textContent = await getAuth0UserLabel();
-  const isAdmin = await hasGatewayAdminPermission();
+  authStatusEl.textContent = await getUserLabel();
+  const isAdmin = await hasGatewayAdminAccess();
   if (!isAdmin) {
-    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in Auth0, then sign out/in.`;
+    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in the identity provider, then sign out/in.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);
@@ -242,6 +247,7 @@ async function refreshAgents(): Promise<void> {
         name: record.name,
         clientId: record.auth0ClientId,
         clientSecret: "",
+        secretShown: true,
         token: session?.token ?? "",
         scopes: record.scopes,
         serverId: record.serverId,
@@ -294,11 +300,45 @@ function renderAgentCards(): void {
         <strong>${a.name}</strong>
         <div class="card-meta">${a.serverId} · ${a.scopes.join(", ")}</div>
         <div class="card-meta mono">${a.clientId.slice(0, 12)}…</div>
+        ${
+          !a.secretShown
+            ? `<div class="card-secret-warning">
+                 <p>client_secret — shown once, save it now:</p>
+                 <code class="mono" data-secret-for="${a.clientId}">${a.clientSecret}</code>
+                 <button type="button" data-copy-secret="${a.clientId}">Copy</button>
+                 <button type="button" data-dismiss-secret="${a.clientId}">I've saved it</button>
+               </div>`
+            : ""
+        }
         <button type="button" data-select-agent="${a.clientId}">Use</button>
         <button type="button" data-revoke-agent="${a.clientId}" ${adminOpsEnabled ? "" : "disabled"}>Revoke</button>
       </div>`,
     )
     .join("");
+
+  agentListEl.querySelectorAll("[data-copy-secret]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = (btn as HTMLElement).dataset.copySecret!;
+      const agent = agents.find((a) => a.clientId === id);
+      if (agent) {
+        navigator.clipboard.writeText(agent.clientSecret).catch((err) => {
+          statusEl.textContent = `Clipboard copy failed — manually copy the secret from the field above: ${err instanceof Error ? err.message : String(err)}`;
+        });
+      }
+    });
+  });
+
+  agentListEl.querySelectorAll("[data-dismiss-secret]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = (btn as HTMLElement).dataset.dismissSecret!;
+      const agent = agents.find((a) => a.clientId === id);
+      if (agent) {
+        agent.secretShown = true;
+        agent.clientSecret = ""; // clear from memory once acknowledged saved
+        renderAgentCards();
+      }
+    });
+  });
 
   agentListEl.querySelectorAll("[data-select-agent]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -436,7 +476,8 @@ createAgentForm.addEventListener("submit", (e) => {
     const agent: ActiveAgent = {
       name: created.name,
       clientId: created.clientId,
-      clientSecret: "",
+      clientSecret: created.clientSecret,
+      secretShown: false,
       token: vended.token,
       scopes,
       serverId: created.serverId ?? serverId,
@@ -478,8 +519,7 @@ initBtn.addEventListener("click", () => {
     if (!serverMeta) throw new Error("Selected MCP server not found");
     const tools = await discoverTools(selectedAgent.serverId, selectedAgent.token);
     const { GatewayAgent } = await import("./gateway-agent.js");
-    const auth0 = getAuth0Config();
-    const jwtTrust = auth0 ? jwtTrustFromAuth0(auth0) : {};
+    const jwtTrust = jwtTrustFromIdpConfig();
     gatewayAgent = new GatewayAgent({
       serverId: selectedAgent.serverId,
       guardConfig: guardConfigForServer(serverMeta),
@@ -538,12 +578,12 @@ inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendBtn.click();
 });
 
-authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLoginBtn.addEventListener("click", () => void login());
 authLogoutBtn.addEventListener("click", () => {
   gatewayAgent = null;
   selectedAgent = null;
   syncSendButtonState();
-  void logoutAuth0().then(() => syncAdminUi());
+  void logout().then(() => syncAdminUi());
 });
 
 populateLlmSelect();

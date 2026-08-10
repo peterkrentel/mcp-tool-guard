@@ -49,32 +49,31 @@ Skip this section if these terms are already familiar.
 
 1. **Sign in as admin.** Opened [`/agents.html`](https://mcp-tool-guard-ui.vercel.app/agents.html), signed in with Auth0 (an account with the `gateway:admin` role).
 2. **Created the M2M agent via the "Create agent" form** — name `claude-code-prod`, MCP server `github` (already registered), scope `repo:read`. This calls `POST /agents`, satisfied by the admin session from step 1.
-3. **Grabbed the `clientSecret` from DevTools.** The UI never displays it after creation (BL-048) — opened DevTools → Network, found the `POST /agents` response, and copied `clientId`/`clientSecret` out of the raw JSON body. This produced the Auth0 application `mcp-agent-claude-code-prod` (see `docs/auth0-setup.md`'s tenant inventory).
+3. **Copied the agent credentials.** Unlike the workaround documented in earlier versions of this guide, the UI now displays `clientId`/`clientSecret` immediately after agent creation (BL-048 is fixed). Copy both for the next step. This produced the Auth0 application `mcp-agent-claude-code-prod` (see `docs/auth0-setup.md`'s tenant inventory).
+
+   **Historical note (2026-07-21):** earlier versions of this workflow grabbed the secret from DevTools — a one-time step requiring a human admin. That limitation prompted BL-048 (surface `clientSecret` in the UI) and BL-049 (automate every control-plane route). BL-048 is now complete; the secret is visible. The workflow below reflects that fix.
 
    **Correction, twice over (2026-07-21):** the *first* version of this section correctly said `claude-code-prod` here. It turned out that name had, at some point, been repurposed to a `slack:read`-scoped agent unrelated to GitHub — discovered live when a re-vended token for it decoded to the wrong scope. That produced a *second*, wrong correction pointing at `github-prod` (a real, separate agent, but the one used for the **browser** Agent gateway demo, not this one). The confusion was resolved by revoking the drifted `claude-code-prod` and recreating it fresh with `github`/`repo:read` — so as of now, `claude-code-prod` and `github-prod` are two distinct, correctly-scoped agents for two distinct clients (Claude Code vs. browser), and the name in this step is accurate again. Lesson: verify an agent's actual current scope by decoding a live token's `azp`/`scope` claims — never assume from the name alone, even a name that sounds obviously right.
-4. **Minted a token.** `POST /token` also needs `gateway:admin`, so the same admin's bearer token (also grabbed from DevTools/`localStorage`) went in the `Authorization` header, with the new agent's `clientId`/`clientSecret` in the body:
+4. **Configured the local token-minting script with prod credentials.** The same `scripts/claude-mcp-token-helper.sh` used for local dev already knows how to mint fresh tokens from `clientId`/`clientSecret` via the `/token` endpoint. Configure it for prod by setting environment variables in `scripts/dev.env`:
 
    ```bash
-   curl -X POST https://mcp-tool-guard-proxy.onrender.com/token \
-     -H "Authorization: Bearer <admin access token>" \
-     -H "Content-Type: application/json" \
-     -d '{"clientId":"<clientId>","clientSecret":"<clientSecret>"}'
-   # -> {"token": "...", "expiresIn": ...}
+   MCP_AGENT_CLIENT_ID="<copied clientId>"
+   MCP_AGENT_CLIENT_SECRET="<copied clientSecret>"
+   PROXY_URL="https://mcp-tool-guard-proxy.onrender.com"
    ```
 
-5. **Stored the resulting JWT as a static token** — `MCP_PROD_STATIC_TOKEN` in `scripts/dev.env` (gitignored), alongside `MCP_PROD_SERVER_URL=https://mcp-tool-guard-proxy.onrender.com/github/mcp`.
-6. **`scripts/claude-mcp-token-helper-prod-demo.sh`** (already in the repo) just sources `MCP_PROD_STATIC_TOKEN` and prints the headers Claude Code needs — no per-connection minting, since there's no scripted way to repeat step 4 without a human admin present.
-7. **Registered the server with Claude Code:**
+   (The script defaults `PROXY_URL` to `http://localhost:8787` if unset, so it works unmodified for local dev. `MCP_AGENT_CLIENT_ID` and `MCP_AGENT_CLIENT_SECRET` must be set in `dev.env` or the environment for either local or prod use.)
+5. **Registered the server with Claude Code:**
 
    ```bash
-   claude mcp add-json ghprod '{"type":"http","url":"https://mcp-tool-guard-proxy.onrender.com/github/mcp","headersHelper":"./scripts/claude-mcp-token-helper-prod-demo.sh"}' --scope local
+   claude mcp add-json ghprod '{"type":"http","url":"https://mcp-tool-guard-proxy.onrender.com/github/mcp","headersHelper":"./scripts/claude-mcp-token-helper.sh"}' --scope local
    ```
 
    Stored in `~/.claude.json` under `local` scope, same as `github-guarded` — nothing MCP-config-related is committed to this repo.
 
-**Known limitation:** this token is static — no refresh, good only until its own `exp` claim (BL-048). Rotating it means repeating steps 1–5 by hand. This is also exactly why BL-049 exists: every step above needs a human admin in the loop, with no scripted shortcut today.
+**Credential rotation:** since the `scripts/claude-mcp-token-helper.sh` script mints fresh tokens on every connection, credentials are short-lived (typically 1 hour) and auto-refresh. To rotate the underlying `clientId`/`clientSecret`, update `scripts/dev.env` and restart Claude Code.
 
-**To wire up a different MCP server the same way:** swap `github`/`repo:read` in step 2 for the new server's `serverId` and the scope it needs, and swap the URL/registered name in steps 5–7 accordingly — everything else (the admin-gate reason, the DevTools-secret step, the static-token tradeoff) applies identically regardless of which upstream MCP is behind it.
+**To wire up a different MCP server the same way:** swap `github`/`repo:read` in step 2 for the new server's `serverId` and the scope it needs, and swap the URL/registered name in step 5 accordingly — everything else applies identically regardless of which upstream MCP is behind it. The prod workflow is now identical to local dev except for the `PROXY_URL` and credentials.
 
 ## Step by step: what happened, in order
 
@@ -116,7 +115,7 @@ Content-Type: application/json
  "params":{"name":"create_or_update_file","arguments":{"owner":"peterkrentel", ...}}}
 ```
 
-The `Authorization` and `X-Trace-Id` headers come from `headersHelper` (`scripts/claude-mcp-token-helper-prod-demo.sh`) — a small script Claude Code runs **once per connection**, not once per call. It just prints a JSON object of headers to stdout, which gets reused for every subsequent call until the connection is re-established. It never sees the tool name or arguments — those are added by the harness at call time. It's a workaround for BL-048 (`/agents.html`'s "Create agent" flow never surfaces a `clientSecret`, so there's no way to mint fresh, short-lived tokens on demand the way the local dev version of this helper does) — the static token it sources has no refresh and is only good until its own `exp` claim expires.
+The `Authorization` and `X-Trace-Id` headers come from `headersHelper` (`scripts/claude-mcp-token-helper.sh`) — a small script Claude Code runs **once per connection**, not once per call. It calls `POST /token` with the agent's credentials to mint a fresh JWT, prints the response headers to stdout, and gets reused for every subsequent call until the connection is re-established. It never sees the tool name or arguments — those are added by the harness at call time. The tokens are short-lived (typically 1 hour) and auto-refresh on each connection, so there's no static-token limitation.
 
 **5. One response, back to me.** Whatever happened server-side — allow, deny, or (as below) a scope-deny held open and eventually resolved — I see it as exactly one tool result.
 

@@ -97,6 +97,9 @@ export class DefaultJwtValidator implements JwtValidator {
     if (Array.isArray(payload.permissions)) {
       scopes.push(...payload.permissions.map(String));
     }
+    if (Array.isArray(payload.roles)) {
+      scopes.push(...payload.roles.map(String));
+    }
     return [...new Set(scopes)];
   }
 
@@ -112,15 +115,40 @@ export class DefaultJwtValidator implements JwtValidator {
   }
 
   private isM2mLikeToken(payload: JwtPayload): boolean {
-    // Primary signal: Auth0 M2M token subject/client-id shape.
-    // Secondary signal: explicit grant type claim when present.
+    // Primary signal: Auth0 M2M token subject/client-id shape, or an
+    // Entra M2M token's azp/appid claim gated on the absence of `scp` (see
+    // clientIdFromPayload) — azp/appid alone is ambiguous because Entra also
+    // stamps it on delegated user-context tokens, which is why the `scp`
+    // gate lives there rather than here.
+    // Secondary signal: explicit grant type claim when present — this exists
+    // only for Auth0, whose M2M `sub` shape needs a fallback; Entra's
+    // scp-gated azp/appid check is already unambiguous and needs no
+    // equivalent secondary check.
     return this.clientIdFromPayload(payload) !== null || payload.gty === "client-credentials";
   }
 
   private clientIdFromPayload(payload: JwtPayload): string | null {
+    // Provider-specific client-id claims are unambiguous, so check them
+    // first: Auth0 M2M tokens carry `client_id`; Entra M2M tokens carry
+    // `azp` (v2 tokens) or `appid` (v1 tokens) instead.
     if (typeof payload.client_id === "string" && payload.client_id.trim()) {
       return payload.client_id.trim();
     }
+    // azp/appid alone is NOT unambiguous: Entra also stamps azp on delegated
+    // (interactive, user-context) access tokens issued to a public client —
+    // e.g. this repo's SPA login. Only client_credentials (app-only) tokens
+    // omit `scp`; delegated tokens always carry it. So azp/appid is only
+    // trusted as an M2M signal when `scp` is absent.
+    if (payload.scp === undefined) {
+      if (typeof payload.azp === "string" && payload.azp.trim()) {
+        return payload.azp.trim();
+      }
+      if (typeof payload.appid === "string" && payload.appid.trim()) {
+        return payload.appid.trim();
+      }
+    }
+    // Fallback heuristic: Auth0's `@clients`-suffixed `sub` shape, used when
+    // `client_id` itself isn't present on the token.
     if (typeof payload.sub === "string") {
       const match = payload.sub.match(/^([^@]+)@clients$/);
       if (match?.[1]) return match[1];

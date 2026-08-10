@@ -41,22 +41,15 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Additive sink path (`null`/`http`/`loki`/`otlp`) forwards allow/deny entries; sink failures are non-blocking with error log; existing `/audit` behavior remains
   owner: unassigned
   source: [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md#production-hardening-priorities-review), post-0.4.0 Track 1 BL-F07
-- BL-021
-  priority: P0
-  status: todo
-  item: Azure Entra JWT validation and IdP adapter
-  acceptance: Entra roles/scp claims map correctly to scopes; invalid/expired Entra token rejected on `tools/call`; provider wiring supports selection as the single active `MCP_IDP_PROVIDER=entra` per BL-034 (not concurrent trust); identity docs updated
-  owner: unassigned
-  source: post-0.4.0 Track 1 BL-F02; sequencing note 2026-07-15 - intentionally scheduled after BL-041 (not a hard dependency) to apply second-adapter lessons before Entra Azure/Graph integration
-  depends_on: BL-020
 - BL-041
   priority: P0
-  status: todo
+  status: deferred
   item: Keycloak JwtValidator and IdpAdapter implementation
-  acceptance: `KeycloakJwtValidator` implements the `JwtValidator` interface from BL-019 (JWKS-based, Keycloak realm token endpoint); claims-mapping handles Keycloak's role shape (`realm_access.roles` / `resource_access` nested client roles) distinct from Auth0's flat scope/permissions claims; `KeycloakIdpAdapter` implements the `IdpAdapter` interface from BL-020 (client registration via Keycloak Admin REST API); deliberately built before BL-021 (Entra) specifically to validate the BL-019/BL-020 abstractions generalize to a second real provider before the higher-stakes Entra integration; reference existing Azure-hosted Keycloak workflow for deployment/testing pattern
+  acceptance: `KeycloakJwtValidator` implements the `JwtValidator` interface from BL-019 (JWKS-based, Keycloak realm token endpoint); claims-mapping handles Keycloak's role shape (`realm_access.roles` / `resource_access` nested client roles) distinct from Auth0's flat scope/permissions claims; `KeycloakIdpAdapter` implements the `IdpAdapter` interface from BL-020 (client registration via Keycloak Admin REST API); reference existing Azure-hosted Keycloak workflow for deployment/testing pattern
   owner: unassigned
-  source: design discussion 2026-07-15 - sequenced ahead of BL-021 to de-risk the Entra work with lessons learned from a self-hosted provider first
+  source: design discussion 2026-07-15 - originally sequenced ahead of BL-021 to de-risk the Entra work with lessons learned from a self-hosted provider first
   depends_on: BL-020
+  note: deliberately skipped in favor of going straight to Entra (BL-021, shipped 2026-08-08) — the `JwtValidator`/`IdpAdapter` abstraction was already interface-complete and Auth0-proven, so Keycloak-first de-risking wasn't needed. Not done, not dropped — deprioritized; revisit if a real deployment needs Keycloak specifically.
 
 ## P1 (important)
 
@@ -102,13 +95,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Guard proxy accepts and forwards a caller-supplied `X-Client-Type` header (e.g. `claude-code`, `browser-gui`) alongside the existing `cc-`/`tr_` trace-id prefix convention; `ui/src/client-type.ts`'s `classifyClientType()` is updated to prefer the header when present, falling back to trace-id pattern matching for older callers; no change to the Claude Code ops view's page/dropdown/filtering behavior, since it only depends on the function's return value
   owner: unassigned
   source: cited in `docs/superpowers/specs/2026-07-19-claude-ops-view-design.md` as a formal follow-on to the trace-id-prefix heuristic shipped with that page; had no backlog row until 2026-07-20 cleanup pass
-- BL-048
-  priority: P1
-  status: todo
-  item: Surface a `clientSecret` from `/agents.html`'s create-agent flow so non-browser clients can get short-lived vended tokens
-  acceptance: `/agents.html`'s "Create agent" flow returns (or otherwise surfaces to the operator) the created M2M agent's `clientSecret`, so a non-browser MCP client (e.g. Claude Code) can drive `gateway/token-vendor.ts`'s normal short-lived-token vending path itself instead of relying on a hand-provisioned static long-lived token; document the credential-handling tradeoffs (one-time display vs. re-mintable) before shipping
-  owner: unassigned
-  source: cited in `docs/claude-code-demo.md` as the reason `scripts/claude-mcp-token-helper-prod-demo.sh` uses a static pre-vended token instead of minting fresh ones; had no backlog row until 2026-07-20 cleanup pass
 - BL-006
   priority: P1
   status: todo
@@ -174,30 +160,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Required env vars fail fast with clear errors; optional env vars emit one-time feature-disabled info; minimum viable config documented; `/health` reports feature flags
   owner: unassigned
   source: post-0.4.0 Track 1 BL-F08
-- BL-027
-  priority: P1
-  status: blocked
-  item: Claude Desktop stdio shim (transport bridge)
-  acceptance: Shim forwards newline JSON-RPC stdin to gateway MCP HTTP and writes stdout responses; `tools/call` includes bearer auth; trace and agent headers added; clean exit on stdin close
-  owner: unassigned
-  source: post-0.4.0 Track 3 BL-L01
-  depends_on: BL-020, BL-021, BL-024, dev meeting decisions
-- BL-028
-  priority: P1
-  status: blocked
-  item: Shim token acquisition via Entra SSO path
-  acceptance: Token acquisition path selected and implemented (desktop token reuse or device flow); per-user identity preserved in gateway auth
-  owner: unassigned
-  source: post-0.4.0 Track 3 BL-L02
-  depends_on: BL-027, BL-021, dev meeting decisions
-- BL-029
-  priority: P1
-  status: blocked
-  item: Entra role-to-scope mapping
-  acceptance: `role_mappings` config supported; Entra roles resolve to scopes; explicit scope grants remain backward compatible; unmapped roles deny by default
-  owner: unassigned
-  source: post-0.4.0 Track 3 BL-L03
-  depends_on: BL-020, BL-021, sample token claims
 - BL-030
   priority: P1
   status: blocked
@@ -205,7 +167,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Audit entries include `user_sub` from JWT `sub` or Entra `oid`; M2M uses `client_id` attribution; guest/demo remains distinguishable; sink payload includes `user_sub`
   owner: unassigned
   source: post-0.4.0 Track 3 BL-L04
-  depends_on: BL-005, BL-020, BL-021, sample token claims
+  depends_on: BL-005, BL-020, sample token claims
 - BL-031
   priority: P1
   status: todo
@@ -320,13 +282,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   acceptance: Reproduce and root-cause where the retry originates — Claude Code's own MCP client/transport, or the `X-Wait-For-Approval` long-poll interacting badly with a deny response (e.g. the held connection erroring in a way the client interprets as retriable). The guard proxy's own deny mechanism is confirmed correct in isolation (a `deny` on a pending request does terminate that specific held connection — verified via two independent, correctly dual-logged `deny` audit rows for the same `pr_...` id). The gap is that the *caller* doesn't treat that denial as final: a brand-new `trace_id` and a brand-new pending request appeared ~2 seconds after the first was denied, for what was one single explicit tool call, with no second call issued by the human or the agent's own visible action. Whatever the root cause, the product's human-in-the-loop guarantee is undermined if "deny" isn't actually final from the calling agent's perspective — a human has to notice and re-deny every automatic retry, or an operator who denies once and stops watching may get a write they explicitly rejected. Candidate mitigations to evaluate: correlate retries of the same logical call (e.g. same tool+args+agent within a short window) so a prior deny on that logical call is remembered and auto-applies; or surface a clear "this was already denied once" signal in the ops view/pending queue.
   owner: unassigned
   source: discovered live 2026-07-21 while smoke-testing the recreated `claude-code-prod` agent against `ghprod`: denied pending request `pr_0d9ba5c56eae` (trace `cc-5becd1f5-81ab-47e2-942c-8188d1826102`) at 14:42:15, confirmed denied via two dual-logged `deny` rows; a new pending request `pr_19ca4f03934f` (trace `cc-55c6ff67-ad45-496f-b3ac-d127505b3fc9`) appeared at 14:42:17-18 for the same tool call, was approved at 14:42:46, and produced a real GitHub commit. Cross-verified identically in both the Claude Code ops view and the Grafana Claude Code Client dashboard.
-- BL-052
-  priority: P2
-  status: todo
-  item: Research how the MCP/agent ecosystem handles non-interactive credential refresh for remote MCP servers, before committing to a custom guard-side token-vending design
-  acceptance: Written summary (not code) answering, in order: (1) does Claude Code's own MCP client support any native auth flow for remote HTTP MCP servers — e.g. a one-time browser popup with the client then managing its own token refresh internally — distinct from the custom `headersHelper` pattern this project relies on for both local and prod; (2) does the MCP protocol spec itself define a standard auth flow for this scenario, and if so what; (3) how do other MCP clients (VS Code's native MCP support, OpenCode, etc.) handle non-interactive/remote-server auth. Then, informed by those findings, revisit whether BL-048/BL-049's current direction — a lightweight guard-side self-refresh capability (the guard uses its own already-configured Management API credential, `mcp-tool-guard-proxy-m2m`, to mint fresh tokens for a pre-approved agent identity on request, without needing a human `gateway:admin` login each time) — is still the right layer to build this at, or whether the ecosystem already solves it in a way that makes a bespoke solution unnecessary or wrong-layered.
-  owner: unassigned
-  source: raised 2026-07-21 while designing a token-refresh architecture for BL-048/BL-049 — recognized mid-design that neither backlog item had actually asked what's already standard/native in the Claude Code and MCP ecosystem before proposing a custom solution
 
 ## Notes
 

@@ -1,5 +1,7 @@
 import { createM2mAgent, deleteM2mAgent, isAuth0MgmtConfigured } from "./auth0-mgmt.js";
 import { auth0AudienceFromEnv, TokenVendor, tokenVendorFromEnv } from "./token-vendor.js";
+import { entraTokenVendorFromEnv, entraApiAppIdFromEnv } from "./entra-token-vendor.js";
+import { isEntraMgmtConfigured, createEntraAgent, deleteEntraAgent } from "./entra-mgmt.js";
 
 export type IdpProviderId = "auth0" | "keycloak" | "entra";
 
@@ -25,6 +27,8 @@ export interface IdpAdapter {
   isManagementConfigured(): boolean;
   /** Whether client_credentials token vending has its required config. */
   isVendingConfigured(): boolean;
+  /** Provider-specific description of the env vars missing when isVendingConfigured() is false. */
+  vendingConfigError(): string;
   createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient>;
   deleteAgent(clientId: string): Promise<void>;
   vendToken(clientId: string, clientSecret: string): Promise<VendedToken>;
@@ -54,6 +58,10 @@ export class Auth0IdpAdapter implements IdpAdapter {
     return Boolean(this.tokenVendor && this.audience);
   }
 
+  vendingConfigError(): string {
+    return "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending";
+  }
+
   createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient> {
     return createM2mAgent(name, scopes);
   }
@@ -64,9 +72,56 @@ export class Auth0IdpAdapter implements IdpAdapter {
 
   async vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
     if (!this.tokenVendor || !this.audience) {
-      throw new Error("AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending");
+      throw new Error(this.vendingConfigError());
     }
     return this.tokenVendor.vend(clientId, clientSecret, this.audience);
+  }
+
+  invalidateToken(clientId: string): void {
+    this.tokenVendor?.invalidate(clientId);
+  }
+}
+
+/**
+ * Entra ID implementation — wraps the existing entra-mgmt.ts / entra-token-vendor.ts
+ * functions unchanged so behavior (status codes, error message strings) is
+ * preserved exactly; this class is purely a seam for injection.
+ */
+export class EntraIdpAdapter implements IdpAdapter {
+  readonly providerId: IdpProviderId = "entra";
+  private readonly tokenVendor: ReturnType<typeof entraTokenVendorFromEnv>;
+  private readonly apiAppId: string | null;
+
+  constructor() {
+    this.tokenVendor = entraTokenVendorFromEnv();
+    this.apiAppId = entraApiAppIdFromEnv();
+  }
+
+  isManagementConfigured(): boolean {
+    return isEntraMgmtConfigured();
+  }
+
+  isVendingConfigured(): boolean {
+    return Boolean(this.tokenVendor && this.apiAppId);
+  }
+
+  vendingConfigError(): string {
+    return "ENTRA_TENANT_ID and ENTRA_API_APP_ID required for token vending";
+  }
+
+  createAgent(name: string, scopes: string[]): Promise<CreatedAgentClient> {
+    return createEntraAgent(name, scopes);
+  }
+
+  deleteAgent(clientId: string): Promise<void> {
+    return deleteEntraAgent(clientId);
+  }
+
+  async vendToken(clientId: string, clientSecret: string): Promise<VendedToken> {
+    if (!this.tokenVendor || !this.apiAppId) {
+      throw new Error(this.vendingConfigError());
+    }
+    return this.tokenVendor.vend(clientId, clientSecret, this.apiAppId);
   }
 
   invalidateToken(clientId: string): void {
@@ -88,9 +143,7 @@ export function buildIdpAdapter(providerId: IdpProviderId): IdpAdapter {
         "MCP_IDP_PROVIDER=keycloak is not yet implemented (tracked in BL-041)",
       );
     case "entra":
-      throw new Error(
-        "MCP_IDP_PROVIDER=entra is not yet implemented (tracked in BL-021)",
-      );
+      return new EntraIdpAdapter();
     default: {
       const exhaustive: never = providerId;
       throw new Error(`Unhandled IdpProviderId: ${exhaustive as string}`);

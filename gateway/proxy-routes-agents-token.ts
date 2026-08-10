@@ -81,7 +81,7 @@ export async function handleAgentsTokenRoutes(
   if (req.method === "POST" && agentTokenMatch) {
     /** POST /agents/:clientId/token — vend JWT using secret stored at create (gateway:admin). */
     if (!idpAdapter.isVendingConfigured()) {
-      sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
+      sendJson(res, 503, { error: idpAdapter.vendingConfigError() });
       return true;
     }
     if (
@@ -134,7 +134,7 @@ export async function handleAgentsTokenRoutes(
   /** POST /token — vend client_credentials JWT. Auth: gateway:admin when enabled. */
   if (req.method === "POST" && pathname === "/token") {
     if (!idpAdapter.isVendingConfigured()) {
-      sendJson(res, 503, { error: "AUTH0_DOMAIN and AUTH0_AUDIENCE required for token vending" });
+      sendJson(res, 503, { error: idpAdapter.vendingConfigError() });
       return true;
     }
     if (
