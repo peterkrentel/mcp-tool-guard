@@ -10,13 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth0/auth0-spa-js": "^2.23.0",
+    "@auth0/auth0-spa-js": "^2.24.1",
     "@mcp-tool-guard/gateway": "*",
     "@mlc-ai/web-llm": "^0.2.84",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vite": "^8.1.5"
+    "vite": "^8.2.1"
   }
 }
