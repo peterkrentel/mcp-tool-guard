@@ -28,8 +28,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: design discussion 2026-08-10 on branch feature/entra-idp-adapter — user identified that `entra-setup.sh` conflated "stand up the tenant" (the actual `az` automation ask) with "declare every current+future MCP server's scopes upfront," which doesn't match how Auth0 ever worked (permissions were added incrementally per-server, always manually, never automated) and directly blocks the stated goal of registering arbitrary vendor MCPs at runtime (`POST /servers`) without a corresponding manual IdP step
 
-## P0 (next)
-
 - BL-003
   priority: P0
   status: todo
