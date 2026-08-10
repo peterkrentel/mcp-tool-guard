@@ -115,7 +115,19 @@ az rest --method POST \
   --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_ID/owners/\$ref" \
   --headers "Content-Type=application/json" \
   --body "{\"@odata.id\": \"https://graph.microsoft.com/v1.0/directoryObjects/$MGMT_SP_ID\"}"
-az ad app permission admin-consent --id "$MGMT_APP_ID"
+
+# `az ad app permission admin-consent` is unreliable in this az CLI version —
+# confirmed live twice now, once for the SPA's delegated (Scope) grant and
+# again here for this application (Role) grant: it returns success with no
+# error, but never actually creates the underlying appRoleAssignment. A
+# freshly minted management-app token had no `roles` claim at all despite
+# admin-consent having "succeeded." Create the appRoleAssignment directly
+# instead of trusting admin-consent for this permission.
+GRAPH_SP_ID="$(az ad sp show --id 00000003-0000-0000-c000-000000000000 --query id -o tsv)"
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$MGMT_SP_ID/appRoleAssignments" \
+  --headers "Content-Type=application/json" \
+  --body "{\"principalId\": \"$MGMT_SP_ID\", \"resourceId\": \"$GRAPH_SP_ID\", \"appRoleId\": \"18a4783c-866b-4cc7-a460-3d5e5662c884\"}"
 
 echo "== SPA app registration (human browser login) =="
 # Redirect URIs must exactly match window.location.origin + pathname from
