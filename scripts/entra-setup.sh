@@ -97,6 +97,24 @@ echo "== Granting management app Graph Application.ReadWrite.OwnedBy + admin con
 az ad app permission add --id "$MGMT_APP_ID" \
   --api 00000003-0000-0000-c000-000000000000 \
   --api-permissions 18a4783c-866b-4cc7-a460-3d5e5662c884=Role
+
+# Application.ReadWrite.OwnedBy only grants access to objects the calling
+# principal actually owns — the API app (and its service principal) were
+# just created under *your* interactive account above, not the management
+# app, so createEntraAgent()'s servicePrincipal lookup would 403 with
+# "Insufficient privileges" without this. Applications and service
+# principals are separate Graph objects with separate `owners` collections
+# (confirmed live — adding ownership on one does not extend to the other),
+# so both need the management app's SP added explicitly. `az ad sp owner`
+# has no add/remove subcommand in this az CLI version (only `list`), hence
+# the raw Graph call for the service principal side.
+MGMT_SP_ID="$(az ad sp show --id "$MGMT_APP_ID" --query id -o tsv)"
+API_SP_ID="$(az ad sp show --id "$API_APP_ID" --query id -o tsv)"
+az ad app owner add --id "$API_APP_ID" --owner-object-id "$MGMT_SP_ID"
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_ID/owners/\$ref" \
+  --headers "Content-Type=application/json" \
+  --body "{\"@odata.id\": \"https://graph.microsoft.com/v1.0/directoryObjects/$MGMT_SP_ID\"}"
 az ad app permission admin-consent --id "$MGMT_APP_ID"
 
 echo "== SPA app registration (human browser login) =="
