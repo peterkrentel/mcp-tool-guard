@@ -188,6 +188,46 @@ test("Entra-shaped M2M token (azp, roles, no client_id/@clients sub) is detected
   assert.match(String(result.reason ?? ""), /Agent revoked or deleted/i);
 });
 
+test("Entra-shaped delegated token (azp + scp, human admin sign-in) is NOT treated as M2M and skips the revocation check", async () => {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  jwk.use = "sig";
+  jwk.alg = "RS256";
+  jwk.kid = "entra-delegated-test";
+  const jwksUrl = await startJwksServer(jwk);
+
+  const guard = new ToolGuard({
+    config: makeConfig(),
+    // Deliberately deny every client-id lookup: if this delegated token were
+    // (mis)classified as M2M via its azp claim, the request would be
+    // rejected with "Agent revoked or deleted". Asserting allowed === true
+    // proves the revocation check was skipped, not merely stubbed to pass.
+    isM2mClientActive: async () => false,
+    jwtIssuer: ISSUER,
+    jwtAudience: AUDIENCE,
+    jwksUrl,
+  });
+
+  const token = await new SignJWT({
+    // Delegated (authorization-code+PKCE) shape: azp identifies the SPA
+    // client, but scp — present only on user-context tokens, never on
+    // client_credentials tokens — marks this as human, not M2M.
+    scp: "access_as_user repo:read",
+    roles: ["gateway:admin"],
+    azp: "entra-spa-client-id",
+    sub: "entra-user-object-id",
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "entra-delegated-test" })
+    .setIssuer(`${ISSUER}/`)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(privateKey);
+
+  const result = await guard.authorize("github", "search_repositories", token);
+  assert.equal(result.allowed, true);
+});
+
 test("Entra-shaped M2M token with only appid (v1 shape) is also detected as M2M-like", async () => {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
   const jwk = await exportJWK(publicKey);

@@ -116,11 +116,14 @@ export class DefaultJwtValidator implements JwtValidator {
 
   private isM2mLikeToken(payload: JwtPayload): boolean {
     // Primary signal: Auth0 M2M token subject/client-id shape, or an
-    // Entra M2M token's azp/appid claim (see clientIdFromPayload).
+    // Entra M2M token's azp/appid claim gated on the absence of `scp` (see
+    // clientIdFromPayload) — azp/appid alone is ambiguous because Entra also
+    // stamps it on delegated user-context tokens, which is why the `scp`
+    // gate lives there rather than here.
     // Secondary signal: explicit grant type claim when present — this exists
     // only for Auth0, whose M2M `sub` shape needs a fallback; Entra's
-    // azp/appid presence is already an unambiguous primary signal and needs
-    // no equivalent secondary check.
+    // scp-gated azp/appid check is already unambiguous and needs no
+    // equivalent secondary check.
     return this.clientIdFromPayload(payload) !== null || payload.gty === "client-credentials";
   }
 
@@ -131,11 +134,18 @@ export class DefaultJwtValidator implements JwtValidator {
     if (typeof payload.client_id === "string" && payload.client_id.trim()) {
       return payload.client_id.trim();
     }
-    if (typeof payload.azp === "string" && payload.azp.trim()) {
-      return payload.azp.trim();
-    }
-    if (typeof payload.appid === "string" && payload.appid.trim()) {
-      return payload.appid.trim();
+    // azp/appid alone is NOT unambiguous: Entra also stamps azp on delegated
+    // (interactive, user-context) access tokens issued to a public client —
+    // e.g. this repo's SPA login. Only client_credentials (app-only) tokens
+    // omit `scp`; delegated tokens always carry it. So azp/appid is only
+    // trusted as an M2M signal when `scp` is absent.
+    if (payload.scp === undefined) {
+      if (typeof payload.azp === "string" && payload.azp.trim()) {
+        return payload.azp.trim();
+      }
+      if (typeof payload.appid === "string" && payload.appid.trim()) {
+        return payload.appid.trim();
+      }
     }
     // Fallback heuristic: Auth0's `@clients`-suffixed `sub` shape, used when
     // `client_id` itself isn't present on the token.
