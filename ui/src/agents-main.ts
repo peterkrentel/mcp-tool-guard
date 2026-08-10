@@ -170,7 +170,7 @@ async function syncAdminUi(): Promise<void> {
 
   if (!authenticated) {
     authStatusEl.textContent = "Sign in to manage MCPs and agents";
-    adminGateHintEl.textContent = `Requires Auth0 permission ${GATEWAY_ADMIN_PERMISSION}.`;
+    adminGateHintEl.textContent = `Requires the ${GATEWAY_ADMIN_PERMISSION} permission/role.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);
@@ -180,7 +180,7 @@ async function syncAdminUi(): Promise<void> {
   authStatusEl.textContent = await getUserLabel();
   const isAdmin = await hasGatewayAdminAccess();
   if (!isAdmin) {
-    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in Auth0, then sign out/in.`;
+    adminGateHintEl.textContent = `Signed in, but your token lacks ${GATEWAY_ADMIN_PERMISSION}. Assign it in the identity provider, then sign out/in.`;
     adminOpsEnabled = false;
     setFormEnabled(addMcpForm, false);
     setFormEnabled(createAgentForm, false);
