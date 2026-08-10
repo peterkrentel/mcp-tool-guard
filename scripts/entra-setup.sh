@@ -101,13 +101,31 @@ az ad app permission admin-consent --id "$MGMT_APP_ID"
 
 echo "== SPA app registration (human browser login) =="
 # Redirect URIs must exactly match window.location.origin + pathname from
-# ui/src/auth.ts's getMsalClient() at the actual login page, i.e. .../agents.html
-# — Entra does exact-match, not prefix-match, on redirect URIs. Local + the
-# prod Vercel UI origin (same convention as docs/auth0-setup.md's SPA
-# "Allowed Callback URLs"), both with the /agents.html path appended.
-SPA_APP_ID="$(az ad app create --display-name "$SPA_APP_NAME" \
-  --spa-redirect-uris "http://localhost:5173/agents.html" "https://mcp-tool-guard-ui.vercel.app/agents.html" \
-  --query appId -o tsv)"
+# ui/src/auth.ts's getMsalClient() at the actual page the user signed in
+# from — Entra does exact-match, not prefix-match, on redirect URIs.
+# getMsalClient() is invoked from every page that can initiate Entra sign-in,
+# not just /agents.html: the landing page (ui/src/landing-main.ts, path "/"),
+# /agents.html, /claude-ops.html, and /flight-demo.html were all migrated to
+# the generic login()/handleAuthRedirect() dispatchers in this same branch.
+# Each one needs its own exact-match entry, local + prod, or sign-in fails
+# with AADSTS50011 on any page other than whichever one was registered —
+# this is the same bug class already fixed for Auth0's "Allowed Callback
+# URLs" in this project's history (see docs/auth0-setup.md), just missed
+# here on the first pass since only /agents.html was registered originally.
+#
+# `az ad app create` has no `--spa-redirect-uris` flag (confirmed against a
+# live install of az CLI 2.75.0 — only --web-redirect-uris and
+# --public-client-redirect-uris exist as create-time convenience flags, and
+# neither is the right application platform for a SPA). The `spa` redirect
+# URI collection is a property of the Graph application resource itself, set
+# via a direct PATCH — the same pattern already used above for `appRoles`
+# and `api.requestedAccessTokenVersion` on the API app.
+SPA_APP_ID="$(az ad app create --display-name "$SPA_APP_NAME" --query appId -o tsv)"
+SPA_OBJECT_ID="$(az ad app show --id "$SPA_APP_ID" --query id -o tsv)"
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$SPA_OBJECT_ID" \
+  --headers "Content-Type=application/json" \
+  --body "{\"spa\": {\"redirectUris\": [\"http://localhost:5173/\", \"http://localhost:5173/agents.html\", \"http://localhost:5173/claude-ops.html\", \"http://localhost:5173/flight-demo.html\", \"https://mcp-tool-guard-ui.vercel.app/\", \"https://mcp-tool-guard-ui.vercel.app/agents.html\", \"https://mcp-tool-guard-ui.vercel.app/claude-ops.html\", \"https://mcp-tool-guard-ui.vercel.app/flight-demo.html\"]}}"
 az ad sp create --id "$SPA_APP_ID" >/dev/null
 echo "VITE_ENTRA_CLIENT_ID=$SPA_APP_ID"
 echo "VITE_ENTRA_TENANT_ID=$TENANT_ID"
