@@ -481,6 +481,47 @@ test("createEntraAgent() does not retry a servicePrincipal creation failure that
   }
 });
 
+// Regression test for a live-tenant bug: a third occurrence of the same
+// consistency-lag class, this time minting the client secret (addPassword)
+// right after the role assignments — same underlying condition, Graph's lag
+// isn't specific to any one endpoint in this chain.
+test("createEntraAgent() retries addPassword on a Graph consistency-lag error and succeeds", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  let secretAttempts = 0;
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /addPassword": () => {
+      secretAttempts += 1;
+      if (secretAttempts === 1) {
+        return {
+          ok: false,
+          status: 404,
+          text: async () =>
+            JSON.stringify({
+              error: {
+                code: "Request_ResourceNotFound",
+                message:
+                  "Resource 'new-object-id' does not exist or one of its queried reference-property objects are not present.",
+              },
+            }),
+        };
+      }
+      return { ok: true, json: async () => ({ secretText: "new-client-secret" }) };
+    },
+  });
+  global.fetch = fetchMock;
+  try {
+    const result = await createEntraAgent("test-agent", ["flights:read"]);
+    assert.equal(result.clientSecret, "new-client-secret");
+    assert.equal(secretAttempts, 2, "expected exactly one retry after the consistency-lag failure");
+    assert.ok(!calls.some((c) => c.method === "DELETE"), "must not roll back on a retried-and-recovered failure");
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
 test("createEntraAgent() rolls back (deletes application) when an app role assignment fails", async () => {
   const restore = clearEntraEnv();
   const originalFetch = global.fetch;

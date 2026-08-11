@@ -361,11 +361,19 @@ export async function createEntraAgent(
       }
     }
 
-    const secretRes = await fetch(`${GRAPH_BASE}/applications/${app.id}/addPassword`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ passwordCredential: { displayName: "mcp-tool-guard-vended" } }),
-    });
+    // Third occurrence of the same class of bug, live-verified: this call
+    // references app.id (the application just created above) immediately,
+    // same as the servicePrincipal-creation and appRoleAssignment calls
+    // already wrapped with this retry — Graph's consistency lag isn't
+    // specific to any one endpoint, it recurs at every step that references
+    // a just-created object's own id right away.
+    const secretRes = await fetchGraphWithConsistencyRetry(() =>
+      fetch(`${GRAPH_BASE}/applications/${app.id}/addPassword`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ passwordCredential: { displayName: "mcp-tool-guard-vended" } }),
+      }),
+    );
     if (!secretRes.ok) {
       throw new Error(`Entra add secret failed: ${secretRes.status} ${await secretRes.text()}`);
     }
