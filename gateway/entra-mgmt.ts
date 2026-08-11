@@ -125,6 +125,88 @@ async function getApiApplicationObjectId(
 }
 
 /**
+ * Resolves the management app's own service principal object id (by its own
+ * client id, `cfg.clientId`) — needed so newly-created agent applications can
+ * be owned by the management app at creation time. `Application.ReadWrite.OwnedBy`
+ * restricts every operation to objects the caller owns; an app-only `POST
+ * /applications` call does not automatically assign an owner the way
+ * interactive/user-context creation does, so without this a freshly-created
+ * agent application has no owner at all, and the immediately-following `POST
+ * /servicePrincipals` for it fails (confirmed live: "the backing application
+ * of the service principal being created must [be] in the local tenant" —
+ * a confusingly-worded ownership check, not a real cross-tenant issue).
+ */
+async function getMgmtServicePrincipalId(
+  cfg: EntraMgmtConfig,
+  headers: Record<string, string>,
+): Promise<string> {
+  const res = await fetch(
+    `${GRAPH_BASE}/servicePrincipals?$filter=appId eq '${encodeURIComponent(escapeODataString(cfg.clientId))}'`,
+    { headers },
+  );
+  if (!res.ok) {
+    throw new Error(`Entra management servicePrincipal lookup failed: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as { value: Array<{ id: string }> };
+  const spId = data.value[0]?.id;
+  if (!spId) {
+    throw new Error(
+      `Entra management servicePrincipal not found for appId '${cfg.clientId}' — check ENTRA_CLIENT_ID`,
+    );
+  }
+  return spId;
+}
+
+// Live-verified against a real tenant: creating an application via app-only
+// (client_credentials) auth and immediately creating its service principal
+// is subject to real Microsoft Graph eventual-consistency lag — 5s wasn't
+// enough, 30s was. Graph reports this inconsistently depending on exactly
+// which validation path is hit: sometimes a 403 ("the backing application of
+// the service principal being created must [be] in the local tenant" —
+// despite the app genuinely being local-tenant and owned correctly),
+// sometimes a 400 with code "NoBackingApplicationObject". Both are the same
+// underlying condition, not a real authorization or ownership problem
+// (confirmed by isolated testing outside this codebase entirely). Retry with
+// backoff rather than a flat sleep on every single agent creation, since the
+// actual delay varies and is often much shorter than the worst case.
+const SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
+
+function isConsistencyLagError(status: number, body: string): boolean {
+  if (status !== 400 && status !== 403) return false;
+  return (
+    body.includes("NoBackingApplicationObject") ||
+    body.includes("must in the local tenant") ||
+    body.includes("must be in the local tenant")
+  );
+}
+
+async function createServicePrincipalWithRetry(
+  appId: string,
+  headers: Record<string, string>,
+): Promise<{ id: string }> {
+  for (let attempt = 0; ; attempt++) {
+    const spRes = await fetch(`${GRAPH_BASE}/servicePrincipals`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ appId }),
+    });
+    if (spRes.ok) {
+      return (await spRes.json()) as { id: string };
+    }
+    const body = await spRes.text();
+    const canRetry =
+      isConsistencyLagError(spRes.status, body) &&
+      attempt < SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS.length;
+    if (!canRetry) {
+      throw new Error(`Entra create servicePrincipal failed: ${spRes.status} ${body}`);
+    }
+    await new Promise((resolve) =>
+      setTimeout(resolve, SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS[attempt]),
+    );
+  }
+}
+
+/**
  * POST /agents — create an Entra app registration + service principal for an
  * M2M agent, assign it the requested App Roles (named identically to the
  * scope strings ToolGuard already enforces, e.g. "flights:read"), and mint a
@@ -213,10 +295,14 @@ export async function createEntraAgent(
     return { scope, id: role.id };
   });
 
+  const mgmtSpId = await getMgmtServicePrincipalId(cfg, headers);
   const appRes = await fetch(`${GRAPH_BASE}/applications`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ displayName: `mcp-agent-${name}` }),
+    body: JSON.stringify({
+      displayName: `mcp-agent-${name}`,
+      "owners@odata.bind": [`${GRAPH_BASE}/directoryObjects/${mgmtSpId}`],
+    }),
   });
   if (!appRes.ok) {
     throw new Error(`Entra create application failed: ${appRes.status} ${await appRes.text()}`);
@@ -224,15 +310,7 @@ export async function createEntraAgent(
   const app = (await appRes.json()) as { appId: string; id: string };
 
   try {
-    const spRes = await fetch(`${GRAPH_BASE}/servicePrincipals`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ appId: app.appId }),
-    });
-    if (!spRes.ok) {
-      throw new Error(`Entra create servicePrincipal failed: ${spRes.status} ${await spRes.text()}`);
-    }
-    const sp = (await spRes.json()) as { id: string };
+    const sp = await createServicePrincipalWithRetry(app.appId, headers);
 
     for (const { scope, id: appRoleId } of roleIds) {
       const assignRes = await fetch(

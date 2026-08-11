@@ -169,6 +169,21 @@ test("createEntraAgent() registers app, service principal, role assignment, and 
     assert.equal(assignCall.body.resourceId, API_SP_ID);
     assert.equal(assignCall.body.appRoleId, "role-guid-read");
     assert.notEqual(assignCall.body.appRoleId, "flights:read");
+
+    // Regression test for a live-tenant bug: Application.ReadWrite.OwnedBy
+    // restricts every operation to objects the caller owns, but an app-only
+    // POST /applications call does not auto-assign an owner the way
+    // interactive creation does — so without self-assigning ownership at
+    // creation time, the immediately-following servicePrincipal creation for
+    // that same app fails ("the backing application ... must be in the local
+    // tenant", a misleadingly-worded ownership check).
+    const createAppCall = calls.find((c) => c.url.endsWith("/applications") && c.method === "POST");
+    assert.ok(
+      Array.isArray(createAppCall.body["owners@odata.bind"]) &&
+        createAppCall.body["owners@odata.bind"].length === 1,
+      "expected POST /applications to self-assign an owner via owners@odata.bind",
+    );
+    assert.match(createAppCall.body["owners@odata.bind"][0], /\/directoryObjects\//);
   } finally {
     global.fetch = originalFetch;
     restore();
@@ -389,6 +404,77 @@ test("createEntraAgent() rolls back (deletes application) when servicePrincipal 
     const deleteCall = calls.find((c) => c.method === "DELETE");
     assert.ok(deleteCall, "expected rollback DELETE call");
     assert.ok(deleteCall.url.endsWith("/applications/new-object-id"));
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+// Regression test for a live-tenant bug: creating an application via app-only
+// auth and immediately creating its service principal hit real Microsoft
+// Graph eventual-consistency lag (confirmed live: 5s wasn't enough, 30s was),
+// surfaced as either a 403 ("must be in the local tenant") or a 400
+// ("NoBackingApplicationObject") depending on which validation path Graph
+// hit. createEntraAgent() must retry those specific errors with backoff
+// rather than failing immediately or retrying every failure indiscriminately.
+test("createEntraAgent() retries servicePrincipal creation on a Graph consistency-lag error and succeeds", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  let spAttempts = 0;
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /servicePrincipals": (u) => {
+      if (!u.endsWith("/servicePrincipals")) return { ok: true, json: async () => ({}) };
+      spAttempts += 1;
+      if (spAttempts === 1) {
+        return {
+          ok: false,
+          status: 403,
+          text: async () =>
+            JSON.stringify({
+              error: {
+                code: "Authorization_RequestDenied",
+                message:
+                  "When using this permission, the backing application of the service principal being created must in the local tenant",
+              },
+            }),
+        };
+      }
+      return { ok: true, json: async () => ({ id: "new-sp-id" }) };
+    },
+  });
+  global.fetch = fetchMock;
+  try {
+    const result = await createEntraAgent("test-agent", ["flights:read"]);
+    assert.equal(result.clientId, "new-client-id");
+    assert.equal(spAttempts, 2, "expected exactly one retry after the consistency-lag failure");
+    assert.ok(!calls.some((c) => c.method === "DELETE"), "must not roll back on a retried-and-recovered failure");
+  } finally {
+    global.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("createEntraAgent() does not retry a servicePrincipal creation failure that isn't a consistency-lag error", async () => {
+  const restore = clearEntraEnv();
+  const originalFetch = global.fetch;
+  setEntraEnv();
+  let spAttempts = 0;
+  const { fetchMock, calls } = makeFetchMock({
+    "POST /servicePrincipals": (u) => {
+      if (!u.endsWith("/servicePrincipals")) return { ok: true, json: async () => ({}) };
+      spAttempts += 1;
+      return { ok: false, status: 400, text: async () => "some unrelated bad request" };
+    },
+  });
+  global.fetch = fetchMock;
+  try {
+    await assert.rejects(
+      createEntraAgent("test-agent", ["flights:read"]),
+      /Entra create servicePrincipal failed: 400 some unrelated bad request/,
+    );
+    assert.equal(spAttempts, 1, "must not retry a non-consistency-lag failure");
+    assert.ok(calls.some((c) => c.method === "DELETE"), "expected rollback DELETE call");
   } finally {
     global.fetch = originalFetch;
     restore();
