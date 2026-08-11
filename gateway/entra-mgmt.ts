@@ -1,7 +1,5 @@
 /** Microsoft Graph API — Entra M2M agent app-registration lifecycle (server-side only). */
 
-import { randomUUID } from "node:crypto";
-
 export interface EntraMgmtConfig {
   tenantId: string;
   clientId: string;
@@ -264,7 +262,15 @@ export async function createEntraAgent(
       allowedMemberTypes: ["User", "Application"],
       description: `Auto-provisioned scope for ${scope}`,
       displayName: scope,
-      id: randomUUID(),
+      // Global Web Crypto API (crypto.randomUUID()), not "node:crypto" — this
+      // module is transitively bundled into the browser UI via the gateway
+      // package's index.ts barrel export (ToolGuard is imported client-side
+      // for its pre-check, which pulls in this whole module graph regardless
+      // of whether Entra-specific code actually runs there). "node:crypto"
+      // gets externalized by Vite for browser builds and throws at runtime;
+      // the global `crypto` object is natively available in both modern
+      // Node.js and every browser, so this works in both without an import.
+      id: crypto.randomUUID(),
       isEnabled: true,
       value: scope,
     }));
