@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pretest": "tsc src/auth-provider.ts --outDir dist-test --module ESNext --target ES2022 --moduleResolution bundler --skipLibCheck --ignoreConfig",
+    "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.23.0",

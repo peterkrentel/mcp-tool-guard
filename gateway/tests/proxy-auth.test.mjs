@@ -137,6 +137,20 @@ before(async () => {
       MCP_APPROVAL_QUEUE: "true",
       MCP_AUDIT_AGENT_TRUSTED_MODE: "false",
       MCP_PENDING_LONGPOLL_MAX_MS: "800",
+      // Explicitly cleared, not just left to ambient absence: a developer
+      // running this suite from a shell with `scripts/dev.env` sourced (the
+      // documented local-dev workflow) would otherwise have real Auth0/Entra
+      // management credentials leak into `...process.env` above, letting
+      // tests that expect "not configured" instead make a real API call
+      // against a live tenant — confirmed as a real risk during code review.
+      AUTH0_MGMT_CLIENT_ID: "",
+      AUTH0_MGMT_CLIENT_SECRET: "",
+      AUTH0_DOMAIN: "",
+      AUTH0_AUDIENCE: "",
+      ENTRA_TENANT_ID: "",
+      ENTRA_CLIENT_ID: "",
+      ENTRA_CLIENT_SECRET: "",
+      ENTRA_API_APP_ID: "",
     },
     stdio: ["ignore", "ignore", "ignore"],
   });

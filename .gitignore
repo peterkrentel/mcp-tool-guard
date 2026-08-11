@@ -3,6 +3,7 @@ keys/
 .venv/
 node_modules/
 dist/
+dist-test/
 .env
 .env.local
 ui/.env.local
