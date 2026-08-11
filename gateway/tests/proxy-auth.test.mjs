@@ -292,6 +292,57 @@ test("POST /agents rejects gateway:admin in requested scopes", async () => {
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(String(body.error ?? ""), /cannot be granted gateway:admin/i);
+  // Security-relevant: the gateway:admin scope reject must happen
+  // synchronously before a pending-agent entry is ever created — no
+  // pendingId should be handed back for a request that was rejected.
+  assert.equal(body.pendingId, undefined);
+});
+
+test("POST /agents returns 202 with a pendingId instead of the full agent, and GET /agents/pending/:id reflects the background result", async () => {
+  const adminToken = await makeToken(["gateway:admin"]);
+  const createRes = await fetch(`${BASE_URL}/agents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      name: "agent-async-create",
+      scopes: ["flights:read"],
+    }),
+  });
+  assert.equal(createRes.status, 202);
+  const createBody = await createRes.json();
+  assert.equal(createBody.status, "pending");
+  assert.ok(typeof createBody.pendingId === "string" && createBody.pendingId.length > 0);
+  assert.equal(createBody.clientId, undefined);
+  assert.equal(createBody.clientSecret, undefined);
+
+  // The spawned test server has no AUTH0_MGMT_* configured, so the
+  // background completion resolves (fast, no live network round-trips) to
+  // "failed" with Auth0's "not configured" error — this is the reachable,
+  // deterministic outcome in this env and it still proves the async
+  // background-completion + polling wiring end to end. (Success wiring is
+  // tested at the unit level in pending-agent-store.test.mjs, and manually
+  // via a live Entra tenant per this branch's other Entra fixes.)
+  let entry;
+  for (let i = 0; i < 40; i++) {
+    const pollRes = await fetch(`${BASE_URL}/agents/pending/${createBody.pendingId}`);
+    assert.equal(pollRes.status, 200);
+    entry = await pollRes.json();
+    if (entry.status !== "pending") break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.ok(entry, "poll never returned a body");
+  assert.equal(entry.status, "failed");
+  assert.match(String(entry.error ?? ""), /Auth0 Management API not configured/i);
+});
+
+test("GET /agents/pending/:id returns 404 for an unknown id", async () => {
+  const res = await fetch(`${BASE_URL}/agents/pending/not-a-real-id`);
+  assert.equal(res.status, 404);
+  const body = await res.json();
+  assert.ok(body.error);
 });
 
 test("DELETE /agents/:clientId requires admin bearer when control plane auth is enabled", async () => {

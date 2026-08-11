@@ -15,10 +15,12 @@ import {
   listPendingRequests,
   listServers,
   mcpUrlForServer,
+  pollPendingAgent,
   removeServer,
   revokeAgent,
   setAdminTokenProvider,
   vendToken,
+  type PendingAgentStatus,
   type PendingRequest,
   type RegisteredServer,
 } from "./proxy-api.js";
@@ -459,6 +461,29 @@ addMcpForm.addEventListener("submit", (e) => {
     });
 });
 
+const PENDING_AGENT_POLL_INTERVAL_MS = 2000;
+const PENDING_AGENT_POLL_TIMEOUT_MS = 60000;
+
+/**
+ * Polls GET /agents/pending/:id until the background creation kicked off by
+ * POST /agents settles ("active"/"failed") or a generous timeout elapses.
+ * The proxy's worst case (Entra's Graph consistency-lag retries) is ~31s,
+ * so 60s of polling leaves comfortable headroom before giving up.
+ */
+async function pollUntilSettled(pendingId: string): Promise<PendingAgentStatus> {
+  const deadline = Date.now() + PENDING_AGENT_POLL_TIMEOUT_MS;
+  for (;;) {
+    const entry = await pollPendingAgent(pendingId);
+    if (entry.status !== "pending") return entry;
+    if (Date.now() >= deadline) {
+      throw new Error(
+        "Agent creation is taking longer than expected — check /agents in a moment to see if it finished.",
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, PENDING_AGENT_POLL_INTERVAL_MS));
+  }
+}
+
 createAgentForm.addEventListener("submit", (e) => {
   e.preventDefault();
   if (!adminOpsEnabled) {
@@ -471,18 +496,26 @@ createAgentForm.addEventListener("submit", (e) => {
   const scopesRaw = (form.elements.namedItem("agent-scopes") as HTMLInputElement).value;
   const scopes = scopesRaw.split(",").map((s) => s.trim()).filter(Boolean);
   void (async () => {
-    statusEl.textContent = "Creating agent…";
-    const created = await createAgent(name, scopes, serverId);
-    const vended = await vendToken(created.clientId, created.clientSecret);
-    writeAgentSession(created.clientId, { token: vended.token });
+    statusEl.textContent = "Creating agent… this can take up to 30 seconds";
+    const { pendingId } = await createAgent(name, scopes, serverId);
+    const entry = await pollUntilSettled(pendingId);
+    if (entry.status === "failed") {
+      statusEl.textContent = entry.error ?? `Agent ${name} creation failed`;
+      return;
+    }
+    if (!entry.clientId || !entry.clientSecret) {
+      throw new Error("Agent creation reported active but is missing credentials");
+    }
+    const vended = await vendToken(entry.clientId, entry.clientSecret);
+    writeAgentSession(entry.clientId, { token: vended.token });
     const agent: ActiveAgent = {
-      name: created.name,
-      clientId: created.clientId,
-      clientSecret: created.clientSecret,
+      name: entry.name,
+      clientId: entry.clientId,
+      clientSecret: entry.clientSecret,
       secretShown: false,
       token: vended.token,
       scopes,
-      serverId: created.serverId ?? serverId,
+      serverId: entry.serverId ?? serverId,
       provider: getIdpProvider(),
     };
     agents.push(agent);

@@ -12,6 +12,12 @@ import { GATEWAY_ADMIN_SCOPE, requireGatewayAdmin } from "./admin-auth.js";
 import type { ToolGuard } from "./guard.js";
 import type { IdpAdapter } from "./idp-adapter.js";
 import { readJson, sendJson } from "./http-helpers.js";
+import {
+  createPendingAgent,
+  getAndConsumePendingAgent,
+  markPendingAgentActive,
+  markPendingAgentFailed,
+} from "./pending-agent-store.js";
 
 export interface HandleAgentsTokenRoutesOptions {
   guard: ToolGuard;
@@ -26,6 +32,7 @@ export interface HandleAgentsTokenRoutesOptions {
  * Handle control-plane routes:
  * - GET /agents
  * - POST /agents
+ * - GET /agents/pending/:id
  * - DELETE /agents/:clientId
  * - POST /agents/:clientId/token
  * - POST /token
@@ -64,23 +71,60 @@ export async function handleAgentsTokenRoutes(
       });
       return true;
     }
-    try {
-      const created = await idpAdapter.createAgent(body.name, body.scopes ?? []);
-      const record = buildAgentRecord({
-        name: created.name,
-        serverId: body.serverId?.trim() || "flight",
-        scopes: body.scopes ?? [],
-        auth0ClientId: created.clientId,
-        auth0AppName: `mcp-agent-${created.name}`,
-        provider: idpAdapter.providerId,
-        clientSecretEnc: encryptClientSecret(created.clientSecret),
-      });
-      await saveAgent(record);
-      sendJson(res, 201, { ...created, serverId: record.serverId });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      sendJson(res, 503, { error: message });
+
+    // Entra's createAgent() can take 30+ seconds worst-case (Graph
+    // eventual-consistency retries in entra-mgmt.ts). Return immediately
+    // with a pendingId and finish creation in the background so the HTTP
+    // request the browser is waiting on doesn't block for that long — the
+    // UI polls GET /agents/pending/:id until it's "active" or "failed".
+    const serverId = body.serverId?.trim() || "flight";
+    const scopes = body.scopes ?? [];
+    const pendingId = createPendingAgent({
+      name: body.name,
+      serverId,
+      scopes,
+      provider: idpAdapter.providerId,
+    });
+    sendJson(res, 202, { pendingId, status: "pending" });
+
+    void (async () => {
+      try {
+        const created = await idpAdapter.createAgent(body.name, scopes);
+        const record = buildAgentRecord({
+          name: created.name,
+          serverId,
+          scopes,
+          auth0ClientId: created.clientId,
+          auth0AppName: `mcp-agent-${created.name}`,
+          provider: idpAdapter.providerId,
+          clientSecretEnc: encryptClientSecret(created.clientSecret),
+        });
+        await saveAgent(record);
+        markPendingAgentActive(pendingId, created.clientId, created.clientSecret);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        markPendingAgentFailed(pendingId, message);
+      }
+    })().catch((err) => {
+      // Last-resort guard: nothing above should throw synchronously into
+      // this catch (both branches of the try/catch handle their own
+      // errors), but never let a bug here take down the process.
+      console.error("[MCPToolGuard proxy] unexpected error in background agent creation:", err);
+    });
+
+    return true;
+  }
+
+  /** GET /agents/pending/:id — poll background agent-creation status. Auth: no (unguessable id, matches GET /agents' no-auth stance). */
+  const pendingAgentMatch = pathname.match(/^\/agents\/pending\/([^/]+)\/?$/);
+  if (req.method === "GET" && pendingAgentMatch) {
+    const id = pendingAgentMatch[1];
+    const entry = getAndConsumePendingAgent(id);
+    if (!entry) {
+      sendJson(res, 404, { error: `No pending agent creation found for id ${id}` });
+      return true;
     }
+    sendJson(res, 200, entry);
     return true;
   }
 
