@@ -156,52 +156,76 @@ async function getMgmtServicePrincipalId(
 }
 
 // Live-verified against a real tenant: creating an application via app-only
-// (client_credentials) auth and immediately creating its service principal
-// is subject to real Microsoft Graph eventual-consistency lag — 5s wasn't
-// enough, 30s was. Graph reports this inconsistently depending on exactly
-// which validation path is hit: sometimes a 403 ("the backing application of
-// the service principal being created must [be] in the local tenant" —
-// despite the app genuinely being local-tenant and owned correctly),
-// sometimes a 400 with code "NoBackingApplicationObject". Both are the same
-// underlying condition, not a real authorization or ownership problem
-// (confirmed by isolated testing outside this codebase entirely). Retry with
-// backoff rather than a flat sleep on every single agent creation, since the
-// actual delay varies and is often much shorter than the worst case.
-const SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
+// (client_credentials) auth and immediately using its id in a dependent
+// write is subject to real Microsoft Graph eventual-consistency lag — 5s
+// wasn't enough, 30s was. This isn't limited to one call: it recurs at every
+// step that references an object's id immediately after creating it
+// (creating the agent's service principal right after creating its
+// application, then assigning it an App Role right after creating *that*
+// service principal). Graph reports the same underlying condition
+// inconsistently depending on exactly which validation path is hit —
+// confirmed live in two different shapes so far: a 403/400
+// ("the backing application of the service principal being created must [be]
+// in the local tenant", or "NoBackingApplicationObject") when creating a
+// service principal for a just-created application, and a 404
+// ("Request_ResourceNotFound", "...does not exist or one of its queried
+// reference-property objects are not present") when assigning an App Role
+// referencing a just-created service principal's own id. Retry with backoff
+// rather than a flat sleep on every single agent creation, since the actual
+// delay varies and is often much shorter than the worst case.
+const GRAPH_CONSISTENCY_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
 
 function isConsistencyLagError(status: number, body: string): boolean {
-  if (status !== 400 && status !== 403) return false;
+  if (status !== 400 && status !== 403 && status !== 404) return false;
   return (
     body.includes("NoBackingApplicationObject") ||
     body.includes("must in the local tenant") ||
-    body.includes("must be in the local tenant")
+    body.includes("must be in the local tenant") ||
+    body.includes("Request_ResourceNotFound") ||
+    body.includes("does not exist or one of its queried reference-property objects are not present")
   );
+}
+
+/**
+ * Wraps a Graph write that may hit the eventual-consistency lag described
+ * above. Retries only on a recognized consistency-lag error signature;
+ * anything else fails immediately rather than masking a real problem with a
+ * blind retry. Returns a Response — successful ones pass through untouched,
+ * and a final (non-retryable, or retries-exhausted) failure is returned as a
+ * plain not-ok object so existing `if (!res.ok) throw ...` call sites don't
+ * need to change shape.
+ */
+async function fetchGraphWithConsistencyRetry(
+  makeRequest: () => Promise<Response>,
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await makeRequest();
+    if (res.ok) return res;
+    const body = await res.text();
+    const canRetry =
+      isConsistencyLagError(res.status, body) && attempt < GRAPH_CONSISTENCY_RETRY_DELAYS_MS.length;
+    if (!canRetry) {
+      return { ok: false, status: res.status, text: async () => body } as Response;
+    }
+    await new Promise((resolve) => setTimeout(resolve, GRAPH_CONSISTENCY_RETRY_DELAYS_MS[attempt]));
+  }
 }
 
 async function createServicePrincipalWithRetry(
   appId: string,
   headers: Record<string, string>,
 ): Promise<{ id: string }> {
-  for (let attempt = 0; ; attempt++) {
-    const spRes = await fetch(`${GRAPH_BASE}/servicePrincipals`, {
+  const spRes = await fetchGraphWithConsistencyRetry(() =>
+    fetch(`${GRAPH_BASE}/servicePrincipals`, {
       method: "POST",
       headers,
       body: JSON.stringify({ appId }),
-    });
-    if (spRes.ok) {
-      return (await spRes.json()) as { id: string };
-    }
-    const body = await spRes.text();
-    const canRetry =
-      isConsistencyLagError(spRes.status, body) &&
-      attempt < SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS.length;
-    if (!canRetry) {
-      throw new Error(`Entra create servicePrincipal failed: ${spRes.status} ${body}`);
-    }
-    await new Promise((resolve) =>
-      setTimeout(resolve, SERVICE_PRINCIPAL_CONSISTENCY_RETRY_DELAYS_MS[attempt]),
-    );
+    }),
+  );
+  if (!spRes.ok) {
+    throw new Error(`Entra create servicePrincipal failed: ${spRes.status} ${await spRes.text()}`);
   }
+  return (await spRes.json()) as { id: string };
 }
 
 /**
@@ -319,9 +343,8 @@ export async function createEntraAgent(
     const sp = await createServicePrincipalWithRetry(app.appId, headers);
 
     for (const { scope, id: appRoleId } of roleIds) {
-      const assignRes = await fetch(
-        `${GRAPH_BASE}/servicePrincipals/${sp.id}/appRoleAssignments`,
-        {
+      const assignRes = await fetchGraphWithConsistencyRetry(() =>
+        fetch(`${GRAPH_BASE}/servicePrincipals/${sp.id}/appRoleAssignments`, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -329,7 +352,7 @@ export async function createEntraAgent(
             resourceId: apiSp.id,
             appRoleId,
           }),
-        },
+        }),
       );
       if (!assignRes.ok) {
         throw new Error(
