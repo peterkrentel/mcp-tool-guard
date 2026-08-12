@@ -88,7 +88,7 @@ Optional: set `MCP_KV_PREFIX` if sharing one KV across environments.
 
 **Startup:** load `gateway:servers:*` into `ServerRegistry` → `syncGuardConfig(guard)`. Load agents for `GET /agents`.
 
-**Local dev:** in-memory fallback when KV env unset (same as flight).
+**Local dev:** file-backed JSON fallback when KV env is unset, so gateway KV-backed state survives a local restart without running Redis. Defaults to `memory/gateway-local-kv.json`; override with `MCP_LOCAL_KV_FILE`.
 
 ## Approval queue (Track 3, shipped) {#approval-queue-track-3-shipped}
 

@@ -329,7 +329,7 @@ test("POST /servers adds server and DELETE /servers/:id removes it", async () =>
   assert.equal(createRes.status, 201);
   const createBody = await createRes.json();
   assert.equal(createBody.id, serverId);
-  assert.equal(createBody.persisted, false);
+  assert.equal(createBody.persisted, true);
 
   const listRes = await fetch(`${BASE_URL}/servers`);
   assert.equal(listRes.status, 200);

@@ -118,7 +118,7 @@ Fixes **empty server audit panel** and **cancel booking not found** when MCP and
 
 Key layout: [kv-design.md](kv-design.md) — `audit:recent`, `audit:session:{id}`, `booking:{BK-…}`.
 
-Local dev works without KV (in-memory fallback). No UI env changes.
+Local dev works without Render KV: the gateway falls back to a file-backed store at `memory/gateway-local-kv.json` (override with `MCP_LOCAL_KV_FILE`). No UI env changes.
 
 **Managing the actual database (plan, usage, quota):** the KV store Vercel provisions here is Upstash Redis under the hood. Vercel's own Storage tab only offers a "Connect" action for linking it to a project — it doesn't show usage/plan details. To check quota, current usage, or change plans, go to **console.upstash.com** directly and sign in there (the database appears under Redis with the same auto-generated name, e.g. `upstash-kv-<word>-<word>`).
 
