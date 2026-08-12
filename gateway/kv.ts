@@ -11,6 +11,14 @@ import { fileURLToPath } from "node:url";
 const REST_URL = () => process.env.KV_REST_API_URL?.trim() ?? "";
 const REST_TOKEN = () => process.env.KV_REST_API_TOKEN?.trim() ?? "";
 
+interface KvDriver {
+  get<T>(key: string): Promise<T | null>;
+  mget<T>(keys: string[]): Promise<(T | null)[]>;
+  set(key: string, value: unknown, ttlSec?: number): Promise<void>;
+  del(key: string): Promise<void>;
+  scan(pattern: string): Promise<string[]>;
+}
+
 type LocalKvEntry = {
   value: unknown;
   expiresAt?: number;
@@ -135,7 +143,6 @@ async function kvRequest<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T | null> {
-  if (!remoteKvEnabled()) return null;
   const url = `${REST_URL().replace(/\/$/, "")}${path}`;
   const res = await fetch(url, {
     ...init,
@@ -151,84 +158,44 @@ async function kvRequest<T>(
   return data.result ?? null;
 }
 
-export async function kvGet<T>(relativeKey: string): Promise<T | null> {
-  if (remoteKvEnabled()) {
-    const encoded = encodeURIComponent(fullKey(relativeKey));
-    const raw = await kvRequest<string>(`/get/${encoded}`);
-    if (raw == null) return null;
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      return raw as unknown as T;
-    }
+function parseRaw<T>(raw: string | null): T | null {
+  if (raw == null) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return raw as unknown as T;
   }
-
-  const local = ensureLocalStore();
-  if (!local) return null;
-  const entry = local.store[fullKey(relativeKey)];
-  return (entry?.value as T | undefined) ?? null;
 }
 
-/** Batched GET — one Redis MGET command instead of one GET per key. Order matches `relativeKeys`. */
-export async function kvMget<T>(relativeKeys: string[]): Promise<(T | null)[]> {
-  if (relativeKeys.length === 0) return [];
-  if (remoteKvEnabled()) {
-    const encoded = relativeKeys.map((k) => encodeURIComponent(fullKey(k))).join("/");
+const remoteDriver: KvDriver = {
+  async get<T>(key: string): Promise<T | null> {
+    const raw = await kvRequest<string>(`/get/${encodeURIComponent(fullKey(key))}`);
+    return parseRaw<T>(raw);
+  },
+
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+    const encoded = keys.map((key) => encodeURIComponent(fullKey(key))).join("/");
     const raw = (await kvRequest<(string | null)[]>(`/mget/${encoded}`)) ?? [];
-    return relativeKeys.map((_, i) => {
-      const value = raw[i];
-      if (value == null) return null;
-      try {
-        return JSON.parse(value) as T;
-      } catch {
-        return value as unknown as T;
-      }
-    });
-  }
+    return keys.map((_, i) => parseRaw<T>(raw[i] ?? null));
+  },
 
-  return Promise.all(relativeKeys.map((key) => kvGet<T>(key)));
-}
-
-export async function kvSet(relativeKey: string, value: unknown, ttlSec?: number): Promise<void> {
-  if (remoteKvEnabled()) {
-    const encoded = encodeURIComponent(fullKey(relativeKey));
-    const payload = JSON.stringify(value);
+  async set(key: string, value: unknown, ttlSec?: number): Promise<void> {
+    const encoded = encodeURIComponent(fullKey(key));
     const path = ttlSec ? `/set/${encoded}?EX=${ttlSec}` : `/set/${encoded}`;
     await kvRequest(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: payload,
+      body: JSON.stringify(value),
     });
-    return;
-  }
+  },
 
-  const local = ensureLocalStore();
-  if (!local) return;
-  local.store[fullKey(relativeKey)] = {
-    value,
-    ...(ttlSec ? { expiresAt: Date.now() + ttlSec * 1000 } : {}),
-  };
-  saveLocalStore(local.file, local.store);
-}
+  async del(key: string): Promise<void> {
+    await kvRequest(`/del/${encodeURIComponent(fullKey(key))}`, { method: "POST" });
+  },
 
-export async function kvDel(relativeKey: string): Promise<void> {
-  if (remoteKvEnabled()) {
-    const encoded = encodeURIComponent(fullKey(relativeKey));
-    await kvRequest(`/del/${encoded}`, { method: "POST" });
-    return;
-  }
-
-  const local = ensureLocalStore();
-  if (!local) return;
-  if (!Object.hasOwn(local.store, fullKey(relativeKey))) return;
-  delete local.store[fullKey(relativeKey)];
-  saveLocalStore(local.file, local.store);
-}
-
-/** Scan keys matching `{prefix}{relativePattern}` (relativePattern may include `*`). */
-export async function kvScan(relativePattern: string): Promise<string[]> {
-  if (remoteKvEnabled()) {
-    const match = fullKey(relativePattern);
+  async scan(pattern: string): Promise<string[]> {
+    const match = fullKey(pattern);
     const keys: string[] = [];
     let cursor = "0";
     const prefix = gatewayKvPrefix();
@@ -247,15 +214,75 @@ export async function kvScan(relativePattern: string): Promise<string[]> {
     } while (cursor !== "0");
 
     return keys;
-  }
+  },
+};
 
-  const local = ensureLocalStore();
-  if (!local) return [];
-  const fullPattern = fullKey(relativePattern);
-  const matcher = localPatternToRegExp(fullPattern);
-  const prefix = gatewayKvPrefix();
-  return Object.keys(local.store)
-    .filter((key) => matcher.test(key))
-    .filter((key) => key.startsWith(prefix))
-    .map((key) => key.slice(prefix.length));
+const localDriver: KvDriver = {
+  async get<T>(key: string): Promise<T | null> {
+    const local = ensureLocalStore();
+    if (!local) return null;
+    const entry = local.store[fullKey(key)];
+    return (entry?.value as T | undefined) ?? null;
+  },
+
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    return Promise.all(keys.map((key) => this.get<T>(key)));
+  },
+
+  async set(key: string, value: unknown, ttlSec?: number): Promise<void> {
+    const local = ensureLocalStore();
+    if (!local) return;
+    local.store[fullKey(key)] = {
+      value,
+      ...(ttlSec ? { expiresAt: Date.now() + ttlSec * 1000 } : {}),
+    };
+    saveLocalStore(local.file, local.store);
+  },
+
+  async del(key: string): Promise<void> {
+    const local = ensureLocalStore();
+    if (!local || !Object.hasOwn(local.store, fullKey(key))) return;
+    delete local.store[fullKey(key)];
+    saveLocalStore(local.file, local.store);
+  },
+
+  async scan(pattern: string): Promise<string[]> {
+    const local = ensureLocalStore();
+    if (!local) return [];
+    const matcher = localPatternToRegExp(fullKey(pattern));
+    const prefix = gatewayKvPrefix();
+    return Object.keys(local.store)
+      .filter((key) => matcher.test(key))
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length));
+  },
+};
+
+function getDriver(): KvDriver | null {
+  if (remoteKvEnabled()) return remoteDriver;
+  if (localKvEnabled()) return localDriver;
+  return null;
+}
+
+export async function kvGet<T>(relativeKey: string): Promise<T | null> {
+  return (await getDriver()?.get<T>(relativeKey)) ?? null;
+}
+
+/** Batched GET — one Redis MGET command instead of one GET per key. Order matches `relativeKeys`. */
+export async function kvMget<T>(relativeKeys: string[]): Promise<(T | null)[]> {
+  if (relativeKeys.length === 0) return [];
+  return (await getDriver()?.mget<T>(relativeKeys)) ?? relativeKeys.map(() => null);
+}
+
+export async function kvSet(relativeKey: string, value: unknown, ttlSec?: number): Promise<void> {
+  await getDriver()?.set(relativeKey, value, ttlSec);
+}
+
+export async function kvDel(relativeKey: string): Promise<void> {
+  await getDriver()?.del(relativeKey);
+}
+
+/** Scan keys matching `{prefix}{relativePattern}` (relativePattern may include `*`). */
+export async function kvScan(relativePattern: string): Promise<string[]> {
+  return (await getDriver()?.scan(relativePattern)) ?? [];
 }
