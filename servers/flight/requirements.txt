@@ -120,7 +120,7 @@ openapi-pydantic==0.5.1
     # via fastmcp-slim
 opentelemetry-api==1.44.0
     # via fastmcp-slim
-packaging==26.2
+packaging==26.3
     # via fastmcp-slim
 pathable==0.6.0
     # via jsonschema-path
