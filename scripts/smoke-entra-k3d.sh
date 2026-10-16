@@ -35,7 +35,11 @@ echo "1. Operator token: temporary Entra user with gateway:admin (provided by wo
 pass "Using provided operator token"
 
 echo "2. Guard health should report KV enabled..."
-HEALTH="$(curl -sS "$GUARD_BASE_URL/health")"
+for _ in $(seq 1 30); do
+  HEALTH="$(curl -sS "$GUARD_BASE_URL/health" || true)"
+  echo "$HEALTH" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{JSON.parse(d)}catch{process.exit(1)}})' && break
+  sleep 2
+done
 KV_ENABLED="$(echo "$HEALTH" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);process.stdout.write(String(Boolean(j.kv_enabled)))})')"
 [[ "$KV_ENABLED" == "true" ]] || fail "Expected kv_enabled=true"
 pass "KV is enabled"

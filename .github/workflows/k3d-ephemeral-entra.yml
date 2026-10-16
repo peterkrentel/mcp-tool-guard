@@ -213,6 +213,12 @@ jobs:
         run: |
           ./scripts/smoke-entra-k3d.sh
 
+      - name: Dump guard diagnostics on failure
+        if: failure()
+        run: |
+          kubectl -n ${NAMESPACE} get pods -o wide || true
+          kubectl -n ${NAMESPACE} logs deployment/guard --tail=200 || true
+
       - name: Cleanup
         if: always()
         run: |
