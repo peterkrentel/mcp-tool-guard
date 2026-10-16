@@ -128,7 +128,7 @@ jobs:
 
           # Log in as that user (password grant) to get a delegated token carrying the gateway:admin role.
           OPERATOR_TOKEN=""
-          for i in $(seq 1 12); do
+          for i in $(seq 1 18); do
             RESP="$(curl -sS -X POST "$TOKEN_URL" \
               -d "client_id=${ENTRA_CI_CLIENT_ID}" \
               --data-urlencode "client_secret=${ENTRA_CI_CLIENT_SECRET}" \
@@ -137,10 +137,17 @@ jobs:
               --data-urlencode "password=${USER_PW}" \
               --data-urlencode "scope=api://${ENTRA_API_APP_ID}/access_as_user")"
             OPERATOR_TOKEN="$(echo "$RESP" | jq -r '.access_token // empty')"
-            [ -n "$OPERATOR_TOKEN" ] && break
-            echo "token not ready yet (attempt $i): $(echo "$RESP" | jq -r '.error_description // .error' | head -1)"; sleep 5
+            if [ -n "$OPERATOR_TOKEN" ]; then
+              # The role assignment can take a while to reach the login service; a token issued too early has no roles.
+              CLAIMS="$(node -e 'const c=JSON.parse(Buffer.from(process.argv[1].split(".")[1],"base64url"));console.log(JSON.stringify({aud:c.aud,scp:c.scp,roles:c.roles||[]}));process.exit((c.roles||[]).includes("gateway:admin")?0:1)' "$OPERATOR_TOKEN")" && break
+              echo "token has no gateway:admin yet (attempt $i): $CLAIMS"
+              OPERATOR_TOKEN=""
+            else
+              echo "token not ready yet (attempt $i): $(echo "$RESP" | jq -r '.error_description // .error' | head -1)"
+            fi
+            sleep 5
           done
-          [ -n "$OPERATOR_TOKEN" ] || { echo "::error::Could not get an operator token for the temporary user (MFA/security defaults block password logins)"; exit 1; }
+          [ -n "$OPERATOR_TOKEN" ] || { echo "::error::Could not get an operator token with gateway:admin for the temporary user (check Entra security defaults/MFA and the claims printed above)"; exit 1; }
           echo "::add-mask::${OPERATOR_TOKEN}"
           echo "ENTRA_OPERATOR_BEARER_TOKEN=${OPERATOR_TOKEN}" >> "$GITHUB_ENV"
 
