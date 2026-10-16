@@ -1,0 +1,229 @@
+name: k3d-ephemeral-entra
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/k3d-ephemeral-entra.yml
+      - deploy/ephemeral/**
+      - gateway/**
+      - ui/**
+      - scripts/smoke-entra-k3d.sh
+      - package.json
+      - package-lock.json
+
+jobs:
+  ephemeral:
+    runs-on: ubuntu-latest
+    env:
+      CLUSTER_NAME: guard-ephemeral
+      NAMESPACE: guard-ephemeral
+      UI_HOST: ui.ephemeral.local
+      GUARD_HOST: guard.ephemeral.local
+      KV_TOKEN: local-ephemeral-kv-token
+      MCP_GUARD_PUBLIC_KEY_PEM: ${{ secrets.MCP_GUARD_PUBLIC_KEY_PEM }}
+      ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+      ENTRA_API_APP_ID: ${{ secrets.ENTRA_API_APP_ID }}
+      ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID }}
+      ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
+      ENTRA_CI_CLIENT_ID: ${{ secrets.ENTRA_CI_CLIENT_ID }}
+      ENTRA_CI_CLIENT_SECRET: ${{ secrets.ENTRA_CI_CLIENT_SECRET }}
+      ENTRA_CI_USER_DOMAIN: ${{ secrets.ENTRA_CI_USER_DOMAIN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Build gateway image
+        run: |
+          docker build -f gateway/Dockerfile -t mcp-tool-guard-gateway:${{ github.sha }} .
+
+      - name: Build UI image
+        run: |
+          docker build \
+            -f ui/Dockerfile \
+            --build-arg VITE_MCP_URL=http://${GUARD_HOST}/mcp \
+            --build-arg VITE_PROXY_BASE_URL=http://${GUARD_HOST} \
+            -t mcp-tool-guard-ui:${{ github.sha }} .
+
+      - name: Build KV REST adapter image
+        run: |
+          docker build -f deploy/ephemeral/kv-rest-adapter/Dockerfile -t mcp-tool-guard-kv-rest-adapter:${{ github.sha }} .
+
+      - name: Install kubectl
+        run: |
+          curl -fsSL -o kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install Helm
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+
+      - name: Install k3d
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          k3d version
+
+      - name: Validate required secrets
+        run: |
+          missing=0
+          for key in MCP_GUARD_PUBLIC_KEY_PEM ENTRA_TENANT_ID ENTRA_API_APP_ID ENTRA_CLIENT_ID ENTRA_CLIENT_SECRET ENTRA_CI_CLIENT_ID ENTRA_CI_CLIENT_SECRET ENTRA_CI_USER_DOMAIN; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required secret: $key (run scripts/entra-ci-setup.sh once)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Create temporary Entra operator user
+        run: |
+          set -euo pipefail
+          TOKEN_URL="https://login.microsoftonline.com/${ENTRA_TENANT_ID}/oauth2/v2.0/token"
+          GRAPH="https://graph.microsoft.com/v1.0"
+
+          GRAPH_TOKEN="$(curl -fsS -X POST "$TOKEN_URL" \
+            -d "client_id=${ENTRA_CI_CLIENT_ID}" \
+            --data-urlencode "client_secret=${ENTRA_CI_CLIENT_SECRET}" \
+            -d "scope=https://graph.microsoft.com/.default" \
+            -d "grant_type=client_credentials" | jq -er .access_token)"
+          echo "::add-mask::${GRAPH_TOKEN}"
+
+          SUFFIX="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          USER_UPN="ci-operator-${SUFFIX}@${ENTRA_CI_USER_DOMAIN}"
+          USER_PW="Aa1!$(openssl rand -hex 16)"
+          echo "::add-mask::${USER_PW}"
+
+          USER_ID="$(jq -n --arg upn "$USER_UPN" --arg pw "$USER_PW" --arg nick "ci-operator-${SUFFIX}" \
+            '{accountEnabled:true,displayName:"ci-ephemeral-operator",mailNickname:$nick,userPrincipalName:$upn,passwordProfile:{forceChangePasswordNextSignIn:false,password:$pw}}' \
+            | curl -fsS -X POST "$GRAPH/users" -H "Authorization: Bearer ${GRAPH_TOKEN}" -H "Content-Type: application/json" -d @- \
+            | jq -er .id)"
+          echo "ENTRA_EPHEMERAL_USER_ID=${USER_ID}" >> "$GITHUB_ENV"
+
+          API_SP="$(curl -fsS -G "$GRAPH/servicePrincipals" -H "Authorization: Bearer ${GRAPH_TOKEN}" \
+            --data-urlencode "\$filter=appId eq '${ENTRA_API_APP_ID}'" --data-urlencode "\$select=id,appRoles")"
+          API_SP_ID="$(echo "$API_SP" | jq -er '.value[0].id')"
+          ROLE_ID="$(echo "$API_SP" | jq -er '.value[0].appRoles[] | select(.value=="gateway:admin") | .id')"
+
+          # A just-created user can 404 on the role assignment for a few seconds (Graph consistency lag).
+          assigned=0
+          for i in $(seq 1 12); do
+            if jq -n --arg u "$USER_ID" --arg r "$API_SP_ID" --arg a "$ROLE_ID" '{principalId:$u,resourceId:$r,appRoleId:$a}' \
+                | curl -fsS -o /dev/null -X POST "$GRAPH/users/${USER_ID}/appRoleAssignments" \
+                    -H "Authorization: Bearer ${GRAPH_TOKEN}" -H "Content-Type: application/json" -d @-; then
+              assigned=1; break
+            fi
+            echo "role assignment not ready yet (attempt $i), retrying..."; sleep 5
+          done
+          [ "$assigned" = 1 ] || { echo "::error::Could not assign gateway:admin to the temporary user"; exit 1; }
+
+          # Log in as that user (password grant) to get a delegated token carrying the gateway:admin role.
+          OPERATOR_TOKEN=""
+          for i in $(seq 1 12); do
+            RESP="$(curl -sS -X POST "$TOKEN_URL" \
+              -d "client_id=${ENTRA_CI_CLIENT_ID}" \
+              --data-urlencode "client_secret=${ENTRA_CI_CLIENT_SECRET}" \
+              -d "grant_type=password" \
+              --data-urlencode "username=${USER_UPN}" \
+              --data-urlencode "password=${USER_PW}" \
+              --data-urlencode "scope=api://${ENTRA_API_APP_ID}/access_as_user")"
+            OPERATOR_TOKEN="$(echo "$RESP" | jq -r '.access_token // empty')"
+            [ -n "$OPERATOR_TOKEN" ] && break
+            echo "token not ready yet (attempt $i): $(echo "$RESP" | jq -r '.error_description // .error' | head -1)"; sleep 5
+          done
+          [ -n "$OPERATOR_TOKEN" ] || { echo "::error::Could not get an operator token for the temporary user (MFA/security defaults block password logins)"; exit 1; }
+          echo "::add-mask::${OPERATOR_TOKEN}"
+          echo "ENTRA_OPERATOR_BEARER_TOKEN=${OPERATOR_TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create ${CLUSTER_NAME} --wait --timeout 5m --port "80:80@loadbalancer"
+          kubectl cluster-info
+          kubectl get nodes
+          echo "127.0.0.1 ${UI_HOST} ${GUARD_HOST}" | sudo tee -a /etc/hosts
+
+      - name: Import images
+        run: |
+          k3d image import mcp-tool-guard-gateway:${{ github.sha }} -c ${CLUSTER_NAME}
+          k3d image import mcp-tool-guard-ui:${{ github.sha }} -c ${CLUSTER_NAME}
+          k3d image import mcp-tool-guard-kv-rest-adapter:${{ github.sha }} -c ${CLUSTER_NAME}
+
+      - name: Create namespace and secrets
+        run: |
+          kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+          printf '%s' "${MCP_GUARD_PUBLIC_KEY_PEM}" > /tmp/mcp-guard-public.pem
+          kubectl -n ${NAMESPACE} create secret generic guard-secrets \
+            --from-literal=KV_REST_API_TOKEN="${KV_TOKEN}" \
+            --from-literal=ENTRA_TENANT_ID="${ENTRA_TENANT_ID}" \
+            --from-literal=ENTRA_API_APP_ID="${ENTRA_API_APP_ID}" \
+            --from-literal=ENTRA_CLIENT_ID="${ENTRA_CLIENT_ID}" \
+            --from-literal=ENTRA_CLIENT_SECRET="${ENTRA_CLIENT_SECRET}" \
+            --from-file=MCP_GUARD_PUBLIC_KEY_PEM=/tmp/mcp-guard-public.pem \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy Helm chart
+        run: |
+          helm upgrade --install guard-ephemeral deploy/ephemeral/helm/guard-ephemeral \
+            -n ${NAMESPACE} \
+            --set ui.image.tag=${{ github.sha }} \
+            --set guard.image.tag=${{ github.sha }} \
+            --set kv.rest.image.tag=${{ github.sha }}
+
+      - name: Wait for rollout
+        run: |
+          on_rollout_failure() {
+            echo "Rollout failed. Dumping pod diagnostics..."
+            kubectl -n ${NAMESPACE} get pods -o wide || true
+            kubectl -n ${NAMESPACE} describe deployment kv-rest || true
+            kubectl -n ${NAMESPACE} describe pod -l app=kv-rest || true
+            kubectl -n ${NAMESPACE} logs deployment/kv-rest --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/redis --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/guard --tail=200 || true
+            kubectl -n ${NAMESPACE} logs deployment/ui --tail=200 || true
+          }
+          trap on_rollout_failure ERR
+          kubectl -n ${NAMESPACE} rollout status deployment/redis --timeout=180s
+          kubectl -n ${NAMESPACE} rollout status deployment/kv-rest --timeout=300s
+          kubectl -n ${NAMESPACE} rollout status deployment/guard --timeout=240s
+          kubectl -n ${NAMESPACE} rollout status deployment/ui --timeout=240s
+          trap - ERR
+          kubectl -n ${NAMESPACE} get pods -o wide
+          kubectl -n ${NAMESPACE} get ingress
+
+      - name: Smoke test (Entra + UI + guard)
+        env:
+          GUARD_BASE_URL: http://${{ env.GUARD_HOST }}
+          UI_BASE_URL: http://${{ env.UI_HOST }}
+        run: |
+          ./scripts/smoke-entra-k3d.sh
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -n "${ENTRA_EPHEMERAL_USER_ID:-}" ]; then
+            GRAPH_TOKEN="$(curl -sS -X POST "https://login.microsoftonline.com/${ENTRA_TENANT_ID}/oauth2/v2.0/token" \
+              -d "client_id=${ENTRA_CI_CLIENT_ID}" \
+              --data-urlencode "client_secret=${ENTRA_CI_CLIENT_SECRET}" \
+              -d "scope=https://graph.microsoft.com/.default" \
+              -d "grant_type=client_credentials" | jq -r '.access_token // empty')"
+            if [ -n "$GRAPH_TOKEN" ]; then
+              curl -sS -o /dev/null -X DELETE "https://graph.microsoft.com/v1.0/users/${ENTRA_EPHEMERAL_USER_ID}" \
+                -H "Authorization: Bearer ${GRAPH_TOKEN}" || true
+              # Deleted users sit in a 30-day recycle bin; purge so they don't accumulate.
+              curl -sS -o /dev/null -X DELETE "https://graph.microsoft.com/v1.0/directory/deletedItems/${ENTRA_EPHEMERAL_USER_ID}" \
+                -H "Authorization: Bearer ${GRAPH_TOKEN}" || true
+            fi
+          fi
+
+          if command -v k3d >/dev/null 2>&1; then
+            k3d cluster delete ${CLUSTER_NAME} || true
+          fi
