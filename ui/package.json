@@ -12,7 +12,7 @@
     "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
-    "@auth0/auth0-spa-js": "^2.23.0",
+    "@auth0/auth0-spa-js": "^2.24.1",
     "@azure/msal-browser": "^5.18.0",
     "@mcp-tool-guard/gateway": "*",
     "@mlc-ai/web-llm": "^0.2.84",
@@ -20,6 +20,6 @@
   },
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vite": "^8.1.5"
+    "vite": "^8.2.1"
   }
 }

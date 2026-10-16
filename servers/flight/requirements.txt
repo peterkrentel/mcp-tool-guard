@@ -26,7 +26,7 @@ backports-tarfile==1.2.0 ; python_full_version < '3.12'
     # via jaraco-context
 beartype==0.22.9
     # via py-key-value-aio
-cachetools==7.1.4
+cachetools==7.1.7
     # via py-key-value-aio
 caio==0.10.2
     # via aiofile
@@ -34,19 +34,19 @@ certifi==2026.6.17
     # via
     #   httpcore
     #   httpx
-cffi==2.1.0 ; platform_python_implementation != 'PyPy'
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
 click==8.4.2
     # via uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
     # via click
-cryptography==49.0.0
+cryptography==50.0.0
     # via
     #   authlib
     #   joserfc
     #   pyjwt
     #   secretstorage
-cyclopts==4.21.0
+cyclopts==4.22.2
     # via fastmcp-slim
 dnspython==2.8.0
     # via email-validator
@@ -58,9 +58,9 @@ exceptiongroup==1.3.1
     # via
     #   anyio
     #   fastmcp-slim
-fastmcp==3.4.4
+fastmcp==3.4.6
     # via flight-mcp
-fastmcp-slim==3.4.4
+fastmcp-slim==3.4.6
     # via fastmcp
 griffelib==2.1.0
     # via fastmcp-slim
@@ -88,7 +88,7 @@ jaraco-classes==3.4.0
     # via keyring
 jaraco-context==6.1.2
     # via keyring
-jaraco-functools==4.5.0
+jaraco-functools==4.6.0
     # via keyring
 jeepney==0.9.0 ; sys_platform == 'linux'
     # via
@@ -124,7 +124,7 @@ packaging==26.2
     # via fastmcp-slim
 pathable==0.6.0
     # via jsonschema-path
-platformdirs==4.10.0
+platformdirs==4.11.0
     # via fastmcp-slim
 py-key-value-aio==0.4.5
     # via fastmcp-slim
@@ -195,7 +195,7 @@ starlette==1.3.1
     #   sse-starlette
 tomli==2.4.1 ; python_full_version < '3.11'
     # via cyclopts
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   anyio
     #   cryptography
