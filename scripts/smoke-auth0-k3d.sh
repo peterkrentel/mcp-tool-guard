@@ -79,13 +79,24 @@ CREATE_JSON="$(curl -sS -X POST "$GUARD_BASE_URL/agents" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"ci-ephemeral-agent-$(date +%s)\",\"scopes\":[\"${AGENT_SCOPE}\"],\"serverId\":\"${AGENT_SERVER_ID}\"}")"
-CREATE_STATUS="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);if(j.clientId && j.clientSecret){process.stdout.write("ok");}else{process.stdout.write("bad");}}catch{process.stdout.write("bad")}})')"
-if [[ "$CREATE_STATUS" != "ok" ]]; then
-  CREATE_ERR="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);process.stdout.write(String(j.error||j.message||"unknown error"));}catch{process.stdout.write("non-json response")}})')"
-  fail "POST /agents failed: ${CREATE_ERR}"
+json_field() { node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const v=JSON.parse(d)[process.argv[1]];process.stdout.write(v==null?"":String(v))}catch{}})' "$1"; }
+PENDING_ID="$(echo "$CREATE_JSON" | json_field pendingId)"
+if [[ -z "$PENDING_ID" ]]; then
+  fail "POST /agents did not return a pendingId: $(echo "$CREATE_JSON" | json_field error)"
 fi
-AGENT_CLIENT_ID="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);process.stdout.write(j.clientId||"")})')"
-[[ -n "$AGENT_CLIENT_ID" ]] || fail "No clientId in create response"
+AGENT_CLIENT_ID=""
+for _ in $(seq 1 60); do
+  POLL_JSON="$(curl -sS "$GUARD_BASE_URL/agents/pending/$PENDING_ID")"
+  POLL_STATUS="$(echo "$POLL_JSON" | json_field status)"
+  if [[ "$POLL_STATUS" == "active" ]]; then
+    AGENT_CLIENT_ID="$(echo "$POLL_JSON" | json_field clientId)"
+    break
+  elif [[ "$POLL_STATUS" == "failed" ]]; then
+    fail "Agent creation failed: $(echo "$POLL_JSON" | json_field error)"
+  fi
+  sleep 1
+done
+[[ -n "$AGENT_CLIENT_ID" ]] || fail "Timed out waiting for agent creation (pendingId $PENDING_ID)"
 pass "Created ephemeral agent: $AGENT_CLIENT_ID"
 
 echo "5. GET /agents should list the newly created agent..."
