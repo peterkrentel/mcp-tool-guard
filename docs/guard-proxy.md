@@ -20,7 +20,7 @@ Agent / UI  →  guard proxy (:8787)  →  upstream MCP (vendor or localhost:800
 make dev      # flight → proxy → ui
 ```
 
-Auth0 for flight + proxy + agent gateway: `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` plus `AUTH0_MGMT_*` (see [auth0-env.example](auth0-env.example)). UI still uses `ui/.env.local` for `VITE_AUTH0_*`.
+IdP for flight + proxy + agent gateway: `cp scripts/dev.env.example scripts/dev.env` and set `MCP_IDP_PROVIDER` (`auth0` or `entra`) plus that provider's vars — `AUTH0_*` (see [auth0-env.example](auth0-env.example)) or `ENTRA_*` (see [entra-setup.md](entra-setup.md)). Flight needs explicit `MCP_JWT_*`. UI still uses `ui/.env.local` for `VITE_AUTH0_*` or `VITE_ENTRA_*`.
 
 **Or three terminals** (`make flight`, `make proxy`, `make ui`) when debugging one hop.
 
@@ -48,7 +48,7 @@ Non-`tools/call` JSON-RPC (`initialize`, `tools/list`, …) is forwarded without
 | `DELETE` | `/servers/:id` | Remove server — **`gateway:admin`**; KV delete when configured |
 | `GET` | `/servers/:id/tools` | Discover tools from upstream (`tools/list`) |
 | `GET` | `/agents` | List agents from KV (metadata only; secrets never exposed) |
-| `POST` | `/agents` | Create Auth0 M2M client — **`gateway:admin`** + `AUTH0_MGMT_*`; encrypted secret stored in KV when configured |
+| `POST` | `/agents` | Create an M2M client in the active IdP (Auth0 or Entra) — **`gateway:admin`** + `AUTH0_MGMT_*` or `ENTRA_*`; returns `202` with a `pendingId` to poll at `GET /agents/pending/:id`; encrypted secret stored in KV when configured |
 | `POST` | `/agents/:clientId/token` | Vend agent JWT from server-stored secret — **`gateway:admin`** |
 | `DELETE` | `/agents/:clientId` | Revoke M2M client — **`gateway:admin`**; KV delete when configured |
 | `POST` | `/token` | Vend `client_credentials` JWT — **`gateway:admin`** |
@@ -89,7 +89,8 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `MCP_PROXY_DEFAULT_SERVER` | Server id for `POST /mcp` (default `flight`) |
 | `MCP_PROXY_CONFIG` | Optional path to policy yaml (default `gateway/config.yaml`) |
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Demo guest JWT verify |
-| `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` | Auth0 / IdP dual trust |
+| `MCP_IDP_PROVIDER` | Active IdP: `auth0` (default) or `entra`. Check `idp_provider` in `GET /health` |
+| `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` | Optional override of JWT trust; each unset field is derived from the active provider. A leftover Auth0 value here overrides the derived Entra value, so delete it when switching |
 | `MCP_GUARD_ENABLED` | `false` bypasses enforcement and control-plane auth (dev only) |
 | `MCP_GATEWAY_ADMIN_AUTH` | `false` disables `gateway:admin` on mutating routes even when guard + IdP trust are on (local override) |
 | `MCP_AUDIT_AGENT_TRUSTED_MODE` | `true` permits unauthenticated `POST /audit/agent` in explicit demo/trusted-network mode |
@@ -99,6 +100,9 @@ Same JWT trust as flight — export in the **proxy** terminal before `make proxy
 | `AUTH0_MGMT_CLIENT_ID` | Machine-to-Machine app with Management API access |
 | `AUTH0_MGMT_CLIENT_SECRET` | Mgmt app secret |
 | `AUTH0_AUDIENCE` | API identifier for client grants (same as `MCP_JWT_AUDIENCE`) |
+| `ENTRA_TENANT_ID` / `ENTRA_API_APP_ID` | Entra tenant and protected API app (JWT trust is derived from these) |
+| `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` | Entra management app used to create agents and vend tokens |
+| `GATEWAY_AGENT_SECRET_KEY` | Optional key for encrypting agent secrets in KV; falls back to `AUTH0_MGMT_CLIENT_SECRET`, then `ENTRA_CLIENT_SECRET` |
 | `GITHUB_MCP_TOKEN` | GitHub PAT for `servers.github` upstream auth only — never sent to browsers |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash REST — persist registry + agents (optional locally; same vars as flight) |
 | `GATEWAY_KV_PREFIX` | Key namespace (default `mcp-tool-guard:gateway:`) — see [kv-design](kv-design.md#guard-proxy-kv-agent-gateway) |
@@ -116,7 +120,7 @@ The proxy enforces request throttling with a two-layer strategy:
 
 `GET /audit` and `GET /pending*` polls are intentionally exempt from throttling. `POST /mcp`, per-server `/{id}/mcp`, and LLM proxy routes are rate limited.
 
-See [auth0-env.example](auth0-env.example). Prod checklist: [render-deploy.md](render-deploy.md).
+See [auth0-env.example](auth0-env.example) and [entra-setup.md](entra-setup.md). Prod checklist: [render-deploy.md](render-deploy.md).
 
 ## UI without Vite proxy
 

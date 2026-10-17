@@ -40,14 +40,14 @@ Skip this section if these terms are already familiar.
 | The agent's credential | a static JWT scoped `repo:read` only |
 | The guard | the deployed guard proxy at `mcp-tool-guard-proxy.onrender.com` |
 | The upstream tool server | GitHub's own real MCP server |
-| The human approver | you, signed into the Claude Code ops view with an admin Auth0 login |
+| The human approver | you, signed into the Claude Code ops view with an admin IdP login (Auth0 or Entra) |
 | The target | this repo, `peterkrentel/mcp-tool-guard`, file `demo-guard.md` |
 
 ## Setup — how `ghprod` actually got wired up
 
 `claude-code-integration.md`'s equivalent section covers the **local** `github-guarded` connection, which is fully scriptable end-to-end because local dev runs with control-plane auth off (`MCP_GUARD_ENABLED=false` — see `docs/identity.md`). Prod is different: `gateway/proxy-routes-agents-token.ts` requires a `gateway:admin` bearer token on **every** control-plane route — `POST /agents`, `POST /token`, and `POST /agents/:clientId/token` alike — whenever control-plane auth is enabled, which it is in prod. That means creating the agent and minting its first token both genuinely need a human, logged in as admin, at least once. Here's exactly how that happened for `ghprod`:
 
-1. **Sign in as admin.** Opened [`/agents.html`](https://mcp-tool-guard-ui.vercel.app/agents.html), signed in with Auth0 (an account with the `gateway:admin` role).
+1. **Sign in as admin.** Opened [`/agents.html`](https://mcp-tool-guard-ui.vercel.app/agents.html), signed in with the active IdP, Auth0 or Entra (an account with the `gateway:admin` role).
 2. **Created the M2M agent via the "Create agent" form** — name `claude-code-prod`, MCP server `github` (already registered), scope `repo:read`. This calls `POST /agents`, satisfied by the admin session from step 1.
 3. **Copied the agent credentials.** Unlike the workaround documented in earlier versions of this guide, the UI now displays `clientId`/`clientSecret` immediately after agent creation (BL-048 is fixed). Copy both for the next step. This produced the Auth0 application `mcp-agent-claude-code-prod` (see `docs/auth0-setup.md`'s tenant inventory).
 
@@ -182,7 +182,7 @@ Real commit [`6f48fd6`](https://github.com/peterkrentel/mcp-tool-guard/commit/6f
 
 ## Links
 
-- [Claude Code ops view](https://mcp-tool-guard-ui.vercel.app/claude-ops.html) (requires Auth0 admin sign-in)
+- [Claude Code ops view](https://mcp-tool-guard-ui.vercel.app/claude-ops.html) (requires admin sign-in with the active IdP)
 - [Claude Code client Grafana dashboard](../dashboards/grafana/mcp-tool-guard-claude-code-client.dashboard.json)
 - [The resulting commit](https://github.com/peterkrentel/mcp-tool-guard/commit/6f48fd6590f3dc46c7085ae9ed4d35f274b66a0a)
 - [Local-dev version of this same story (BL-037/BL-045)](claude-code-integration.md)

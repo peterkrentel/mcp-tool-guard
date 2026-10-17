@@ -65,9 +65,9 @@ Prod paths: **curl / agents** → Render guard proxy → **GitHub MCP** or Verce
 
 *Read-only agent (`repo:read` only) → proxy `-32001` **before** GitHub — airtight scope enforce on vendor MCP.*
 
-Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
+Pick a **JWT scope** (guest) or **Sign in** (Auth0 or Microsoft Entra, whichever is configured) → **Initialize** → chat. First WebLLM load may take ~1 minute. Deploy: **[docs/deploy-overview.md](docs/deploy-overview.md)** (what runs where) · **[docs/vercel-deploy.md](docs/vercel-deploy.md)** (Vercel steps).
 
-**Demo JWTs:** `ui/public/demo-tokens.json` and `demo-public.pem` are **intentionally public** — pre-signed guest tokens for the flight demo only, not production secrets. Production uses Auth0 JWKS or your own PEM via env vars.
+**Demo JWTs:** `ui/public/demo-tokens.json` and `demo-public.pem` are **intentionally public** — pre-signed guest tokens for the flight demo only, not production secrets. Production uses your active IdP's JWKS (Auth0 or Entra) or your own PEM via env vars.
 
 ## Documentation map
 
@@ -82,8 +82,9 @@ Pick a **JWT scope** (guest) or **Sign in** (Auth0 when configured) → **Initia
 | [docs/track2-github-proof.md](docs/track2-github-proof.md) | **Track 2 prod proof** — GitHub MCP curl allow + **proxy write deny**, Render logs, screenshots |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture** — diagrams, components, three audit planes, policy, today vs proxy |
 | [docs/CONCEPT.md](docs/CONCEPT.md) | **Design** — rationale, trust model, [unowned MCP](docs/CONCEPT.md#third-party--unowned-mcp), [identity](docs/identity.md) |
-| [docs/identity.md](docs/identity.md) | **IdP** — Auth0 vs Keycloak, audit auth paths, env vars |
+| [docs/identity.md](docs/identity.md) | **IdP** — single active provider (Auth0 or Entra), audit auth paths, env vars |
 | [auth0-setup.md](docs/auth0-setup.md) | **Auth0** — full walkthrough + troubleshooting ([screenshots](docs/images/auth0/README.md)) |
+| [entra-setup.md](docs/entra-setup.md) | **Microsoft Entra ID** — scripted tenant setup, env vars, troubleshooting |
 | [backlog.md](backlog.md) | **Canonical open backlog** — active and deferred work tracked in one place |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **Plan** — [0.4 multi-track completion](docs/ROADMAP.md) |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **What to build next** — Phase A–D |
@@ -106,10 +107,10 @@ Installs Python deps (`uv sync`), Node deps (`npm install`), and generates demo 
 make dev    # flight :8000 → proxy :8787 → ui :5173
 ```
 
-Open http://localhost:5173, then [**Agent gateway**](http://localhost:5173/agents.html) to start, or [**Flight demo (POC)**](http://localhost:5173/flight-demo.html) — pick a **guest JWT scope** or configure Auth0, click **Initialize**, then chat.
+Open http://localhost:5173, then [**Agent gateway**](http://localhost:5173/agents.html) to start, or [**Flight demo (POC)**](http://localhost:5173/flight-demo.html) — pick a **guest JWT scope** or configure an IdP (Auth0 or Entra), click **Initialize**, then chat.
 
-- **Auth0 on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_JWT_*` + `AUTH0_MGMT_*` (servers don't read `ui/.env.local`).
-- **Auth0 in UI:** `ui/.env.local` with `VITE_AUTH0_*` — see [auth0-env.example](docs/auth0-env.example).
+- **IdP on flight + proxy + agent gateway:** `cp scripts/dev.env.example scripts/dev.env` and set `MCP_IDP_PROVIDER` (`auth0` or `entra`, default `auth0`) plus that provider's vars — `AUTH0_*` or `ENTRA_*` (servers don't read `ui/.env.local`). The proxy derives its JWT trust from the active provider; flight still needs explicit `MCP_JWT_*`.
+- **IdP in UI:** `ui/.env.local` with `VITE_AUTH0_*` (see [auth0-env.example](docs/auth0-env.example)) or `VITE_IDP_PROVIDER=entra` + `VITE_ENTRA_*` (see [entra-setup.md](docs/entra-setup.md)).
 - **Agent gateway:** open [http://localhost:5173/agents.html](http://localhost:5173/agents.html) after `make dev`. Prod: `VITE_PROXY_BASE_URL` on Vercel — [render-deploy.md § Agent gateway](docs/render-deploy.md#agent-gateway-env-render--vercel).
 - **Approval queue:** requires `MCP_APPROVAL_QUEUE=true` on the proxy host (Render **Environment** tab) — the queue is silently inactive when unset. Demo: [docs/demo-proxy.md#demo-7](docs/demo-proxy.md#demo-7--approval-queue-end-to-end).
 - **Stuck processes:** `make stop`
@@ -157,11 +158,11 @@ mcp-tool-guard/
 
 | Project | Key settings |
 |---------|----------------|
-| **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for Auth0 |
-| **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` |
+| **Flight** (`servers/flight`) | Root `servers/flight`; `MCP_GUARD_PUBLIC_KEY_PEM` + `MCP_JWT_*` for the active IdP (Auth0 or Entra) |
+| **UI** (repo root) | `npm ci` + build gateway + ui; `VITE_MCP_URL`, `VITE_AUTH0_*` or `VITE_IDP_PROVIDER=entra` + `VITE_ENTRA_*` |
 | **Guard proxy** (Render, not Vercel) | `npm run start:proxy -w @mcp-tool-guard/gateway` — [render-deploy.md](docs/render-deploy.md) · [guard-proxy.md](docs/guard-proxy.md) |
 
-Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md).
+Guest demo JWTs ship in `ui/public/demo-tokens.json` — no token env vars required for guest mode. Auth0: [auth0-setup.md](docs/auth0-setup.md) · Entra: [entra-setup.md](docs/entra-setup.md).
 
 Regenerate Python deps after `pyproject.toml` changes:
 
