@@ -116,6 +116,29 @@ Swap IdP = change env vars + issuer dashboard — **no change** to scope middlew
 
 ---
 
+## Entra ID setup (shipped 0.5.0)
+
+**Microsoft Entra ID is a shipped alternative to Auth0** — same scope enforcement code, different IdP dashboard and environment variables.
+
+Setup: [Entra ID setup guide](entra-setup.md).
+
+**Single-active-provider model:** MCPToolGuard validates the issuer (`iss` claim) against **one** expected IdP at runtime. Select it via env:
+
+| If you want | Set | Example |
+|-------------|-----|---------|
+| Auth0 | `MCP_IDP_PROVIDER=auth0` (also the default when unset — see below) | `MCP_JWT_ISSUER=https://tenant.auth0.com/` |
+| Entra ID | `MCP_IDP_PROVIDER=entra` | `MCP_JWT_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0` |
+
+**Leaving `MCP_IDP_PROVIDER` unset does not mean "no provider" / guest-only.** `gateway/env.ts`'s `idpProviderIdFromEnv()` defaults to `"auth0"` when the var is unset — matching this project's behavior before Entra existed, where the Auth0 management/token-vending code paths were always attempted unconditionally. Guest-mode (unauthenticated demo tokens) works independently of this setting either way, since it never goes through an IdP adapter at all — but an unset `MCP_IDP_PROVIDER` still means "Auth0 is the active provider," not "no provider is active."
+
+**Gateway proxy (`gateway/env.ts`'s `jwtTrustFromEnv()`) auto-derives `MCP_JWT_ISSUER`/`MCP_JWT_AUDIENCE`/`MCP_JWT_JWKS_URL` from the active provider when they aren't set explicitly.** Per field independently: an explicit `MCP_JWT_*` var always wins (still supported, e.g. for a custom OIDC issuer); otherwise the gateway derives issuer/audience/jwks from that provider's own vars — `AUTH0_DOMAIN`/`AUTH0_AUDIENCE` for Auth0, `ENTRA_TENANT_ID`/`ENTRA_API_APP_ID` for Entra, using the correct formula for each provider (including the Entra-specific JWKS discovery path below, not the Auth0-shaped one). In the common case you no longer need to set `MCP_JWT_*` by hand for the gateway at all — the provider vars you already set for management/token-vending are enough.
+
+**This auto-derivation is gateway-only.** `servers/flight/guard.py`'s `JwtTrustConfig.from_env()` still requires all three `MCP_JWT_*` vars set explicitly — the flight server is a separate deployment that never receives `MCP_IDP_PROVIDER` or any `ENTRA_*`/`AUTH0_*` var. For flight, `MCP_JWT_JWKS_URL` still needs setting explicitly for Entra specifically: when unset, `JwtTrustConfig.from_env()` auto-derives it as `${MCP_JWT_ISSUER}/.well-known/jwks.json`, which happens to be correct for Auth0 but is the wrong path for Entra (Entra's real JWKS endpoint is `https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys`). See [Entra ID setup guide → Step 5](entra-setup.md#step-5--flight-server-entra-path) for the exact vars flight needs.
+
+Rationale: [BL-034 — Single-active-provider trust model design](superpowers/specs/2026-07-18-idp-trust-model-design.md).
+
+---
+
 ## Target architecture (current)
 
 ```

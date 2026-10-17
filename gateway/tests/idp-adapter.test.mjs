@@ -115,6 +115,94 @@ test("Auth0IdpAdapter.invalidateToken() does not throw when vending not configur
   }
 });
 
+import { EntraIdpAdapter } from "../dist/idp-adapter.js";
+
+const ENTRA_ENV_KEYS = [
+  "ENTRA_TENANT_ID",
+  "ENTRA_CLIENT_ID",
+  "ENTRA_CLIENT_SECRET",
+  "ENTRA_API_APP_ID",
+];
+
+function clearEntraAdapterEnv() {
+  const saved = {};
+  for (const key of ENTRA_ENV_KEYS) {
+    saved[key] = process.env[key];
+    delete process.env[key];
+  }
+  return () => {
+    for (const key of ENTRA_ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  };
+}
+
+test("EntraIdpAdapter reports providerId 'entra'", () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    const adapter = new EntraIdpAdapter();
+    assert.equal(adapter.providerId, "entra");
+  } finally {
+    restore();
+  }
+});
+
+test("EntraIdpAdapter.isManagementConfigured() is false when ENTRA_* unset", () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    const adapter = new EntraIdpAdapter();
+    assert.equal(adapter.isManagementConfigured(), false);
+  } finally {
+    restore();
+  }
+});
+
+test("EntraIdpAdapter.isVendingConfigured() is false when ENTRA_TENANT_ID/API_APP_ID unset", () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    const adapter = new EntraIdpAdapter();
+    assert.equal(adapter.isVendingConfigured(), false);
+  } finally {
+    restore();
+  }
+});
+
+test("EntraIdpAdapter.isVendingConfigured() is true when ENTRA_TENANT_ID/API_APP_ID set", () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    process.env.ENTRA_TENANT_ID = "tenant-id";
+    process.env.ENTRA_API_APP_ID = "api-app-id";
+    const adapter = new EntraIdpAdapter();
+    assert.equal(adapter.isVendingConfigured(), true);
+  } finally {
+    restore();
+  }
+});
+
+test("EntraIdpAdapter.vendToken() rejects when vending not configured", async () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    const adapter = new EntraIdpAdapter();
+    await assert.rejects(
+      adapter.vendToken("client-id", "client-secret"),
+      /ENTRA_TENANT_ID and ENTRA_API_APP_ID required for token vending/,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("EntraIdpAdapter.invalidateToken() does not throw when vending not configured", () => {
+  const restore = clearEntraAdapterEnv();
+  try {
+    const adapter = new EntraIdpAdapter();
+    assert.doesNotThrow(() => adapter.invalidateToken("client-id"));
+  } finally {
+    restore();
+  }
+});
+
 import { buildIdpAdapter } from "../dist/idp-adapter.js";
 import { idpProviderIdFromEnv } from "../dist/env.js";
 
@@ -163,8 +251,9 @@ test("buildIdpAdapter('keycloak') throws not-yet-implemented", () => {
   assert.throws(() => buildIdpAdapter("keycloak"), /keycloak.*not yet implemented/i);
 });
 
-test("buildIdpAdapter('entra') throws not-yet-implemented", () => {
-  assert.throws(() => buildIdpAdapter("entra"), /entra.*not yet implemented/i);
+test("buildIdpAdapter('entra') returns an EntraIdpAdapter", () => {
+  const adapter = buildIdpAdapter("entra");
+  assert.equal(adapter.providerId, "entra");
 });
 
 test("dist/index.js exports the IdpAdapter public surface", async () => {

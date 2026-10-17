@@ -2,21 +2,13 @@
 set -euo pipefail
 
 : "${GUARD_BASE_URL:?GUARD_BASE_URL is required}"
-OPERATOR_TOKEN="${AUTH0_OPERATOR_BEARER_TOKEN:-}"
-
-if [[ -z "$OPERATOR_TOKEN" ]]; then
-  : "${MCP_JWT_ISSUER:?MCP_JWT_ISSUER is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
-  : "${MCP_JWT_AUDIENCE:?MCP_JWT_AUDIENCE is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
-  : "${AUTH0_OPERATOR_CLIENT_ID:?AUTH0_OPERATOR_CLIENT_ID is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
-  : "${AUTH0_OPERATOR_CLIENT_SECRET:?AUTH0_OPERATOR_CLIENT_SECRET is required when AUTH0_OPERATOR_BEARER_TOKEN is not set}"
-fi
+# Entra token for a human operator holding gateway:admin (the workflow creates a temporary user for this).
+: "${ENTRA_OPERATOR_BEARER_TOKEN:?ENTRA_OPERATOR_BEARER_TOKEN is required}"
+OPERATOR_TOKEN="$ENTRA_OPERATOR_BEARER_TOKEN"
 
 UI_BASE_URL="${UI_BASE_URL:-}"
 AGENT_SCOPE="${AGENT_SCOPE:-flights:read}"
 AGENT_SERVER_ID="${AGENT_SERVER_ID:-demo}"
-
-AUTH0_DOMAIN="${MCP_JWT_ISSUER#https://}"
-AUTH0_DOMAIN="${AUTH0_DOMAIN%/}"
 
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; exit 1; }
@@ -31,36 +23,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mint_token() {
-  local client_id="$1"
-  local client_secret="$2"
-
-  curl -sS -X POST "https://${AUTH0_DOMAIN}/oauth/token" \
-    -H "Content-Type: application/json" \
-    -d "{\"client_id\":\"${client_id}\",\"client_secret\":\"${client_secret}\",\"audience\":\"${MCP_JWT_AUDIENCE}\",\"grant_type\":\"client_credentials\"}" \
-  | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);if(!j.access_token){process.stderr.write(d);process.exit(1)};process.stdout.write(j.access_token)})'
-}
-
 echo ""
-echo "=== Auth0 k3d smoke ==="
+echo "=== Entra k3d smoke ==="
 echo "Guard: ${GUARD_BASE_URL}"
 if [[ -n "$UI_BASE_URL" ]]; then
   echo "UI: ${UI_BASE_URL}"
 fi
 echo ""
 
-if [[ -n "$OPERATOR_TOKEN" ]]; then
-  echo "1. Using provided operator bearer token (GUI-like flow)..."
-  pass "Using provided operator token"
-else
-  echo "1. Mint operator Auth0 token (gateway:admin)..."
-  OPERATOR_TOKEN="$(mint_token "$AUTH0_OPERATOR_CLIENT_ID" "$AUTH0_OPERATOR_CLIENT_SECRET")"
-  [[ -n "$OPERATOR_TOKEN" ]] || fail "Failed to mint operator token"
-  pass "Minted operator token"
-fi
+echo "1. Operator token: temporary Entra user with gateway:admin (provided by workflow)..."
+pass "Using provided operator token"
 
 echo "2. Guard health should report KV enabled..."
-HEALTH="$(curl -sS "$GUARD_BASE_URL/health")"
+for _ in $(seq 1 30); do
+  HEALTH="$(curl -sS "$GUARD_BASE_URL/health" || true)"
+  echo "$HEALTH" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{JSON.parse(d)}catch{process.exit(1)}})' && break
+  sleep 2
+done
 KV_ENABLED="$(echo "$HEALTH" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);process.stdout.write(String(Boolean(j.kv_enabled)))})')"
 [[ "$KV_ENABLED" == "true" ]] || fail "Expected kv_enabled=true"
 pass "KV is enabled"
@@ -79,13 +58,24 @@ CREATE_JSON="$(curl -sS -X POST "$GUARD_BASE_URL/agents" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"ci-ephemeral-agent-$(date +%s)\",\"scopes\":[\"${AGENT_SCOPE}\"],\"serverId\":\"${AGENT_SERVER_ID}\"}")"
-CREATE_STATUS="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);if(j.clientId && j.clientSecret){process.stdout.write("ok");}else{process.stdout.write("bad");}}catch{process.stdout.write("bad")}})')"
-if [[ "$CREATE_STATUS" != "ok" ]]; then
-  CREATE_ERR="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);process.stdout.write(String(j.error||j.message||"unknown error"));}catch{process.stdout.write("non-json response")}})')"
-  fail "POST /agents failed: ${CREATE_ERR}"
+json_field() { node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const v=JSON.parse(d)[process.argv[1]];process.stdout.write(v==null?"":String(v))}catch{}})' "$1"; }
+PENDING_ID="$(echo "$CREATE_JSON" | json_field pendingId)"
+if [[ -z "$PENDING_ID" ]]; then
+  fail "POST /agents did not return a pendingId: $(echo "$CREATE_JSON" | json_field error)"
 fi
-AGENT_CLIENT_ID="$(echo "$CREATE_JSON" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const j=JSON.parse(d);process.stdout.write(j.clientId||"")})')"
-[[ -n "$AGENT_CLIENT_ID" ]] || fail "No clientId in create response"
+AGENT_CLIENT_ID=""
+for _ in $(seq 1 60); do
+  POLL_JSON="$(curl -sS "$GUARD_BASE_URL/agents/pending/$PENDING_ID")"
+  POLL_STATUS="$(echo "$POLL_JSON" | json_field status)"
+  if [[ "$POLL_STATUS" == "active" ]]; then
+    AGENT_CLIENT_ID="$(echo "$POLL_JSON" | json_field clientId)"
+    break
+  elif [[ "$POLL_STATUS" == "failed" ]]; then
+    fail "Agent creation failed: $(echo "$POLL_JSON" | json_field error)"
+  fi
+  sleep 1
+done
+[[ -n "$AGENT_CLIENT_ID" ]] || fail "Timed out waiting for agent creation (pendingId $PENDING_ID)"
 pass "Created ephemeral agent: $AGENT_CLIENT_ID"
 
 echo "5. GET /agents should list the newly created agent..."

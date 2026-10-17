@@ -1,10 +1,10 @@
 import {
-  getAuth0Config,
-  getAuth0UserLabel,
+  getIdpConfig,
+  getUserLabel,
   handleAuthRedirect,
-  isAuth0Authenticated,
-  loginWithAuth0,
-  logoutAuth0,
+  isSignedIn,
+  login,
+  logout,
 } from "./auth.js";
 
 const authControls = document.getElementById("auth-controls")!;
@@ -13,8 +13,8 @@ const authLogoutBtn = document.getElementById("auth-logout") as HTMLButtonElemen
 const authStatusEl = document.getElementById("auth-status")!;
 
 async function syncAuthUi(): Promise<void> {
-  const auth0Config = getAuth0Config();
-  if (!auth0Config) {
+  const idpConfig = getIdpConfig();
+  if (!idpConfig) {
     authControls.hidden = true;
     return;
   }
@@ -22,15 +22,15 @@ async function syncAuthUi(): Promise<void> {
   authControls.hidden = false;
   await handleAuthRedirect();
 
-  const authenticated = await isAuth0Authenticated();
+  const authenticated = await isSignedIn();
   authLoginBtn.hidden = authenticated;
   authLogoutBtn.hidden = !authenticated;
-  authStatusEl.textContent = authenticated ? await getAuth0UserLabel() : "Not signed in";
+  authStatusEl.textContent = authenticated ? await getUserLabel() : "Not signed in";
 }
 
-authLoginBtn.addEventListener("click", () => void loginWithAuth0());
+authLoginBtn.addEventListener("click", () => void login());
 authLogoutBtn.addEventListener("click", () => {
-  void logoutAuth0();
+  void logout();
 });
 
 void syncAuthUi();

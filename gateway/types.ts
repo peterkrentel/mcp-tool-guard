@@ -65,11 +65,15 @@ export interface JwtPayload {
   gty?: string;
   client_id?: string;
   azp?: string;
+  /** Entra ID v1 tokens — application (client) ID; the v1 counterpart of `azp` (v2). */
+  appid?: string;
   scope?: string;
   scopes?: string | string[];
   scp?: string | string[];
   /** Auth0 RBAC — API permissions when "Add Permissions in the Access Token" is enabled. */
   permissions?: string[];
+  /** Entra ID — Azure App Roles when "Emit groups as role claims" is enabled. */
+  roles?: unknown[];
   [key: string]: unknown;
 }
 

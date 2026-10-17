@@ -21,12 +21,13 @@ make stop             # kill anything on 8000/8787/5173
 npm run typecheck                # tsc --noEmit across gateway + workspaces (CI gate)
 npm run test -w @mcp-tool-guard/gateway   # gateway tests (node --test tests/*.test.mjs)
 node --test gateway/tests/proxy-auth.test.mjs   # single test file
+npm run test -w @mcp-tool-guard/ui        # UI tests (compiles src/auth-provider.ts to dist-test/ via `pretest`, then node --test src/*.test.mjs)
 npm run check:demo-policy        # asserts flight's embedded guard_config.yaml matches gateway/config.yaml
 npm run build -w @mcp-tool-guard/ui       # build UI
 npm run generate-keys            # regenerate demo JWT keypair (scripts/generate-keys.mjs)
 ```
 
-Only the `gateway` workspace has a test suite (Node's built-in test runner, `.test.mjs` files in `gateway/tests/`) — there is no UI or Python test suite currently.
+The `gateway` workspace has the main test suite (Node's built-in test runner, `.test.mjs` files in `gateway/tests/`). The `ui` workspace has a small one too — only pure, DOM-free logic (`src/auth-provider.ts`), compiled ad hoc via `pretest` since `tsconfig.json` has `noEmit: true` for the real Vite build; `dist-test/` is the gitignored scratch output of that compile step, not something to commit. There is no Python test suite currently.
 
 After changing `servers/flight/pyproject.toml`, regenerate the lockfile Vercel deploys from:
 ```bash

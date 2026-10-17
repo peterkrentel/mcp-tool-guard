@@ -39,46 +39,33 @@ spec:
                 secretKeyRef:
                   name: guard-secrets
                   key: KV_REST_API_TOKEN
-            - name: MCP_JWT_ISSUER
-              valueFrom:
-                secretKeyRef:
-                  name: guard-secrets
-                  key: MCP_JWT_ISSUER
-            - name: MCP_JWT_AUDIENCE
-              valueFrom:
-                secretKeyRef:
-                  name: guard-secrets
-                  key: MCP_JWT_AUDIENCE
-            - name: MCP_JWT_JWKS_URL
-              valueFrom:
-                secretKeyRef:
-                  name: guard-secrets
-                  key: MCP_JWT_JWKS_URL
             - name: MCP_GUARD_PUBLIC_KEY_PEM
               valueFrom:
                 secretKeyRef:
                   name: guard-secrets
                   key: MCP_GUARD_PUBLIC_KEY_PEM
-            - name: AUTH0_DOMAIN
+            - name: MCP_IDP_PROVIDER
+              value: entra
+            - name: ENTRA_TENANT_ID
               valueFrom:
                 secretKeyRef:
                   name: guard-secrets
-                  key: AUTH0_DOMAIN
-            - name: AUTH0_AUDIENCE
+                  key: ENTRA_TENANT_ID
+            - name: ENTRA_API_APP_ID
               valueFrom:
                 secretKeyRef:
                   name: guard-secrets
-                  key: AUTH0_AUDIENCE
-            - name: AUTH0_MGMT_CLIENT_ID
+                  key: ENTRA_API_APP_ID
+            - name: ENTRA_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   name: guard-secrets
-                  key: AUTH0_MGMT_CLIENT_ID
-            - name: AUTH0_MGMT_CLIENT_SECRET
+                  key: ENTRA_CLIENT_ID
+            - name: ENTRA_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: guard-secrets
-                  key: AUTH0_MGMT_CLIENT_SECRET
+                  key: ENTRA_CLIENT_SECRET
           volumeMounts:
             - name: guard-config
               mountPath: /app/config

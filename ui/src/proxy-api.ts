@@ -15,6 +15,25 @@ export interface CreatedAgent {
   serverId?: string;
 }
 
+/** Immediate response from POST /agents — creation now finishes in the background. */
+export interface PendingAgentCreation {
+  pendingId: string;
+  status: "pending";
+}
+
+/** Response shape from GET /agents/pending/:id. */
+export interface PendingAgentStatus {
+  status: "pending" | "active" | "failed";
+  name: string;
+  serverId: string;
+  scopes: string[];
+  provider: string;
+  createdAt: string;
+  clientId?: string;
+  clientSecret?: string;
+  error?: string;
+}
+
 export interface ListedAgent {
   id: string;
   name: string;
@@ -22,6 +41,7 @@ export interface ListedAgent {
   scopes: string[];
   auth0ClientId: string;
   auth0AppName: string;
+  provider: string;
   status: "active";
   createdAt: string;
 }
@@ -114,7 +134,7 @@ export async function createAgent(
   name: string,
   scopes: string[],
   serverId: string,
-): Promise<CreatedAgent> {
+): Promise<PendingAgentCreation> {
   const res = await proxyFetch("/agents", {
     method: "POST",
     headers: await adminAuthHeaders({ "Content-Type": "application/json" }),
@@ -124,7 +144,17 @@ export async function createAgent(
     const body = (await res.json()) as { error?: string };
     throw new Error(body.error ?? res.statusText);
   }
-  return (await res.json()) as CreatedAgent;
+  return (await res.json()) as PendingAgentCreation;
+}
+
+/** GET /agents/pending/:id — poll status of a background agent creation. Auth: no. */
+export async function pollPendingAgent(pendingId: string): Promise<PendingAgentStatus> {
+  const res = await proxyFetch(`/agents/pending/${encodeURIComponent(pendingId)}`);
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: string };
+    throw new Error(body.error ?? res.statusText);
+  }
+  return (await res.json()) as PendingAgentStatus;
 }
 
 export async function revokeAgent(clientId: string): Promise<void> {

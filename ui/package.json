@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pretest": "tsc src/auth-provider.ts --outDir dist-test --module ESNext --target ES2022 --moduleResolution bundler --skipLibCheck --ignoreConfig",
+    "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.24.1",
+    "@azure/msal-browser": "^5.18.0",
     "@mcp-tool-guard/gateway": "*",
     "@mlc-ai/web-llm": "^0.2.84",
     "yaml": "^2.8.0"

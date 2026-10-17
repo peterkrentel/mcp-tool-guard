@@ -45,6 +45,81 @@ async function getMgmtToken(cfg: Auth0MgmtConfig): Promise<string> {
 }
 
 /**
+ * Look up the Auth0 resource server whose `identifier` matches `cfg.audience`.
+ * Auth0's Management API does not consistently accept the identifier
+ * (e.g. `https://mcp-tool-guard`) as the `{id}` path param on
+ * `GET /api/v2/resource-servers/{id}` across all Auth0 API versions — the
+ * documented-safe way to resolve it is list-then-filter, so that's what this
+ * does, even though it's less efficient than a direct GET. (Unverified
+ * against a live tenant in this environment — worth confirming Auth0's
+ * actual behavior there; if `GET /api/v2/resource-servers/{identifier}` does
+ * work directly in practice, this could be simplified to a single GET.)
+ */
+async function getResourceServerByAudience(
+  cfg: Auth0MgmtConfig,
+  headers: Record<string, string>,
+): Promise<{ id: string; scopes: Array<{ value: string; description?: string }> }> {
+  const res = await fetch(`https://${cfg.domain}/api/v2/resource-servers`, { headers });
+  if (!res.ok) {
+    throw new Error(`Auth0 resource-servers list failed: ${res.status} ${await res.text()}`);
+  }
+  const servers = (await res.json()) as Array<{
+    id: string;
+    identifier: string;
+    scopes?: Array<{ value: string; description?: string }>;
+  }>;
+  const server = servers.find((s) => s.identifier === cfg.audience);
+  if (!server) {
+    throw new Error(`Auth0 resource server not found for audience '${cfg.audience}' — check AUTH0_AUDIENCE`);
+  }
+  return { id: server.id, scopes: server.scopes ?? [] };
+}
+
+/**
+ * Ensure every requested scope is declared on the Auth0 resource server
+ * identified by `cfg.audience`, auto-provisioning any that are missing
+ * (`PATCH /api/v2/resource-servers/{id}` with the full updated `scopes`
+ * array) instead of letting `/client-grants` reject the request — this is
+ * what lets a vendor MCP server registered at runtime via `POST /servers`
+ * actually get an agent granted its scopes, without a human adding the
+ * permission in the Auth0 dashboard first.
+ *
+ * PATCH replaces the whole `scopes` array rather than merging, so this reads
+ * the existing array and appends to it rather than PATCHing the missing
+ * scopes alone — otherwise it would silently drop every already-declared
+ * permission.
+ */
+async function ensureResourceServerScopesExist(
+  cfg: Auth0MgmtConfig,
+  headers: Record<string, string>,
+  scopes: string[],
+): Promise<void> {
+  const resourceServer = await getResourceServerByAudience(cfg, headers);
+  const missingScopes = scopes.filter(
+    (scope) => !resourceServer.scopes.some((s) => s.value === scope),
+  );
+  if (missingScopes.length === 0) return;
+
+  const updatedScopes = [
+    ...resourceServer.scopes,
+    ...missingScopes.map((scope) => ({
+      value: scope,
+      description: `Auto-provisioned scope for ${scope}`,
+    })),
+  ];
+  const patchRes = await fetch(`https://${cfg.domain}/api/v2/resource-servers/${resourceServer.id}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ scopes: updatedScopes }),
+  });
+  if (!patchRes.ok) {
+    throw new Error(
+      `Auth0 resource-server scope auto-provisioning failed for scope(s) '${missingScopes.join(", ")}': ${patchRes.status} ${await patchRes.text()}`,
+    );
+  }
+}
+
+/**
  * POST /agents — create Auth0 M2M client with requested API scopes.
  * Auth required: no (demo); uses server-side mgmt credentials.
  */
@@ -64,6 +139,20 @@ export async function createM2mAgent(
     Authorization: `Bearer ${mgmtToken}`,
     "Content-Type": "application/json",
   };
+
+  // Dedupe up front — the UI's create-agent form is a free-text
+  // comma-separated field, so e.g. "flights:read, flights:read" arrives here
+  // as two identical array elements. Auth0's resource-server `scopes` array
+  // and `/client-grants`'s `scope` field are presumably de-duplicated
+  // server-side, but there's no live tenant handy to confirm that — dedupe
+  // here too so every downstream step (missing-scope computation, the
+  // PATCH, and the client-grant call) is correct regardless of what Auth0
+  // does with duplicates on its end.
+  const uniqueScopes = [...new Set(scopes)];
+
+  // Read-then-patch, before creating anything client-specific — a failure
+  // here has nothing agent-specific to roll back yet.
+  await ensureResourceServerScopesExist(cfg, headers, uniqueScopes);
 
   const createRes = await fetch(`https://${cfg.domain}/api/v2/clients`, {
     method: "POST",
@@ -91,7 +180,7 @@ export async function createM2mAgent(
     body: JSON.stringify({
       client_id: client.client_id,
       audience: cfg.audience,
-      scope: scopes,
+      scope: uniqueScopes,
     }),
   });
 
