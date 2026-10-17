@@ -223,7 +223,10 @@ def create_app(mcp_path: str = "/mcp"):
     return JwtToolGuardMiddleware(base, get_guard())
 
 
-app = create_app("/mcp")
+from path_restore import OriginalPathMiddleware
+
+# Vercel may pick this module as the entrypoint; keep it behind the same path restore as api/index.py.
+app = OriginalPathMiddleware(create_app("/mcp"), "/mcp", "server.py")
 
 
 if __name__ == "__main__":
