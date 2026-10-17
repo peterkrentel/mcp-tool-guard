@@ -28,14 +28,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: design discussion 2026-08-10 on branch feature/entra-idp-adapter — user identified that `entra-setup.sh` conflated "stand up the tenant" (the actual `az` automation ask) with "declare every current+future MCP server's scopes upfront," which doesn't match how Auth0 ever worked (permissions were added incrementally per-server, always manually, never automated) and directly blocks the stated goal of registering arbitrary vendor MCPs at runtime (`POST /servers`) without a corresponding manual IdP step
 
-- BL-054
-  priority: P0
-  status: in-progress
-  item: Flight demo page (`/flight-demo.html`) fails with `MCP HTTP 404` after sign-in
-  acceptance: (1) Root-cause the 404: browser POSTs to the proxy `/mcp` (default server `flight`), and a bare probe of the flight Vercel `/mcp` also returned 404 — determine whether the proxy's flight upstream URL (`MCP_PROXY_CONFIG` on Render) or the flight deployment itself is wrong, and whether this predates the Entra cutover. (2) Flight demo signed in with Entra can Initialize and run `search_flights_tool`. (3) Cause and fix recorded in CHANGELOG.
-  owner: unassigned
-  source: post-Entra cutover review 2026-10-17; seen live in browser devtools
-
 - BL-055
   priority: P0
   status: todo
@@ -76,6 +68,14 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   note: deliberately skipped in favor of going straight to Entra (BL-021, shipped 2026-08-08) — the `JwtValidator`/`IdpAdapter` abstraction was already interface-complete and Auth0-proven, so Keycloak-first de-risking wasn't needed. Not done, not dropped — deprioritized; revisit if a real deployment needs Keycloak specifically.
 
 ## P1 (important)
+
+- BL-059
+  priority: P1
+  status: todo
+  item: Flight demo does not say the guest dropdown is ignored while signed in
+  acceptance: While signed in, the "JWT scope (guest)" dropdown is disabled or labelled as unused (or the page explains which token Initialize will use); the signed-in token's missing flights roles produce a hint that points to the Entra role assignment (docs/entra-setup.md Step 6) or to signing out to use a guest token.
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; signed-in Entra user got "Missing required scope 'flights:read'" with a guest scope selected and read it as a regression
 
 - BL-056
   priority: P1
