@@ -30,7 +30,7 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 - BL-054
   priority: P0
-  status: todo
+  status: in-progress
   item: Flight demo page (`/flight-demo.html`) fails with `MCP HTTP 404` after sign-in
   acceptance: (1) Root-cause the 404: browser POSTs to the proxy `/mcp` (default server `flight`), and a bare probe of the flight Vercel `/mcp` also returned 404 — determine whether the proxy's flight upstream URL (`MCP_PROXY_CONFIG` on Render) or the flight deployment itself is wrong, and whether this predates the Entra cutover. (2) Flight demo signed in with Entra can Initialize and run `search_flights_tool`. (3) Cause and fix recorded in CHANGELOG.
   owner: unassigned

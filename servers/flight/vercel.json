@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/mcp", "destination": "/api" },
-    { "source": "/health", "destination": "/api" },
-    { "source": "/audit", "destination": "/api" }
+    { "source": "/mcp", "destination": "/api?__path=/mcp" },
+    { "source": "/health", "destination": "/api?__path=/health" },
+    { "source": "/audit", "destination": "/api?__path=/audit" }
   ]
 }

@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from path_restore import OriginalPathMiddleware  # noqa: E402
 from server import create_app  # noqa: E402
 
-# Vercel routes /api/* to this handler; mount MCP at root of the function.
-app = create_app("/")
+# Vercel routes /api to this handler; MCP is mounted at the root of the function.
+app = OriginalPathMiddleware(create_app("/"), "/")
