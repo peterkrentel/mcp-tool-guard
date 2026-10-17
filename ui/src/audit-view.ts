@@ -226,7 +226,7 @@ function renderAuditError(error: string, status?: number): string {
   return `<div class="audit-fetch-error" role="alert">
     <strong>Server audit unavailable${escapeHtml(statusLabel)}</strong>
     <p>${escapeHtml(error)}</p>
-    <p class="audit-fetch-hint">Server enforcement requires a valid Bearer JWT on GET /audit. Sign in with Auth0 or use a guest demo token, then Initialize.</p>
+    <p class="audit-fetch-hint">Server enforcement requires a valid Bearer JWT on GET /audit. Sign in (Auth0 or Microsoft Entra) or use a guest demo token, then Initialize.</p>
   </div>`;
 }
 

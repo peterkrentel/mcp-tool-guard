@@ -28,8 +28,8 @@ Browser → Vite :5173 → Guard proxy :8787 → Flight :8000
 ```
 
 - Vite dev server proxies `/mcp`, `/audit`, `/servers`, `/agents`, `/token` to `:8787` ([`ui/vite.config.ts`](../ui/vite.config.ts)).
-- JWT + Auth0 mgmt env for flight **and** proxy: `scripts/dev.env` (`MCP_JWT_*`, `AUTH0_MGMT_*`), not `ui/.env.local`.
-- Agents page: `ui/.env.local` with `VITE_AUTH0_*` (browser JWKS for M2M tokens).
+- JWT trust + IdP mgmt env for flight **and** proxy: `scripts/dev.env` — `MCP_JWT_*` plus `AUTH0_MGMT_*` (Auth0) or `MCP_IDP_PROVIDER=entra` + `ENTRA_*` (Entra), not `ui/.env.local`.
+- Agents page: `ui/.env.local` with `VITE_AUTH0_*` (browser JWKS for M2M tokens) or `VITE_IDP_PROVIDER=entra` + `VITE_ENTRA_*`.
 - Details: [README → Quick start](../README.md#quick-start), [guard-proxy.md](guard-proxy.md).
 
 ### Vercel prod **today**
@@ -47,7 +47,8 @@ Browser → Render guard proxy → Flight Vercel
 
 - Flight demo: `VITE_MCP_URL` → `https://mcp-tool-guard-proxy.onrender.com/mcp`.
 - Agent gateway: `VITE_PROXY_BASE_URL` → `https://mcp-tool-guard-proxy.onrender.com` (admin API + `/{serverId}/mcp`).
-- Render: `AUTH0_MGMT_*` for M2M create + token vending on `/agents.html`.
+- Render: one active IdP, selected by `MCP_IDP_PROVIDER` (`auth0` default, or `entra`). Auth0: `AUTH0_MGMT_*`; Entra: `ENTRA_*` — for M2M create + token vending on `/agents.html`. Switching providers touches **three** places (Render proxy, Vercel flight `MCP_JWT_*`, Vercel UI `VITE_*` + rebuild) — see [render-deploy.md § Switching to Entra](render-deploy.md#switching-to-entra).
+- `GET <proxy>/health` reports `idp_provider` and whether management/vending credentials are present; it does not validate JWT trust.
 - Audit panel fetches proxy `/audit` (`entries` with `source`: `proxy` / `mcp` / `agent`). Header may still say **Server enforcement** — cosmetic.
 - Deploy steps: [render-deploy.md](render-deploy.md). Live demo script: [demo-proxy.md](demo-proxy.md).
 
@@ -70,7 +71,7 @@ The proxy is a persistent Node service ([`gateway/proxy-server.ts`](../gateway/p
 | Piece | Code on `main` | Deployed to prod |
 |-------|----------------|------------------|
 | Guard HTTP proxy (#12) | Yes — `make proxy`, `GET /audit` three-layer entries | **Yes** — Render |
-| Agent gateway stage 1 | Yes — `/agents.html`, registry, M2M, three-layer audit | **Needs env** — `AUTH0_MGMT_*` on Render, `VITE_PROXY_BASE_URL` on Vercel |
+| Agent gateway stage 1 | Yes — `/agents.html`, registry, M2M, three-layer audit | **Needs env** — IdP management vars on Render (`AUTH0_MGMT_*` or `ENTRA_*`), `VITE_PROXY_BASE_URL` on Vercel |
 | Flight + UI on Vercel | Yes | Yes — [live demo](vercel-deploy.md#live-demo) |
 | `make dev` (one terminal) | Yes | N/A (local only) |
 | Proxy-focused audit UI | Optional branch / stash | N/A until UI PR merged |
@@ -116,3 +117,4 @@ Client **Agent attempts** and **Agent trace** are always browser-side observabil
 | Diagrams, policy, three audit planes | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Task backlog and status | [NEXT-STEPS.md](NEXT-STEPS.md) |
 | Auth0 + JWT env | [auth0-setup.md](auth0-setup.md), [identity.md](identity.md) |
+| Microsoft Entra setup + env | [entra-setup.md](entra-setup.md) |

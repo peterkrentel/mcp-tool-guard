@@ -34,12 +34,12 @@ flowchart TB
     GatewayUI["Create agent form<br/>ui/src/agents-main.ts~441"]
     CreateAgent["POST /agents<br/>gateway/proxy-routes-agents-token.ts"]
     VendToken["POST /agents/:clientId/token<br/>gateway/token-vendor.ts"]
-    Auth0Client["Auth0 M2M client<br/>gateway/auth0-mgmt.ts"]
+    IdpClient["IdP M2M client (Auth0 or Entra)<br/>gateway/auth0-mgmt.ts, gateway/entra-mgmt.ts"]
     GatewayAgent["GatewayAgent<br/>ui/src/gateway-agent.ts"]
     Gemini["Gemini/Groq/Mistral<br/>gateway/llm-proxy.ts"]
     AgentGateway --> GatewayUI
     GatewayUI --> CreateAgent
-    CreateAgent --> Auth0Client
+    CreateAgent --> IdpClient
     GatewayUI --> VendToken
     VendToken --> GatewayAgent
     GatewayAgent --> Trace
@@ -77,7 +77,7 @@ flowchart TB
     Proxy --> GitHub
   end
 
-  IdP["Auth0 / guest PEM"] -.-> TG
+  IdP["Auth0 or Entra / guest PEM"] -.-> TG
   IdP -.-> VendToken
   IdP -.-> Proxy
   IdP -.-> MW
@@ -172,7 +172,7 @@ flowchart LR
 flowchart LR
   subgraph ui [UI]
     Guest[demo-tokens.json]
-    Auth0[Auth0 SPA login]
+    Auth0[Auth0 or Entra SPA login]
   end
   subgraph verify [Flight server dual trust]
     JWKS[JWKS iss aud]
@@ -186,7 +186,7 @@ flowchart LR
   Auth0 --> Audit
 ```
 
-Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md).
+Details: [identity.md](identity.md), [auth0-setup.md](auth0-setup.md), [entra-setup.md](entra-setup.md). One IdP is active at a time (`MCP_IDP_PROVIDER`).
 
 ---
 
@@ -211,7 +211,7 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | **Flight agent** | `ui/src/agent.ts` | Browser WebLLM + heuristics + tool execution (demo UI `/`) |
 | **Gateway agent** | `ui/src/gateway-agent.ts` | M2M LLM agent (Gemini/Groq/Mistral) on `/agents.html`; manage servers + scope, request approval |
 | **Create agent UI** | `ui/src/agents-main.ts` | Form for M2M agent provisioning (line ~441 `createAgentForm` submit → `createAgent()` + `vendToken()`) |
-| **Create agent endpoint** | `gateway/proxy-routes-agents-token.ts` | `POST /agents` → Auth0 M2M client creation via `gateway/auth0-mgmt.ts` |
+| **Create agent endpoint** | `gateway/proxy-routes-agents-token.ts` | `POST /agents` → M2M client creation in the active IdP via `gateway/auth0-mgmt.ts` or `gateway/entra-mgmt.ts` (async: `202` + poll `GET /agents/pending/:id`) |
 | **Token vendor** | `gateway/token-vendor.ts` | `POST /token` + `POST /agents/:clientId/token` — vend JWTs for M2M agents |
 | LLM proxy | `gateway/llm-proxy.ts` | `POST /llm/complete` — Gemini completion proxy; keeps `GEMINI_API_KEY` server-side |
 | Agent audit ingest | `gateway/proxy-routes-audit.ts` | `POST /audit/agent` — browser SDK pre-check rows appended to proxy audit store (non-authoritative); requires Bearer (`audit:write` or `gateway:admin`) unless trusted mode is explicitly enabled |
@@ -233,13 +233,13 @@ Local Vite proxies `/mcp` and `/audit` to the guard proxy ([`ui/vite.config.ts`]
 | MCP path | UI → proxy → flight or `/{id}/mcp` | UI/curl → Render proxy → flight, **GitHub MCP**, and registered vendor MCPs (for example Slack) | More vendor MCPs; backend agent examples |
 | Authoritative enforce | Guard proxy :8787 | Render guard proxy | Same |
 | `/audit` | `entries[]` with `source`: `proxy` / `mcp` / `agent`; response `sources` array | Same on Render | Audit export / OTel sink |
-| **FlightAgent** (`/flight-demo.html`, POC) | Browser WebLLM + heuristics | Same — guest or Auth0 login | Deferred or replaced |
+| **FlightAgent** (`/flight-demo.html`, POC) | Browser WebLLM + heuristics | Same — guest or IdP login (Auth0 or Entra) | Deferred or replaced |
 | **GatewayAgent** (`/agents.html`) | M2M agents (Gemini/Groq/Mistral) + approval queue | Same + prod servers | SDK agents + packaged gateway integrations |
 | Multi-server | `/agents.html` per-server routing; `/flight-demo.html` = flight only | Same | **Deferred:** [#9](ROADMAP.md) / [#10](ROADMAP.md) |
 | Vendor MCP | github wired locally + prod | **GitHub live** — [proof](track2-github-proof.md); Slack registration + scope enforcement validated via `/agents.html` | Additional vendor MCPs as needed |
 | Observability export | Browser panels + `/audit` | Browser panels + `/audit` + shipped OTel traces/logs from proxy to Grafana | External sink expansion (alerts, long-term retention, SIEM routing) |
 
-**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates Auth0 M2M) → `POST /agents/:clientId/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) (submit handler ~441), [token-vendor.ts](../gateway/token-vendor.ts), and [proxy-routes-agents-token.ts](../gateway/proxy-routes-agents-token.ts).
+**Agent provisioning flow (GatewayAgent):** `agents-main.ts` form → `POST /agents` (creates an M2M client in Auth0 or Entra, returns a pending id the UI polls) → `POST /agents/:clientId/token` (vends JWT) → `gateway-agent.ts` initialize + tool execution. See [agents-main.ts](../ui/src/agents-main.ts) (submit handler ~441), [token-vendor.ts](../gateway/token-vendor.ts), and [proxy-routes-agents-token.ts](../gateway/proxy-routes-agents-token.ts).
 
 **Build order:** Post-0.4.0 (all three tracks shipped) — registry/Auth0 sync, audit export, SDK packaging, and broader backend agent adoption. See [NEXT-STEPS](NEXT-STEPS.md#implementation-backlog-post-040), [track2-github-proof.md](track2-github-proof.md), [track3-approval-queue-proof.md](track3-approval-queue-proof.md).
 

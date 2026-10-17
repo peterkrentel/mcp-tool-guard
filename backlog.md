@@ -28,6 +28,22 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: design discussion 2026-08-10 on branch feature/entra-idp-adapter — user identified that `entra-setup.sh` conflated "stand up the tenant" (the actual `az` automation ask) with "declare every current+future MCP server's scopes upfront," which doesn't match how Auth0 ever worked (permissions were added incrementally per-server, always manually, never automated) and directly blocks the stated goal of registering arbitrary vendor MCPs at runtime (`POST /servers`) without a corresponding manual IdP step
 
+- BL-054
+  priority: P0
+  status: todo
+  item: Flight demo page (`/flight-demo.html`) fails with `MCP HTTP 404` after sign-in
+  acceptance: (1) Root-cause the 404: browser POSTs to the proxy `/mcp` (default server `flight`), and a bare probe of the flight Vercel `/mcp` also returned 404 — determine whether the proxy's flight upstream URL (`MCP_PROXY_CONFIG` on Render) or the flight deployment itself is wrong, and whether this predates the Entra cutover. (2) Flight demo signed in with Entra can Initialize and run `search_flights_tool`. (3) Cause and fix recorded in CHANGELOG.
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; seen live in browser devtools
+
+- BL-055
+  priority: P0
+  status: todo
+  item: Claude Code integration on Entra — finish agent pairing and retire the stale credential
+  acceptance: (1) Implement the device-code-style pairing flow from `docs/superpowers/specs/2026-08-11-claude-code-agent-pairing-design.md` so no `clientId`/`clientSecret` is hand-pasted into `scripts/dev.env`. (2) Remove the stale Auth0 credential held by the `github-guarded` registration (`MCP_AGENT_CLIENT_ID`/`MCP_AGENT_CLIENT_SECRET`). (3) Live proof: Claude Code reads via an Entra agent and a write is denied then approved. (4) `docs/claude-code-demo.md` updated.
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; spec deferred until the Entra branch merged
+
 - BL-003
   priority: P0
   status: todo
@@ -60,6 +76,30 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   note: deliberately skipped in favor of going straight to Entra (BL-021, shipped 2026-08-08) — the `JwtValidator`/`IdpAdapter` abstraction was already interface-complete and Auth0-proven, so Keycloak-first de-risking wasn't needed. Not done, not dropped — deprioritized; revisit if a real deployment needs Keycloak specifically.
 
 ## P1 (important)
+
+- BL-056
+  priority: P1
+  status: todo
+  item: Audit and approval-queue views are unwieldy at real volume
+  acceptance: (1) Audit rows show a date, not just a time of day, and are sorted newest-first. (2) Filter by agent, tool, decision and trace id; paginate or cap with "load more". (3) Approval queue no longer renders blank `undefined` entries, and old resolved entries can be collapsed or pruned. (4) Behaviour stays fail-closed (pending still badges as DENY by design).
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; 129 proxy rows with time-only stamps and ~40 `undefined` approval entries seen live
+
+- BL-057
+  priority: P1
+  status: todo
+  item: Agent creation rough edges (duplicate clicks, orphaned IdP apps)
+  acceptance: (1) The Create agent button is disabled while a creation is pending, so a double click cannot create two agents. (2) If `createAgent()` succeeds at the IdP but the later secret-encrypt or save step fails, the IdP app is rolled back (today an orphan app remains; seen with the missing-encryption-key bug). (3) Regression tests for both.
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; two identical `slack-agent-entra001` agents created from one click, orphans found during k3d CI debugging
+
+- BL-058
+  priority: P1
+  status: todo
+  item: `/health` does not say which build is live
+  acceptance: `/health` returns `version` (from package.json) and `commit` (short `RENDER_GIT_COMMIT` when present); test covers the fields; docs/render-deploy.md verification step mentions it.
+  owner: unassigned
+  source: post-Entra cutover review 2026-10-17; needed to confirm a deploy landed without guessing
 
 - BL-045
   priority: P1

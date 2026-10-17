@@ -12,7 +12,7 @@ Deploy the guard proxy as a Web Service on [Render](https://render.com), then po
 
 - Proxy code on `main` (`gateway/proxy-server.ts`)
 - Flight MCP live on Vercel (`https://mcp-tool-guard-flight-server.vercel.app/mcp`)
-- Auth0 env vars ready (same values as Vercel flight)
+- IdP env vars ready — **Auth0** ([auth0-setup.md](auth0-setup.md)) or **Entra** ([entra-setup.md](entra-setup.md)); exactly one IdP is active per deployment, selected by `MCP_IDP_PROVIDER` (default `auth0`)
 - **Node 22+** — root `package.json` sets `"engines": { "node": ">=22" }` (matches CI)
 
 ---
@@ -68,9 +68,10 @@ In the Render service → **Environment**, add:
 | Variable | Value |
 |----------|-------|
 | `MCP_GUARD_PUBLIC_KEY_PEM` | Contents of `ui/public/demo-public.pem` (paste with real newlines or `\n`) |
-| `MCP_JWT_ISSUER` | Your Auth0 issuer, e.g. `https://dev-p5fg6ldthdyeom16.us.auth0.com/` (trailing slash must match Vercel flight) |
-| `MCP_JWT_AUDIENCE` | Your Auth0 audience, e.g. `https://mcp-tool-guard` |
-| `MCP_JWT_JWKS_URL` | Optional — auto-derived from issuer if not set |
+| `MCP_IDP_PROVIDER` | `auth0` (default) or `entra` — the single active identity provider |
+| `MCP_JWT_ISSUER` | **Auth0:** your issuer, e.g. `https://dev-p5fg6ldthdyeom16.us.auth0.com/` (trailing slash must match Vercel flight). **Entra:** leave unset (see below) |
+| `MCP_JWT_AUDIENCE` | **Auth0:** your audience, e.g. `https://mcp-tool-guard`. **Entra:** leave unset |
+| `MCP_JWT_JWKS_URL` | Optional — auto-derived if not set. **Entra:** leave unset |
 | `MCP_CORS_ORIGINS` | `https://mcp-tool-guard-ui.vercel.app,http://localhost:5173` |
 | `MCP_PROXY_DEFAULT_SERVER` | `flight` |
 | `MCP_PROXY_CONFIG` | `config.prod.yaml` |
@@ -80,9 +81,13 @@ In the Render service → **Environment**, add:
 
 Verify upstream auth: `curl …/health` → `"upstream_auth_missing": []` when required upstream env vars are set.
 
+**Explicit `MCP_JWT_*` always wins.** The proxy derives its JWT trust (issuer, audience, JWKS URL) from the active provider's own vars (`AUTH0_DOMAIN`/`AUTH0_AUDIENCE` or `ENTRA_TENANT_ID`/`ENTRA_API_APP_ID`), but any explicit `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` overrides the derived value per field. See [Switching to Entra](#switching-to-entra) before changing providers.
+
 ### Agent gateway env (Render + Vercel) {#agent-gateway-env-render--vercel}
 
-Required for **[`/agents.html`](../ui/agents.html)** — M2M agent create/revoke and token vending. Add on **Render** (same service as guard proxy):
+Required for **[`/agents.html`](../ui/agents.html)** — M2M agent create/revoke and token vending. Add on **Render** (same service as guard proxy) the block for your active IdP.
+
+**Auth0** (`MCP_IDP_PROVIDER` unset or `auth0`):
 
 | Variable | Value |
 |----------|-------|
@@ -91,9 +96,27 @@ Required for **[`/agents.html`](../ui/agents.html)** — M2M agent create/revoke
 | `AUTH0_MGMT_CLIENT_SECRET` | That app's secret |
 | `AUTH0_AUDIENCE` | API identifier, e.g. `https://mcp-tool-guard` (same as `MCP_JWT_AUDIENCE`) |
 
-Verify: `curl https://mcp-tool-guard-proxy.onrender.com/health` → `"idp_provider": "auth0"`, `"idp_management_configured": true`.
+**Entra** (`MCP_IDP_PROVIDER=entra`) — values come from `scripts/entra-setup.sh`, see [entra-setup.md](entra-setup.md):
 
-On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*`):
+| Variable | Value |
+|----------|-------|
+| `MCP_IDP_PROVIDER` | `entra` |
+| `ENTRA_TENANT_ID` | `<TENANT_ID>` |
+| `ENTRA_API_APP_ID` | `<API_APP_ID>` — the protected API app (also the token `aud`, bare GUID) |
+| `ENTRA_CLIENT_ID` | `<MGMT_APP_ID>` — the management app that creates/deletes agent apps |
+| `ENTRA_CLIENT_SECRET` | That app's secret |
+
+Verify: `curl https://mcp-tool-guard-proxy.onrender.com/health` → `"idp_provider": "auth0"` (or `"entra"`), `"idp_management_configured": true`. `/health` only reports which provider is selected and whether the management/vending credentials are present — it does **not** check JWT trust, so it can look healthy while sign-ins are rejected (see below).
+
+### Switching to Entra {#switching-to-entra}
+
+1. Add the Entra block above, including `MCP_IDP_PROVIDER=entra`. The proxy then derives issuer (`https://login.microsoftonline.com/<TENANT_ID>/v2.0`), audience (the bare `ENTRA_API_APP_ID`) and JWKS URL from `ENTRA_TENANT_ID` / `ENTRA_API_APP_ID`.
+2. **Delete `MCP_JWT_ISSUER`, `MCP_JWT_AUDIENCE` and `MCP_JWT_JWKS_URL`** if they still hold Auth0 values. Explicit values override the derived Entra values per field, so a leftover Auth0 issuer or audience makes every Entra token fail validation while `/health` still looks fine.
+3. **Keep the `AUTH0_*` vars.** Agent client secrets are encrypted at rest with the first available of `GATEWAY_AGENT_SECRET_KEY`, `AUTH0_MGMT_CLIENT_SECRET`, `ENTRA_CLIENT_SECRET` (in that order). Removing `AUTH0_MGMT_CLIENT_SECRET` changes the key and strands existing agent records. Set `GATEWAY_AGENT_SECRET_KEY` explicitly if you want the key independent of any IdP secret.
+4. Agents created under Auth0 will not work while Entra is active — recreate them on `/agents.html`.
+5. Redeploy, then verify: `/health` shows `"idp_provider": "entra"` and `"idp_management_configured": true`; sign in at `/agents.html` and create a test agent (takes about 30 seconds — Entra is eventually consistent).
+
+On **Vercel UI** (in addition to existing `VITE_MCP_URL` + `VITE_AUTH0_*` or `VITE_ENTRA_*`):
 
 | Variable | Value |
 |----------|-------|
@@ -175,8 +198,12 @@ In the Vercel UI project → **Environment Variables**, set:
 | `VITE_AUTH0_DOMAIN` | Your Auth0 tenant | Both pages — JWKS verify for Auth0 tokens |
 | `VITE_AUTH0_CLIENT_ID` | SPA client id | Flight demo sign-in |
 | `VITE_AUTH0_AUDIENCE` | `https://mcp-tool-guard` | Both pages |
+| `VITE_IDP_PROVIDER` | `entra` (omit for Auth0) | Selects the UI's sign-in flow |
+| `VITE_ENTRA_TENANT_ID` | `<TENANT_ID>` | Entra only |
+| `VITE_ENTRA_CLIENT_ID` | `<SPA_APP_ID>` — the **sign-in (SPA) app**, not the API app | Entra only |
+| `VITE_ENTRA_API_APP_ID` | `<API_APP_ID>` — same value as `ENTRA_API_APP_ID` on Render | Entra only |
 
-Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time).
+Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time; changing env vars alone does not update an already-built deployment).
 
 ### What to expect in the browser after rewire
 
@@ -196,8 +223,8 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | Check | Expected |
 |-------|----------|
 | **Network** | `GET /servers`, `POST /agents`, `POST /token` hit `onrender.com` (via `VITE_PROXY_BASE_URL`) |
-| **Operator sign-in** | Sign in on `/agents.html` with Auth0 user that has **`gateway:admin`** (see [auth0-setup](auth0-setup.md)) |
-| **Create agent** | `flights:read` scope → M2M client created in Auth0 (admin Bearer on mutating routes) |
+| **Operator sign-in** | Sign in on `/agents.html` as a user that has **`gateway:admin`** — Auth0 user ([auth0-setup](auth0-setup.md)) or Entra user assigned the `gateway:admin` App Role ([entra-setup](entra-setup.md)) |
+| **Create agent** | `flights:read` scope → M2M client created in the active IdP (admin Bearer on mutating routes); Entra takes about 30s |
 | **Initialize → chat** | *Search flights from JFK to MIA* → agent ALLOW + proxy ALLOW + MCP response |
 | **Book attempt** | `book FL101 …` with read-only agent → agent DENY (`Missing required scope 'flights:write'`) |
 | **Three-layer audit** | Agent / Proxy / MCP rows correlated by `trace_id` |
@@ -211,7 +238,8 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | Build fails on `npm ci` / TypeScript | Check deploy log for Node version — need **22+** (`engines` or `NODE_VERSION=22`) |
 | Service crashes on start | `MCP_GUARD_PUBLIC_KEY_PEM` missing or malformed — paste full PEM from `ui/public/demo-public.pem` |
 | `ENOENT` / config error on start | `MCP_PROXY_CONFIG` = `config.prod.yaml` (cwd is `gateway/` when workspace start runs) |
-| `403` / invalid token on `tools/call` | PEM must match `demo-tokens.json`; Auth0 tokens need same `MCP_JWT_*` as Vercel flight |
+| `403` / invalid token on `tools/call` | PEM must match `demo-tokens.json`; IdP tokens need the same trust (issuer/audience) as Vercel flight's `MCP_JWT_*` |
+| Entra sign-in works but every API call is rejected (`Invalid JWT`, issuer/audience mismatch) while `/health` looks fine | Leftover Auth0 `MCP_JWT_ISSUER` / `MCP_JWT_AUDIENCE` / `MCP_JWT_JWKS_URL` on Render override the derived Entra trust — delete them ([Switching to Entra](#switching-to-entra)) |
 | Scope deny when token should allow | Compare `permissions` / `scope` on jwt.io with `gateway/config.prod.yaml` `required_scope` |
 | CORS error in browser console | Set `MCP_CORS_ORIGINS` to include `https://mcp-tool-guard-ui.vercel.app`; redeploy proxy |
 | UI still hits Vercel flight | `VITE_MCP_URL` not updated or UI not **rebuilt** after env change |
@@ -220,9 +248,10 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 | `POST /github/mcp` fails | Check `GITHUB_MCP_TOKEN`, agent scopes, `Accept: application/json, text/event-stream` — [Demo 6](demo-proxy.md#demo-6--github-mcp-external-upstream) |
 | `POST /slack/mcp` fails | Not in yaml — register via `POST /servers` on `/agents.html` or ignore unless added |
 | `/agents.html` → failed to fetch `/servers` | Set `VITE_PROXY_BASE_URL` on Vercel UI and redeploy |
-| Create agent fails on prod | Render missing `AUTH0_MGMT_*` — check `/health` → `idp_management_configured: false` |
-| `401` / `403` on Add MCP or Create agent | `/health` → `control_plane_auth: true` — sign in on `/agents.html`; token needs `gateway:admin` in `permissions` |
-| M2M token → signature verification failed in browser | `VITE_AUTH0_DOMAIN` + `VITE_AUTH0_AUDIENCE` must be set on Vercel UI (JWKS path) |
+| Create agent fails on prod | Render missing the active IdP's management vars (`AUTH0_MGMT_*` or `ENTRA_*`) — check `/health` → `idp_management_configured: false` |
+| Create agent fails with "Agent secret encryption unavailable" | None of `GATEWAY_AGENT_SECRET_KEY`, `AUTH0_MGMT_CLIENT_SECRET`, `ENTRA_CLIENT_SECRET` is set on Render |
+| `401` / `403` on Add MCP or Create agent | `/health` → `control_plane_auth: true` — sign in on `/agents.html`; token needs `gateway:admin` (Auth0: in `permissions`; Entra: in `roles`) |
+| M2M token → signature verification failed in browser | Auth0: `VITE_AUTH0_DOMAIN` + `VITE_AUTH0_AUDIENCE` must be set on Vercel UI (JWKS path). Entra: `VITE_IDP_PROVIDER=entra` + `VITE_ENTRA_*` set and the UI rebuilt |
 | First request slow after idle | Render free tier spin-down — retry; normal |
 | Health OK but proxy not listening | Do not set `MCP_PROXY_PORT` on Render — use injected `PORT` only |
 | curl tool call fails / empty SSE | Add `Accept: application/json, text/event-stream` |
@@ -240,5 +269,5 @@ Redeploy the UI project (rebuild required — Vite bakes `VITE_*` at build time)
 - [ ] `GET /audit` → `"sources": ["agent", "proxy", "mcp"]`; recent entries include `"source": "proxy"`
 - [ ] UI Network tab shows Render host for `/mcp` and `/audit`
 - [ ] UI chat search/book works end-to-end via proxy
-- [ ] `/health` → `idp_management_configured: true` (agent gateway)
+- [ ] `/health` → `idp_provider` matches your IdP (`auth0` or `entra`) and `idp_management_configured: true` (agent gateway)
 - [ ] `/agents.html` — create agent, search ALLOW, book DENY with three-layer audit
