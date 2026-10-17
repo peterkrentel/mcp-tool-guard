@@ -169,8 +169,8 @@ async function initAgent(): Promise<void> {
     appendMessage(
       "system",
       authMode === "idp"
-        ? "Agent initialized with your signed-in token. Try: 'Search flights from SFO to JFK'"
-        : "Agent initialized (guest). Try: 'Search flights from SFO to JFK'",
+        ? "Agent initialized with your signed-in token (the guest scope above is ignored while signed in; your account needs flights roles, or sign out to use a guest token). Try: 'Search flights from SFO to JFK'"
+        : "Agent initialized as a guest with the selected scope. Try: 'Search flights from SFO to JFK'",
     );
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;

@@ -69,14 +69,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
 
 ## P1 (important)
 
-- BL-059
-  priority: P1
-  status: todo
-  item: Flight demo does not say the guest dropdown is ignored while signed in
-  acceptance: While signed in, the "JWT scope (guest)" dropdown is disabled or labelled as unused (or the page explains which token Initialize will use); the signed-in token's missing flights roles produce a hint that points to the Entra role assignment (docs/entra-setup.md Step 6) or to signing out to use a guest token.
-  owner: unassigned
-  source: post-Entra cutover review 2026-10-17; signed-in Entra user got "Missing required scope 'flights:read'" with a guest scope selected and read it as a regression
-
 - BL-056
   priority: P1
   status: todo
