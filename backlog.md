@@ -28,14 +28,6 @@ Use this file for planning and execution status. Keep shipped history in [CHANGE
   owner: unassigned
   source: design discussion 2026-08-10 on branch feature/entra-idp-adapter — user identified that `entra-setup.sh` conflated "stand up the tenant" (the actual `az` automation ask) with "declare every current+future MCP server's scopes upfront," which doesn't match how Auth0 ever worked (permissions were added incrementally per-server, always manually, never automated) and directly blocks the stated goal of registering arbitrary vendor MCPs at runtime (`POST /servers`) without a corresponding manual IdP step
 
-- BL-054
-  priority: P0
-  status: in-progress
-  item: Flight demo page (`/flight-demo.html`) fails with `MCP HTTP 404` after sign-in
-  acceptance: (1) Root-cause the 404: browser POSTs to the proxy `/mcp` (default server `flight`), and a bare probe of the flight Vercel `/mcp` also returned 404 — determine whether the proxy's flight upstream URL (`MCP_PROXY_CONFIG` on Render) or the flight deployment itself is wrong, and whether this predates the Entra cutover. (2) Flight demo signed in with Entra can Initialize and run `search_flights_tool`. (3) Cause and fix recorded in CHANGELOG.
-  owner: unassigned
-  source: post-Entra cutover review 2026-10-17; seen live in browser devtools
-
 - BL-055
   priority: P0
   status: todo
