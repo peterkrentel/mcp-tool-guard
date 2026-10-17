@@ -9,4 +9,4 @@ from path_restore import OriginalPathMiddleware  # noqa: E402
 from server import create_app  # noqa: E402
 
 # Vercel routes /api to this handler; MCP is mounted at the root of the function.
-app = OriginalPathMiddleware(create_app("/"), "/", "api/index.py")
+app = OriginalPathMiddleware(create_app("/"), "/")
